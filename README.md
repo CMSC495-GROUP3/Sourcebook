@@ -474,6 +474,12 @@ python -m policy_assistant.rag.seed_documents     # upload data/sample-policies/
 python -m policy_assistant.rag.embed_documents    # chunk, embed, store in Atlas
 ```
 
+Re-ingestion keeps the current corpus available while the replacement is prepared.
+Passages are embedded in batches and then upserted in place by `(source, chunk_index)`.
+Only after the new passages are written does ingestion remove sources or chunks that are no longer present in S3 and bump the corpus version.
+This avoids emptying the live `passages` collection during a rebuild and does not require renaming the Atlas collection or recreating its Vector Search index.
+
+
 In Atlas, create a Vector Search index named `vector_index` on the `passages`
 collection:
 

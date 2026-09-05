@@ -195,3 +195,80 @@ def test_reingestion_replaces_stale_passages_and_invalidates_cache(monkeypatch):
     assert get_corpus_version() != first_version
     assert FAKE_DB["passages"].count_documents({}) == 2
     assert FAKE_DB["passages"].count_documents({"source": "documents/stale.md"}) == 0
+
+
+def test_reingestion_keeps_existing_corpus_available_while_embedding(monkeypatch):
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        (
+            "documents/pto.md",
+            "Title: Paid Time Off\n\nEmployees accrue 15 PTO days.",
+        )
+    ]
+
+    FAKE_DB["passages"].insert_one(
+        {
+            "source": "documents/pto.md",
+            "chunk_index": 0,
+            "text": "Old live passage",
+            "embedding": [0.1, 0.2],
+        }
+    )
+
+    collection = FAKE_DB["passages"]
+    original_update_one = collection.update_one
+    update_calls = 0
+
+    def checked_update_one(*args, **kwargs):
+        nonlocal update_calls
+        assert collection.count_documents({}) > 0
+        result = original_update_one(*args, **kwargs)
+        assert collection.count_documents({}) > 0
+        update_calls += 1
+        return result
+
+    monkeypatch.setattr(collection, "update_one", checked_update_one)
+
+    class Provider:
+        def embed_many(self, texts):
+            assert FAKE_DB["passages"].count_documents({}) > 0
+            assert FAKE_DB["passages"].count_documents({"source": "documents/pto.md"}) > 0
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    assert FAKE_DB["passages"].count_documents({}) > 0
+    assert update_calls > 0
+
+
+def test_ingestion_batches_embeddings_per_document(monkeypatch):
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        (
+            "documents/large.md",
+            "Title: Large Policy\n\n" + ("Policy text. " * 300),
+        )
+    ]
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def embed_many(self, texts):
+            self.calls.append(list(texts))
+            return [[0.25, 0.75] for _ in texts]
+
+    provider = Provider()
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", lambda: provider)
+
+    ingestion.embed_and_store()
+
+    assert len(provider.calls) == 1
+    assert len(provider.calls[0]) > 1
