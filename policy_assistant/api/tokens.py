@@ -56,9 +56,7 @@ def decode_claims(token: str) -> dict | None:
     if not secret:
         return None
     try:
-        return jwt.decode(
-            token, secret, algorithms=[_ALGORITHM], options={"require_exp": True}
-        )
+        return jwt.decode(token, secret, algorithms=[_ALGORITHM], options={"require_exp": True})
     except JWTError:
         return None
 
