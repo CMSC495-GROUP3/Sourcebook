@@ -5,17 +5,13 @@ import os
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 
 from policy_assistant.api.routes.auth import (
     FINGERPRINT_HEX_LEN,
     PASSWORD_HASH_VARS,
     credential_fingerprint,
 )
-
-# No default — main.py already enforced this is set at startup
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-ALGORITHM = "HS256"
+from policy_assistant.api.tokens import cred_claim, decode_claims
 
 bearer_scheme = HTTPBearer()
 
@@ -34,18 +30,16 @@ def _unauthorized() -> HTTPException:
 
 
 def require_auth(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise _unauthorized() from None
+    payload = decode_claims(credentials.credentials)
+    if payload is None:
+        raise _unauthorized()
 
-    cred = payload.get("cred")
+    cred = cred_claim(payload)
     fingerprint = payload.get("fingerprint")
     # Missing fingerprint (legacy tokens) and non-strings are the same failure:
     # the session is not bound to a currently configured hash. Length must match
     # before compare_digest so a malformed claim cannot turn into a 500.
-    if not isinstance(cred, str) or not isinstance(fingerprint, str):
+    if cred is None or not isinstance(fingerprint, str):
         raise _unauthorized()
     if len(fingerprint) != FINGERPRINT_HEX_LEN:
         raise _unauthorized()
