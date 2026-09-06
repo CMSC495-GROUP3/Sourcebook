@@ -13,11 +13,19 @@ need has to sit below both of them.
 """
 
 import os
+import re
 
 from fastapi.security.utils import get_authorization_scheme_param
 from jose import JWTError, jwt
 
 _ALGORITHM = "HS256"
+
+# ``cred`` names the environment variable holding the password hash a session
+# was opened with (APP_PASSWORD_HASH or APP_PASSWORD_HASH_2). Anything that is
+# not shaped like a variable name is not a cred, whatever signed it: the auth
+# dependency would reject it against its allowlist, and the 429 log line must
+# never receive a value that can carry a newline (issue #153).
+_CRED_SHAPE = re.compile(r"[A-Z][A-Z0-9_]{0,63}\Z")
 
 
 def _secret_key() -> str | None:
@@ -36,24 +44,34 @@ def decode_claims(token: str) -> dict | None:
     """Return the verified claims of a token, or None.
 
     None covers every way a token can fail: no secret configured, wrong
-    signature, expired, or not a JWT at all. Callers decide what None means:
-    require_auth answers 401, the 429 log line writes "unknown".
+    signature, expired, missing its ``exp`` claim, or not a JWT at all.
+    Callers decide what None means: require_auth answers 401, the 429 log
+    line writes "unknown".
+
+    ``exp`` is required, not merely checked when present: every token this
+    app issues carries one, and a token without it would otherwise verify
+    forever (issue #152).
     """
     secret = _secret_key()
     if not secret:
         return None
     try:
-        return jwt.decode(token, secret, algorithms=[_ALGORITHM])
+        return jwt.decode(
+            token, secret, algorithms=[_ALGORITHM], options={"require_exp": True}
+        )
     except JWTError:
         return None
 
 
 def cred_claim(claims: dict | None) -> str | None:
-    """The ``cred`` claim as a string, or None when absent or not a string."""
+    """The ``cred`` claim, or None when absent, not a string, or not shaped
+    like an environment-variable name (see ``_CRED_SHAPE``)."""
     if not claims:
         return None
     cred = claims.get("cred")
-    return cred if isinstance(cred, str) else None
+    if not isinstance(cred, str) or not _CRED_SHAPE.match(cred):
+        return None
+    return cred
 
 
 def bearer_token(authorization: str | None) -> str | None:

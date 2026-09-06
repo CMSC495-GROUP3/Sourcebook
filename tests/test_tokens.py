@@ -1,6 +1,7 @@
 """The shared JWT helper: require_auth and the 429 log line must agree on who a
 token belongs to, for every shape a token can take (issue #146)."""
 
+import logging
 import os
 from datetime import timedelta
 
@@ -8,7 +9,7 @@ import pytest
 from starlette.requests import Request
 
 from policy_assistant.api import tokens
-from policy_assistant.api.limiter import _cred_claim
+from policy_assistant.api.limiter import _cred_claim, limiter
 from policy_assistant.api.routes.auth import (
     PRIMARY_PASSWORD_HASH_VAR,
     create_access_token,
@@ -16,14 +17,18 @@ from policy_assistant.api.routes.auth import (
 )
 
 
-def _token(**overrides) -> str:
+def _claims(**overrides) -> dict:
     claims = {
         "sub": "user",
         "cred": PRIMARY_PASSWORD_HASH_VAR,
         "fingerprint": credential_fingerprint(os.environ["APP_PASSWORD_HASH"]),
     }
     claims.update(overrides)
-    return create_access_token(claims, timedelta(hours=1))
+    return claims
+
+
+def _token(**overrides) -> str:
+    return create_access_token(_claims(**overrides), timedelta(hours=1))
 
 
 def _request_with(authorization: str | None) -> Request:
@@ -54,8 +59,20 @@ def _tampered(token: str) -> str:
         ),
         (lambda: "not.a.jwt", None, 401),
         (lambda: _token(cred=["APP_PASSWORD_HASH"]), None, 401),
+        (lambda: tokens.encode_token(_claims()), None, 401),
+        (lambda: _token(cred="APP_PASSWORD_HASH\nWARNING forged line"), None, 401),
+        (lambda: _token(cred="app_password_hash"), None, 401),
     ],
-    ids=["valid", "tampered-signature", "expired", "garbage", "cred-not-a-string"],
+    ids=[
+        "valid",
+        "tampered-signature",
+        "expired",
+        "garbage",
+        "cred-not-a-string",
+        "no-exp-claim",
+        "cred-with-newline",
+        "cred-not-a-variable-name",
+    ],
 )
 def test_auth_dependency_and_rate_limit_log_agree(
     client, make_token, expected_cred, expected_status
@@ -104,3 +121,24 @@ def test_secret_is_read_at_call_time(monkeypatch):
         "a token signed under the old secret must not verify"
     )
     assert tokens.cred_claim(tokens.decode_claims(tokens.encode_token({"cred": "x"}))) == "x"
+
+
+def test_forged_cred_cannot_split_the_rate_limit_log_line(client, caplog):
+    """The login route is rate limited but not authenticated, so it is the one
+    place a token that require_auth would reject still reaches the 429 log
+    line. A newline in ``cred`` used to land there verbatim (issue #153)."""
+    forged = f"Bearer {_token(cred='APP_PASSWORD_HASH\\nWARNING forged line')}"
+    limiter.enabled = True
+    limiter.reset()
+    with caplog.at_level(logging.WARNING, logger="policy_assistant.api.limiter"):
+        statuses = [
+            client.post(
+                "/api/auth/login", json={"password": "wrong"}, headers={"Authorization": forged}
+            ).status_code
+            for _ in range(11)
+        ]
+    assert statuses[-1] == 429
+    lines = [r.getMessage() for r in caplog.records if "Rate limit exceeded" in r.getMessage()]
+    assert len(lines) == 1
+    assert "cred=unknown" in lines[0]
+    assert "forged" not in caplog.text
