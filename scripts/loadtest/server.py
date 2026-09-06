@@ -42,13 +42,23 @@ import time
 
 import bcrypt
 
+# This entrypoint deliberately disables the application's rate limiter below.
+# Refuse any environment that could select a real provider before mutating the
+# environment or importing the production application.
+if os.getenv("APP_ENV", "").strip().casefold() == "production":
+    raise RuntimeError("The load-test stub cannot run with APP_ENV=production")
+
+_inherited_provider = os.getenv("LLM_PROVIDER", "fake").strip().casefold()
+if _inherited_provider != "fake":
+    raise RuntimeError("The load-test stub requires LLM_PROVIDER=fake")
+
 # Must be set before importing main, which validates them at import.
 os.environ.setdefault("JWT_SECRET_KEY", "loadtest-secret-not-for-real-use")
 os.environ.setdefault("MONGODB_URI", "mongodb://stubbed-never-contacted")
 # main also checks that this is a bcrypt hash. `make stub` sets a real one;
 # run.py logs in with password "loadtest", so the hash must match that word.
 os.environ.setdefault("APP_PASSWORD_HASH", bcrypt.hashpw(b"loadtest", bcrypt.gensalt(4)).decode())
-os.environ.setdefault("LLM_PROVIDER", "fake")
+os.environ["LLM_PROVIDER"] = "fake"
 os.environ.pop("APP_ENV", None)  # FakeProvider refuses to run as production
 
 # Simulated database round-trip. Real Atlas is slower and more variable; this
@@ -127,6 +137,7 @@ from policy_assistant.rag import cache  # noqa: E402
 cache.get_collection = mongo.get_collection
 
 from policy_assistant.api import main  # noqa: E402
+from policy_assistant.api.limiter import limiter  # noqa: E402
 from policy_assistant.api.routes import chat as chat_routes  # noqa: E402
 
 
@@ -151,5 +162,10 @@ main.ensure_indexes = _startup
 # on the modules they came from. Vector search is the one thing the fake cannot
 # emulate, so it is replaced outright.
 chat_routes.retrieve_passages = _fake_retrieve
+
+# The load-test client fires every request from 127.0.0.1. Leave production
+# CHAT_RATE_LIMIT / REINDEX_RATE_LIMIT intact; only this synthetic stub opts out,
+# the same way tests/conftest.py disables the limiter for unit tests.
+limiter.enabled = False
 
 app = main.app
