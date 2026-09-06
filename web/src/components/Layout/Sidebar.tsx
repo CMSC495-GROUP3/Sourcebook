@@ -145,7 +145,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
         className="flex h-screen w-15 shrink-0 flex-col items-center border-r border-rule bg-paper-2"
       >
         <div className="flex h-15 w-full shrink-0 items-center justify-center border-b border-rule">
-          <BrandMark size={24} />
+          <BrandMark size={28} />
         </div>
         <div className="mt-2.5 flex flex-col items-center gap-1">
           <SidebarToggle kind="expand" onToggle={onToggle} />
@@ -203,7 +203,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
     >
       {/* Brand */}
       <div className="flex h-15 shrink-0 items-center gap-2.5 border-b border-rule pr-3 pl-4">
-        <BrandMark size={24} />
+        <BrandMark size={28} />
         <Wordmark className="flex-1 text-[21px] leading-none" />
         <SidebarToggle kind={isDesktop ? 'collapse' : 'close'} onToggle={onToggle} className="-mr-1" />
       </div>

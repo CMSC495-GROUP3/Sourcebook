@@ -197,3 +197,15 @@ alike. `public/icon.png` is the full-size mark the app renders through
 `BrandMark`; `icon-16`, `icon-32`, and `icon-180` are the browser tab and
 home-screen icons. `docs/brand/sourcebook-icon.png` is the same file and
 `sourcebook-icon-original.png` is the untouched blue original.
+
+The mark and the name are optically aligned in `Brand.tsx`, not per call
+site. The ribbon rises out of the top of the square, so the book itself sits
+below the centre of the image; `BrandMark` nudges up by 6% of its own height
+so the book's body, not the bounding box, lands on the row's centre line and
+the ribbon clears the cap height. Newsreader keeps deep descender space and
+"Sourcebook" has no descenders, so with a tight line-height the letters sit
+above the centre of their box; `Wordmark` nudges down by 0.12em. Both are
+transforms, so they follow `size` and the font size and leave layout alone.
+The pairings in use: 28px beside the 21px wordmark in the sidebar and its
+rail, 24px beside 19px in the phone top bar, and 36px beside 24px on the
+sign-in page.

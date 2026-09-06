@@ -2,8 +2,8 @@ import axios from 'axios'
 import { useState } from 'react'
 import { AlertCircle, BookOpen, LifeBuoy, Quote } from 'lucide-react'
 import client, { TOKEN_KEY } from '../../api/client'
-import { APP_NAME, ESCALATION_CONTACT } from '../../config'
-import { BrandMark } from '../Layout/Brand'
+import { ESCALATION_CONTACT } from '../../config'
+import { BrandMark, Wordmark } from '../Layout/Brand'
 import ThemeToggle from '../Layout/ThemeToggle'
 
 interface Props {
@@ -52,8 +52,8 @@ export default function LoginForm({ onSuccess }: Props) {
       {/* The left page: what this is. */}
       <section className="ruled flex flex-col justify-between gap-10 border-b border-rule bg-paper-2 px-6 py-8 md:border-r md:border-b-0 md:px-12 md:py-12 lg:px-16">
         <div className="flex items-center gap-3">
-          <BrandMark size={32} />
-          <span className="font-display text-[24px] leading-none font-medium tracking-tight text-ink">{APP_NAME}</span>
+          <BrandMark size={36} />
+          <Wordmark className="text-[24px] leading-none" />
         </div>
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-3">
