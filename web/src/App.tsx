@@ -4,8 +4,8 @@ import { TOKEN_KEY, isTokenExpired } from './api/client'
 import LoginForm from './components/Auth/LoginForm'
 import Sidebar from './components/Layout/Sidebar'
 import SidebarToggle from './components/Layout/SidebarToggle'
+import { BrandMark, Wordmark } from './components/Layout/Brand'
 import { useSidebar } from './hooks/useSidebar'
-import { APP_NAME } from './config'
 import ChatPage from './pages/ChatPage'
 import DocumentLibraryPage from './pages/DocumentLibraryPage'
 
@@ -23,8 +23,8 @@ function readIsAuthenticated(): boolean {
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const sidebar = useSidebar()
   // On desktop the toggle lives in the sidebar while it is open. Everywhere
-  // else (sidebar hidden, or any phone) a slim bar above the page holds it,
-  // so pages never have to leave room for a floating button.
+  // else (sidebar hidden, or any phone) a slim bar above the page holds it
+  // and the brand, so pages never have to leave room for a floating button.
   const showTopBar = !sidebar.open || !sidebar.isDesktop
 
   return (
@@ -37,20 +37,17 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
       />
       {!sidebar.isDesktop && sidebar.open && (
         <div
-          className="fixed inset-0 z-30 bg-black/60"
+          className="fixed inset-0 z-30 bg-ink/35"
           onClick={sidebar.close}
           aria-hidden="true"
         />
       )}
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {showTopBar && (
-          <div className="flex-shrink-0 flex items-center gap-2 h-11 px-2 border-b border-white/8">
+          <div className="flex h-13 shrink-0 items-center gap-2.5 border-b border-rule px-2">
             <SidebarToggle open={sidebar.open} onToggle={sidebar.toggle} />
-            {!sidebar.isDesktop && (
-              <span className="text-xs font-extrabold tracking-[0.3em] uppercase text-[#C2B067]/80 select-none">
-                {APP_NAME}
-              </span>
-            )}
+            <BrandMark size={20} />
+            <Wordmark className="text-[19px] leading-none" />
           </div>
         )}
         {children}

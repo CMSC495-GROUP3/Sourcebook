@@ -1,15 +1,17 @@
 /**
  * ChatPage — the main chat interface.
  *
- * Empty state: hero title + 4 clickable starter prompts.
+ * Empty state: mark, headline and a short list of starter questions.
  * Active state: MessageList + ChatInput.
  *
  * session_id lives in the URL (?session_id=uuid). When a new conversation is
  * created (first message sent), useChat calls onSessionCreated which updates the URL.
  */
 import { useSearchParams } from 'react-router-dom'
-import { APP_NAME, APP_TAGLINE } from '../config'
+import { ArrowUpRight } from 'lucide-react'
+import { APP_HEADLINE, APP_TAGLINE } from '../config'
 import { useChat } from '../hooks/useChat'
+import { BrandMark } from '../components/Layout/Brand'
 import MessageList from '../components/Chat/MessageList'
 import ChatInput from '../components/Chat/ChatInput'
 
@@ -33,51 +35,50 @@ export default function ChatPage() {
   })
 
   const hasMessages = messages.length > 0
+  const busy = loading || streaming
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* Page header — compact once chat starts */}
-      <header className="flex-shrink-0 px-6 pt-6 pb-2">
-        {!hasMessages && (
-          <div className="text-center py-8">
-            <h1 className="text-2xl font-semibold text-gray-100 mb-1">{APP_NAME}</h1>
-            <p className="text-sm text-gray-500">{APP_TAGLINE}</p>
-          </div>
-        )}
-      </header>
-
-      {/* Empty state starter prompts */}
-      {!hasMessages && (
-        <div className="flex-1 flex flex-col items-center justify-center px-6 gap-3 pb-24">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-            {STARTER_PROMPTS.map((prompt) => (
-              <button
-                key={prompt}
-                onClick={() => sendMessage(prompt)}
-                disabled={loading || streaming}
-                className="text-left px-4 py-3 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 text-sm text-gray-300 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Message list */}
-      {hasMessages && (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {hasMessages ? (
         <MessageList
           messages={messages}
           sessionId={sessionId}
           loading={loading}
+          streaming={streaming}
           onFollowUp={sendMessage}
           onEscalated={markEscalated}
         />
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-5 pt-8 pb-10 sm:px-8 sm:pb-16">
+          <div className="flex w-full max-w-155 flex-col gap-8 sm:gap-9">
+            <header className="flex flex-col gap-2.5">
+              <BrandMark size={40} />
+              <h1 className="mt-3 font-display text-[32px] leading-[1.1] font-medium tracking-tight text-ink sm:text-[40px]">
+                {APP_HEADLINE}
+              </h1>
+              <p className="text-[15px] leading-normal text-ink-2 sm:text-[16px]">{APP_TAGLINE}</p>
+            </header>
+            <ul className="flex flex-col border-t border-rule" aria-label="Example questions">
+              {STARTER_PROMPTS.map((prompt) => (
+                <li key={prompt}>
+                  <button
+                    type="button"
+                    onClick={() => sendMessage(prompt)}
+                    disabled={busy}
+                    className="flex min-h-12 w-full cursor-pointer items-center justify-between gap-4 border-b border-rule py-2.5 text-left text-[15px] text-ink transition-colors hover:text-accent disabled:cursor-default disabled:text-ink-3"
+                  >
+                    <span>{prompt}</span>
+                    <ArrowUpRight size={15} aria-hidden="true" className="shrink-0 text-ink-3" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
 
-      {/* Input */}
-      <div className="flex-shrink-0">
-        <ChatInput onSend={sendMessage} disabled={loading || streaming} />
+      <div className="shrink-0">
+        <ChatInput onSend={sendMessage} disabled={busy} />
       </div>
     </div>
   )

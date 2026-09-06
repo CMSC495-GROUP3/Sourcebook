@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { ArrowUp } from 'lucide-react'
+import { GROUNDING_NOTE } from '../../config'
 
 interface Props {
   onSend: (message: string) => void
   disabled: boolean
 }
+
+const MAX_HEIGHT_PX = 160
 
 export default function ChatInput({ onSend, disabled }: Props) {
   const [value, setValue] = useState('')
@@ -14,7 +17,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 144)}px`
+    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT_PX)}px`
   }, [value])
 
   function submit() {
@@ -32,28 +35,35 @@ export default function ChatInput({ onSend, disabled }: Props) {
   }
 
   return (
-    <div className="px-4 pb-4 pt-2">
-      <div className="flex items-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 focus-within:border-[#C2B067]/30 transition-colors">
+    <div className="mx-auto flex w-full max-w-190 flex-col gap-2 px-3 pt-2 pb-3 sm:px-8 sm:pb-5">
+      <div
+        className={`flex items-end gap-2.5 rounded-xl border bg-paper-3 py-2.5 pr-2.5 pl-4 shadow-float transition-colors focus-within:border-accent ${
+          disabled ? 'border-rule' : 'border-rule-strong'
+        }`}
+      >
         <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          placeholder="Ask a question…"
+          placeholder="Ask about a policy…"
+          aria-label="Your question"
           rows={1}
-          className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 resize-none outline-none leading-relaxed disabled:opacity-50"
+          className="flex-1 resize-none bg-transparent py-1 text-[16px] leading-normal text-ink outline-none placeholder:text-ink-3 disabled:text-ink-3 sm:text-[15px]"
         />
         <button
+          type="button"
           onClick={submit}
           disabled={disabled || !value.trim()}
-          className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-[#A08340] to-[#C2B067] hover:from-[#B09450] hover:to-[#D4C278] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all cursor-pointer"
+          aria-label="Send"
+          className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-accent-ink disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-3"
         >
-          <ArrowUp size={16} className="text-[#0e0e0e]" />
+          <ArrowUp size={18} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
-      <p className="text-center text-[11px] text-gray-600 mt-2">
-        Shift+Enter for new line · answers are drawn only from indexed policy documents
+      <p className="text-center text-[12px] text-ink-3" aria-live="polite">
+        {disabled ? 'Answering…' : `Shift+Enter for a new line. ${GROUNDING_NOTE}`}
       </p>
     </div>
   )

@@ -2,13 +2,13 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react'
 import {
-  Plus, MessageSquare, LayoutGrid, LogOut, Pencil, Trash2,
+  Plus, MessageSquare, BookOpen, LogOut, Pencil, Trash2,
   Check, X, ChevronRight, FolderOpen, FolderPlus, Folder,
 } from 'lucide-react'
 import { useConversations } from '../../hooks/useConversations'
 import { useProjects } from '../../hooks/useProjects'
 import { useAuth } from '../../hooks/useAuth'
-import BrandingHeader from './BrandingHeader'
+import { BrandMark, Wordmark } from './Brand'
 import SidebarToggle from './SidebarToggle'
 import type { Conversation, Project } from '../../types'
 
@@ -20,6 +20,12 @@ interface SidebarProps {
   onNavigate?: () => void
 }
 
+// One row style for everything in the rail: conversations, projects, nav.
+const ROW = 'flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-md text-[13.5px] transition-colors'
+const ROW_IDLE = 'text-ink hover:bg-ink/5'
+const ROW_ACTIVE = 'bg-accent-soft font-medium text-accent-ink'
+const ICON_BUTTON = 'flex shrink-0 cursor-pointer items-center justify-center rounded transition-colors'
+
 export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: SidebarProps) {
   const routerNavigate = useNavigate()
   const navigate = (to: string) => {
@@ -29,6 +35,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const activeSessionId = searchParams.get('session_id')
+  const onLibrary = location.pathname === '/documents'
 
   const { conversations, fetchConversations, renameConversation, assignToProject, deleteConversation } = useConversations()
   const { projects, fetchProjects, createProject, deleteProject } = useProjects()
@@ -132,54 +139,57 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
   const layoutClass = isDesktop
     ? open ? 'flex' : 'hidden'
     : `fixed inset-y-0 left-0 z-40 flex transform transition-transform duration-200 motion-reduce:transition-none ${
-        open ? 'translate-x-0 shadow-2xl shadow-black/60' : '-translate-x-full'
+        open ? 'translate-x-0 shadow-drawer' : '-translate-x-full'
       }`
 
   return (
     <aside
       id="app-sidebar"
       inert={!isDesktop && !open}
-      className={`w-60 flex-shrink-0 flex-col h-screen bg-[#0e1117] border-r border-white/8 ${layoutClass}`}
+      aria-label="Conversations"
+      className={`h-screen w-66 shrink-0 flex-col border-r border-rule bg-paper-2 ${layoutClass}`}
     >
-
-      {/* Branding */}
-      <BrandingHeader />
-
-      {/* New chat, with the collapse control beside it */}
-      <div className="px-3 pt-1 pb-2 flex items-center gap-1">
-        <button
-          onClick={() => navigate('/chat')}
-          className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-300 hover:bg-white/8 hover:text-white transition-colors cursor-pointer"
-        >
-          <Plus size={16} />
-          New chat
-        </button>
+      {/* Brand */}
+      <div className="flex h-15 shrink-0 items-center gap-2.5 border-b border-rule pr-3 pl-4">
+        <BrandMark size={24} />
+        <Wordmark className="flex-1 text-[21px] leading-none" />
         <SidebarToggle open={open} onToggle={onToggle} />
       </div>
 
+      {/* New chat */}
+      <div className="px-3 pt-3 pb-1">
+        <button
+          type="button"
+          onClick={() => navigate('/chat')}
+          className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-md border border-rule-strong bg-paper-3 px-3 text-[13.5px] font-medium text-ink shadow-[0_1px_0_rgb(36_30_25/0.04)] transition-colors hover:border-ink-3"
+        >
+          <Plus size={15} aria-hidden="true" />
+          New chat
+        </button>
+      </div>
+
       {/* Scrollable middle */}
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-3 py-1">
 
         {/* ── Projects section ─────────────────────────────────────────── */}
-        <div className="mb-1">
-          {/* Section header */}
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-600">
-              Projects
-            </span>
-            <button
-              onClick={() => setCreatingProject(true)}
-              title="New project"
-              className="text-gray-600 hover:text-[#C2B067] transition-colors cursor-pointer"
-            >
-              <FolderPlus size={13} />
-            </button>
-          </div>
+        <div className="mt-3 flex h-7 items-center justify-between px-2.5">
+          <span className="caps text-ink-3">Projects</span>
+          <button
+            type="button"
+            onClick={() => setCreatingProject(true)}
+            title="New project"
+            aria-label="New project"
+            className={`${ICON_BUTTON} h-6 w-6 text-ink-3 hover:text-accent`}
+          >
+            <FolderPlus size={14} aria-hidden="true" />
+          </button>
+        </div>
 
+        <div className="flex flex-col gap-0.5">
           {/* Inline new-project input */}
           {creatingProject && (
-            <div className="flex items-center gap-1 px-3 py-1.5">
-              <Folder size={13} className="text-[#C2B067] flex-shrink-0" />
+            <div className="flex items-center gap-1.5 px-2 py-1">
+              <Folder size={14} aria-hidden="true" className="shrink-0 text-ink-3" />
               <input
                 ref={newProjectInputRef}
                 value={newProjectName}
@@ -190,16 +200,16 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
                 }}
                 onBlur={commitNewProject}
                 placeholder="Project name…"
-                className="flex-1 bg-white/8 text-white text-xs rounded px-1.5 py-0.5 outline-none placeholder-gray-600 min-w-0"
+                aria-label="Project name"
+                className="h-7 min-w-0 flex-1 rounded border border-rule-strong bg-paper-3 px-2 text-[13px] text-ink outline-none placeholder:text-ink-3 focus:border-accent"
               />
-              <button onClick={commitNewProject} className="text-[#C2B067] flex-shrink-0"><Check size={12} /></button>
-              <button onClick={cancelNewProject} className="text-gray-500 flex-shrink-0"><X size={12} /></button>
+              <button type="button" onClick={commitNewProject} aria-label="Create project" className={`${ICON_BUTTON} h-6 w-6 text-accent`}><Check size={13} aria-hidden="true" /></button>
+              <button type="button" onClick={cancelNewProject} aria-label="Cancel" className={`${ICON_BUTTON} h-6 w-6 text-ink-3`}><X size={13} aria-hidden="true" /></button>
             </div>
           )}
 
-          {/* Project list */}
           {projects.length === 0 && !creatingProject && (
-            <p className="text-[11px] text-gray-600 px-3 py-1">No projects yet.</p>
+            <p className="px-2.5 py-1 text-[12.5px] text-ink-3">No projects yet.</p>
           )}
 
           {projects.map((project) => {
@@ -207,30 +217,36 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
             const isCollapsed = collapsed.has(project.project_id)
 
             return (
-              <div key={project.project_id}>
-                {/* Project row */}
-                <div className="group flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-white/5 cursor-pointer"
-                  onClick={() => toggleCollapse(project.project_id)}
-                >
-                  <ChevronRight
-                    size={12}
-                    className={`flex-shrink-0 text-gray-500 transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`}
-                  />
-                  <Folder size={13} className="flex-shrink-0 text-[#C2B067] opacity-70" />
-                  <span className="flex-1 text-xs text-gray-300 truncate ml-1">{project.name}</span>
+              <div key={project.project_id} className="flex flex-col gap-0.5">
+                <div className={`group ${ROW} ${ROW_IDLE} h-8 pr-1.5 pl-2`}>
                   <button
-                    onClick={(e) => { e.stopPropagation(); deleteProject(project.project_id) }}
-                    className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all flex-shrink-0"
+                    type="button"
+                    onClick={() => toggleCollapse(project.project_id)}
+                    aria-expanded={!isCollapsed}
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left"
                   >
-                    <Trash2 size={11} />
+                    <ChevronRight
+                      size={13}
+                      aria-hidden="true"
+                      className={`shrink-0 text-ink-3 transition-transform duration-150 motion-reduce:transition-none ${isCollapsed ? '' : 'rotate-90'}`}
+                    />
+                    <Folder size={14} aria-hidden="true" className="shrink-0 text-ink-3" />
+                    <span className="truncate">{project.name}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteProject(project.project_id)}
+                    aria-label={`Delete project ${project.name}`}
+                    className={`${ICON_BUTTON} h-6 w-6 text-ink-3 opacity-0 group-hover:opacity-100 hover:text-brick focus-visible:opacity-100`}
+                  >
+                    <Trash2 size={12} aria-hidden="true" />
                   </button>
                 </div>
 
-                {/* Conversations under this project */}
                 {!isCollapsed && (
-                  <div className="ml-4 space-y-0.5">
+                  <div className="flex flex-col gap-0.5 pl-4">
                     {projectConvs.length === 0 ? (
-                      <p className="text-[11px] text-gray-600 px-3 py-1">Empty</p>
+                      <p className="px-2.5 py-1 text-[12.5px] text-ink-3">Empty</p>
                     ) : (
                       projectConvs.map((conv) => (
                         <ConversationItem key={conv.session_id} conv={conv} {...itemProps} />
@@ -247,44 +263,40 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
         {(projects.length > 0 || ungrouped.length > 0) && (
           <div>
             {projects.length > 0 && (
-              <div className="px-3 py-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-600">
-                  Conversations
-                </span>
+              <div className="mt-3.5 flex h-7 items-center px-2.5">
+                <span className="caps text-ink-3">Conversations</span>
               </div>
             )}
-            {ungrouped.length === 0 && projects.length === 0 && (
-              <p className="text-xs text-gray-600 px-3 py-2">No conversations yet.</p>
-            )}
-            {ungrouped.map((conv) => (
-              <ConversationItem key={conv.session_id} conv={conv} {...itemProps} />
-            ))}
+            <div className="flex flex-col gap-0.5">
+              {ungrouped.map((conv) => (
+                <ConversationItem key={conv.session_id} conv={conv} {...itemProps} />
+              ))}
+            </div>
           </div>
         )}
 
         {conversations.length === 0 && projects.length === 0 && !creatingProject && (
-          <p className="text-xs text-gray-600 px-3 py-2">No conversations yet.</p>
+          <p className="px-2.5 py-2 text-[12.5px] text-ink-3">No conversations yet.</p>
         )}
-      </div>
+      </nav>
 
       {/* Bottom nav */}
-      <div className="px-2 pb-4 pt-2 border-t border-white/8 space-y-0.5">
+      <div className="flex flex-col gap-0.5 border-t border-rule px-3 pt-2 pb-3.5">
         <button
+          type="button"
           onClick={() => navigate('/documents')}
-          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors cursor-pointer ${
-            location.pathname === '/documents'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:bg-white/8 hover:text-white'
-          }`}
+          aria-current={onLibrary ? 'page' : undefined}
+          className={`${ROW} h-[34px] px-2.5 ${onLibrary ? ROW_ACTIVE : ROW_IDLE}`}
         >
-          <LayoutGrid size={16} />
+          <BookOpen size={15} aria-hidden="true" className={onLibrary ? 'text-accent' : 'text-ink-3'} />
           Policy Library
         </button>
         <button
+          type="button"
           onClick={logout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-400 hover:bg-white/8 hover:text-white transition-colors cursor-pointer"
+          className={`${ROW} h-[34px] px-2.5 text-ink-2 hover:bg-ink/5 hover:text-ink`}
         >
-          <LogOut size={16} />
+          <LogOut size={15} aria-hidden="true" className="text-ink-3" />
           Sign out
         </button>
       </div>
@@ -315,106 +327,112 @@ function ConversationItem({
   projects, onNavigate, onStartEdit, onEditChange,
   onCommitRename, onCancelEdit, onAssign, onDelete,
 }: ConversationItemProps) {
-  const [hovered, setHovered] = useState(false)
   const isActive = conv.session_id === activeSessionId
   const isEditing = editingId === conv.session_id
 
+  if (isEditing) {
+    return (
+      <div className={`${ROW} h-[34px] px-2`}>
+        <input
+          ref={editInputRef}
+          value={editValue}
+          onChange={(e) => onEditChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onCommitRename()
+            if (e.key === 'Escape') onCancelEdit()
+          }}
+          onBlur={onCommitRename}
+          aria-label="Conversation title"
+          className="h-7 min-w-0 flex-1 rounded border border-rule-strong bg-paper-3 px-2 text-[13px] text-ink outline-none focus:border-accent"
+        />
+        <button type="button" onClick={onCommitRename} aria-label="Save title" className={`${ICON_BUTTON} h-6 w-6 text-accent`}><Check size={13} aria-hidden="true" /></button>
+        <button type="button" onClick={onCancelEdit} aria-label="Cancel" className={`${ICON_BUTTON} h-6 w-6 text-ink-3`}><X size={13} aria-hidden="true" /></button>
+      </div>
+    )
+  }
+
+  // The actions appear on hover, and stay visible while any of them has
+  // keyboard focus so they can be reached with Tab.
+  const actionClass = `${ICON_BUTTON} h-6 w-6 text-ink-3 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100`
+
   return (
-    <div
-      className={`group relative flex items-center rounded-xl px-3 py-2 transition-colors ${
-        isActive ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/6 hover:text-gray-200'
-      }`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <MessageSquare size={13} className="flex-shrink-0 mr-2 opacity-50" />
+    <div className={`group ${ROW} h-[34px] pr-1.5 pl-2.5 ${isActive ? ROW_ACTIVE : ROW_IDLE}`}>
+      <MessageSquare size={14} aria-hidden="true" className={`shrink-0 ${isActive ? 'text-accent' : 'text-ink-3'}`} />
+      <button
+        type="button"
+        onClick={() => onNavigate(conv.session_id)}
+        aria-current={isActive ? 'page' : undefined}
+        className="min-w-0 flex-1 cursor-pointer truncate text-left"
+      >
+        {conv.title}
+      </button>
 
-      {isEditing ? (
-        <div className="flex-1 flex items-center gap-1">
-          <input
-            ref={editInputRef}
-            value={editValue}
-            onChange={(e) => onEditChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onCommitRename()
-              if (e.key === 'Escape') onCancelEdit()
-            }}
-            onBlur={onCommitRename}
-            className="flex-1 bg-white/10 text-white text-xs rounded px-1.5 py-0.5 outline-none min-w-0"
-          />
-          <button onClick={onCommitRename} className="text-[#C2B067] flex-shrink-0"><Check size={12} /></button>
-          <button onClick={onCancelEdit} className="text-gray-400 flex-shrink-0"><X size={12} /></button>
-        </div>
-      ) : (
-        <>
-          <span onClick={() => onNavigate(conv.session_id)} className="flex-1 text-xs truncate cursor-pointer">
-            {conv.title}
-          </span>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          onClick={() => onStartEdit(conv)}
+          aria-label={`Rename ${conv.title}`}
+          className={`${actionClass} hover:text-ink`}
+        >
+          <Pencil size={12} aria-hidden="true" />
+        </button>
 
-          {hovered && (
-            <div className="flex items-center gap-1 ml-1 flex-shrink-0">
-              {/* Rename */}
-              <button
-                onClick={(e) => { e.stopPropagation(); onStartEdit(conv) }}
-                className="text-gray-500 hover:text-gray-200 transition-colors"
-              >
-                <Pencil size={11} />
-              </button>
-
-              {/* Move to project (only if projects exist) */}
-              {projects.length > 0 && (
-                <Menu as="div" className="relative">
-                  <MenuButton
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-gray-500 hover:text-[#C2B067] transition-colors cursor-pointer"
-                    title="Move to project"
+        {projects.length > 0 && (
+          <Menu as="div" className="relative flex">
+            <MenuButton
+              title="Move to project"
+              aria-label={`Move ${conv.title} to a project`}
+              className={`${actionClass} hover:text-accent data-open:opacity-100`}
+            >
+              <FolderOpen size={12} aria-hidden="true" />
+            </MenuButton>
+            <MenuItems
+              anchor="bottom end"
+              className="z-50 w-48 rounded-lg border border-rule-strong bg-paper-3 py-1 text-[13px] shadow-float focus:outline-none"
+            >
+              {conv.project_id && (
+                <MenuItem>
+                  <button
+                    type="button"
+                    onClick={() => onAssign(conv.session_id, null)}
+                    className="w-full cursor-pointer px-3 py-2 text-left text-ink-2 data-focus:bg-paper-2 data-focus:text-ink"
                   >
-                    <FolderOpen size={11} />
-                  </MenuButton>
-                  <MenuItems
-                    anchor="bottom end"
-                    className="z-50 w-44 rounded-xl border border-white/10 bg-[#1a1a1a] shadow-xl text-xs py-1 focus:outline-none"
-                  >
-                    {/* Unassign option (only show if currently in a project) */}
-                    {conv.project_id && (
-                      <MenuItem>
-                        <button
-                          onClick={() => onAssign(conv.session_id, null)}
-                          className="w-full text-left px-3 py-2 text-gray-400 hover:bg-white/8 hover:text-white transition-colors data-[focus]:bg-white/8"
-                        >
-                          Remove from project
-                        </button>
-                      </MenuItem>
-                    )}
-                    {projects.map((p) => (
-                      <MenuItem key={p.project_id}>
-                        <button
-                          onClick={() => onAssign(conv.session_id, p.project_id)}
-                          className={`w-full text-left px-3 py-2 transition-colors data-[focus]:bg-white/8 ${
-                            conv.project_id === p.project_id
-                              ? 'text-[#C2B067]'
-                              : 'text-gray-300 hover:bg-white/8 hover:text-white'
-                          }`}
-                        >
-                          {conv.project_id === p.project_id ? '✓ ' : ''}{p.name}
-                        </button>
-                      </MenuItem>
-                    ))}
-                  </MenuItems>
-                </Menu>
+                    Remove from project
+                  </button>
+                </MenuItem>
               )}
+              {projects.map((p) => {
+                const current = conv.project_id === p.project_id
+                return (
+                  <MenuItem key={p.project_id}>
+                    <button
+                      type="button"
+                      onClick={() => onAssign(conv.session_id, p.project_id)}
+                      className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left data-focus:bg-paper-2 ${
+                        current ? 'font-medium text-accent-ink' : 'text-ink'
+                      }`}
+                    >
+                      <span className="flex w-3.5 shrink-0 justify-center">
+                        {current && <Check size={12} aria-hidden="true" />}
+                      </span>
+                      <span className="truncate">{p.name}</span>
+                    </button>
+                  </MenuItem>
+                )
+              })}
+            </MenuItems>
+          </Menu>
+        )}
 
-              {/* Delete */}
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(conv.session_id) }}
-                className="text-gray-500 hover:text-red-400 transition-colors"
-              >
-                <Trash2 size={11} />
-              </button>
-            </div>
-          )}
-        </>
-      )}
+        <button
+          type="button"
+          onClick={() => onDelete(conv.session_id)}
+          aria-label={`Delete ${conv.title}`}
+          className={`${actionClass} hover:text-brick`}
+        >
+          <Trash2 size={12} aria-hidden="true" />
+        </button>
+      </div>
     </div>
   )
 }

@@ -17,7 +17,7 @@ export default function SidebarToggle({ open, onToggle }: Props) {
       title={label}
       aria-expanded={open}
       aria-controls="app-sidebar"
-      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-xl text-gray-400 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-[#C2B067]/60 transition-colors cursor-pointer"
+      className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-ink/5 hover:text-ink"
     >
       <Icon size={18} />
     </button>

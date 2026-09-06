@@ -16,19 +16,15 @@ interface Props {
 export default function ConfidenceBadge({ confidence }: Props) {
   if (confidence == null) return null
 
-  const color =
-    confidence >= STRONG_MATCH
-      ? 'bg-green-500'
-      : confidence >= PARTIAL_MATCH
-      ? 'bg-orange-400'
-      : 'bg-red-500'
+  const dot =
+    confidence >= STRONG_MATCH ? 'bg-moss' : confidence >= PARTIAL_MATCH ? 'bg-ochre' : 'bg-brick'
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-xs text-gray-400"
+      className="tnum inline-flex items-center gap-2 text-[12.5px] text-ink-2"
       title="Average similarity between your question and the retrieved passages. Not a measure of factual accuracy."
     >
-      <span className={`w-2 h-2 rounded-full ${color}`} />
+      <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
       {confidence}% retrieval match
     </span>
   )

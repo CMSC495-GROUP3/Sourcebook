@@ -39,62 +39,62 @@ export default function DocumentCard({ document }: Props) {
     }
   }
 
+  const meta = [
+    `${document.passage_count} passage${document.passage_count !== 1 ? 's' : ''}`,
+    document.effective_date && `effective ${document.effective_date}`,
+    document.owner,
+  ].filter(Boolean).join(' · ')
+
   return (
     <Disclosure>
       {({ open }) => (
         <div
-          className={`rounded-xl border transition-colors ${
-            open ? 'border-[#C2B067]/30 bg-white/5' : 'border-white/8 bg-white/3 hover:bg-white/5'
-          }`}
+          className={
+            open
+              ? '-mx-4 my-2 rounded-lg border border-rule-strong bg-paper-3 px-4'
+              : 'border-b border-rule'
+          }
         >
           <DisclosureButton
             onClick={() => handleOpen(!open)}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left cursor-pointer"
+            className="flex w-full cursor-pointer items-start gap-3.5 py-3.5 text-left"
           >
-            <FileText size={15} className="flex-shrink-0 text-[#C2B067] opacity-80 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <p className="text-sm font-medium text-gray-200 truncate">{document.title}</p>
+            <FileText size={17} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
+            <span className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                <span className="text-[15px] font-medium text-ink">{document.title}</span>
                 {document.category && (
-                  <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#C2B067]/12 text-[#C2B067] border border-[#C2B067]/20">
-                    {document.category}
-                  </span>
+                  <span className="caps text-[10.5px] text-accent">{document.category}</span>
                 )}
-              </div>
+              </span>
               {!open && document.preview && (
-                <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                <span className="line-clamp-2 text-[13px] leading-normal text-ink-2">
                   {document.preview}
-                </p>
+                </span>
               )}
-              <p className="text-[11px] text-gray-600 mt-1">
-                {document.passage_count} indexed passage{document.passage_count !== 1 ? 's' : ''}
-                {document.effective_date && ` · effective ${document.effective_date}`}
-                {document.owner && ` · ${document.owner}`}
-              </p>
-            </div>
+              <span className="tnum text-[12px] text-ink-3">{meta}</span>
+            </span>
             <ChevronRight
-              size={14}
-              className={`flex-shrink-0 text-gray-500 transition-transform duration-150 mt-0.5 ${
+              size={15}
+              aria-hidden="true"
+              className={`mt-1 shrink-0 text-ink-3 transition-transform duration-150 motion-reduce:transition-none ${
                 open ? 'rotate-90' : ''
               }`}
             />
           </DisclosureButton>
 
-          <DisclosurePanel className="px-4 pb-4">
-            {loading && <p className="text-xs text-gray-500 py-2">Loading…</p>}
-            {error && <p className="text-xs text-red-400 py-2">{error}</p>}
+          <DisclosurePanel className="pb-4 pl-[31px]">
+            {loading && <p className="py-1 text-[12.5px] text-ink-3">Loading…</p>}
+            {error && <p role="alert" className="py-1 text-[12.5px] text-brick">{error}</p>}
             {!loading && !error && passages.length > 0 && (
-              <div className="space-y-4 pt-1 max-h-96 overflow-y-auto pr-1">
+              <ol className="flex max-h-96 flex-col gap-3.5 overflow-y-auto pr-2">
                 {passages.map((passage, i) => (
-                  <div key={i} className="relative pl-3">
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-full bg-gradient-to-b from-[#A08340] to-[#C2B067] opacity-40" />
-                    <p className="text-xs text-gray-500 mb-1">Passage {i + 1}</p>
-                    <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-line">
-                      {passage}
-                    </p>
-                  </div>
+                  <li key={i} className="flex flex-col gap-1">
+                    <span className="caps text-[10.5px] text-ink-3">Passage {i + 1}</span>
+                    <p className="text-[13.5px] leading-relaxed whitespace-pre-line text-ink-2">{passage}</p>
+                  </li>
                 ))}
-              </div>
+              </ol>
             )}
           </DisclosurePanel>
         </div>

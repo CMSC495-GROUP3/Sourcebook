@@ -1,37 +1,45 @@
 /**
- * SourcesList — collapsible accordion naming the policy documents an answer was drawn from.
- * Uses Headless UI Disclosure so the open/close state is accessible and animated.
+ * SourcesList — the policy documents an answer was drawn from, numbered like
+ * footnotes. Open by default: the citations are the point of the product, so
+ * they are visible without a click. Each one links to the Policy Library
+ * filtered to that title, where the indexed passages can be read.
  */
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react'
 import { ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 interface Props {
   sources: string[]
 }
 
-
 export default function SourcesList({ sources }: Props) {
   if (!sources.length) return null
 
   return (
-    <Disclosure>
+    <Disclosure defaultOpen>
       {({ open }) => (
-        <div className="mt-2">
-          <DisclosureButton className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors cursor-pointer">
+        <div className="flex flex-col gap-1.5">
+          <DisclosureButton className="inline-flex cursor-pointer items-center gap-1.5 self-start text-[12.5px] text-ink-2 transition-colors hover:text-ink">
             <ChevronRight
               size={12}
-              className={`transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+              aria-hidden="true"
+              className={`text-ink-3 transition-transform duration-150 motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
             />
-            {sources.length} source document{sources.length !== 1 ? 's' : ''}
+            {sources.length} source{sources.length !== 1 ? 's' : ''}
           </DisclosureButton>
-          <DisclosurePanel className="mt-1.5 flex flex-wrap gap-1.5">
-            {sources.map((src) => (
-              <span
-                key={src}
-                className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-gray-300 border border-white/10"
-              >
-                {src}
-              </span>
+          <DisclosurePanel as="ol" className="flex flex-col gap-1">
+            {sources.map((src, i) => (
+              <li key={src} className="flex items-baseline gap-2.5 text-[13px]">
+                <span className="tnum w-3.5 shrink-0 text-right text-ink-3" aria-hidden="true">
+                  {i + 1}
+                </span>
+                <Link
+                  to={`/documents?q=${encodeURIComponent(src)}`}
+                  className="text-accent underline-offset-3 hover:text-accent-ink hover:underline"
+                >
+                  {src}
+                </Link>
+              </li>
             ))}
           </DisclosurePanel>
         </div>
