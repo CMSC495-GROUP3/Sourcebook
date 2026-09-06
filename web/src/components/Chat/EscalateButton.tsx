@@ -84,7 +84,7 @@ export default function EscalateButton({
       <button
         type="button"
         onClick={() => setPhase('composing')}
-        className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-ink px-3.5 text-[13.5px] font-medium text-paper transition-colors hover:bg-accent-ink"
+        className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-accent px-3.5 text-[13.5px] font-medium text-paper transition-colors hover:bg-accent-ink"
       >
         <LifeBuoy size={15} aria-hidden="true" />
         Ask {ESCALATION_CONTACT}
@@ -133,7 +133,7 @@ export default function EscalateButton({
         <button
           type="submit"
           disabled={sending}
-          className="h-9 cursor-pointer rounded-md bg-ink px-4 text-[13.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-default disabled:bg-rule disabled:text-ink-3"
+          className="h-9 cursor-pointer rounded-md bg-accent px-4 text-[13.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-default disabled:bg-rule disabled:text-ink-3"
         >
           {sending ? 'Sending…' : phase === 'error' ? 'Try again' : 'Send'}
         </button>

@@ -142,7 +142,7 @@ export default function DocumentLibraryPage() {
                   aria-pressed={active}
                   className={`h-7 cursor-pointer rounded-full border px-3 text-[12.5px] transition-colors ${
                     active
-                      ? 'border-ink bg-ink text-paper'
+                      ? 'border-accent bg-accent text-paper'
                       : 'border-rule bg-paper-3 text-ink-2 hover:border-ink-3 hover:text-ink'
                   }`}
                 >

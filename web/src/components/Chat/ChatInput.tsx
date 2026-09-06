@@ -48,7 +48,7 @@ export default function ChatInput({ onSend, disabled, variant = 'composer' }: Pr
       onClick={submit}
       disabled={!canSend}
       aria-label="Ask"
-      className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-accent-ink disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-3"
+      className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-accent text-paper transition-colors hover:bg-accent-ink disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-3"
     >
       <ArrowUp size={18} strokeWidth={2} aria-hidden="true" />
     </button>

@@ -4,8 +4,8 @@ The values live in `src/index.css` inside the Tailwind `@theme` block. This
 file explains them. Change the CSS, then update this page.
 
 The direction is paper and ink. Warm off-white surfaces, near-black text, and
-one bottle-green accent that appears only on the brand mark, links, and the
-active row in the sidebar. Status colors carry meaning and nothing else. The chat reads
+one bottle-green accent on the brand mark, links, the active row, and the
+filled buttons (ask, sign in, send, the pressed filter chip). Status colors carry meaning and nothing else. The chat reads
 like a Q&A column with footnote-style citations rather than chat bubbles,
 because the citations are what the product is judged on.
 
@@ -72,11 +72,11 @@ hues. Hex values here are approximations for design tools.
 | `paper-3` | 99.2% 0.004 85 | #FEFCF9 | cards, inputs, the composer |
 | `rule` | 88.5% 0.012 80 | #DDD8D0 | hairlines between rows |
 | `rule-strong` | 80% 0.016 80 | #C3BDB2 | input and card borders |
-| `ink` | 24% 0.014 60 | #241E19 | text, primary buttons |
+| `ink` | 24% 0.014 60 | #241E19 | text |
 | `ink-2` | 47% 0.015 60 | #615953 | secondary text, meta |
 | `ink-3` | 62% 0.013 60 | #8C847E | icons, placeholders, decoration |
-| `accent` | 42% 0.09 160 | #0C5C3C | brand mark, links, active nav icon |
-| `accent-ink` | 34% 0.09 160 | #004527 | link hover, active row text, button hover |
+| `accent` | 42% 0.09 160 | #0C5C3C | brand mark, links, active nav icon, filled buttons, pressed chip |
+| `accent-ink` | 34% 0.09 160 | #004527 | link hover, active row text, filled button hover |
 | `accent-soft` | 94% 0.03 160 | #DBF2E4 | active row, focus halo, selection |
 | `accent-rule` | 85% 0.06 160 | #ACDAC0 | reserved for accent borders |
 | `moss` | 50% 0.10 150 | #337344 | strong retrieval match, "sent" check (sits beside the accent on purpose) |
@@ -101,8 +101,9 @@ below 40 is `brick`. These mirror the constants in `ConfidenceBadge.tsx`.
 
 Dark keeps every relationship and inverts the ground. Surfaces are warm
 charcoal, ink is warm off-white, and the accent and status colors are
-lifted so they hold their contrast. Primary buttons become ink on paper in
-both themes, so they read as light buttons in dark mode. The values live
+lifted so they hold their contrast. Filled buttons are accent with paper
+text in both themes: dark green with cream text in light, sage with
+charcoal text in dark. The values live
 under `:root[data-theme="dark"]` in `src/index.css`.
 
 | Token | Dark oklch | Hex |

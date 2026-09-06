@@ -111,7 +111,7 @@ export default function LoginForm({ onSuccess }: Props) {
           <button
             type="submit"
             disabled={loading || !password}
-            className="h-11 cursor-pointer rounded-md bg-ink text-[14.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-3"
+            className="h-11 cursor-pointer rounded-md bg-accent text-[14.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-3"
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
