@@ -248,3 +248,9 @@ covers `.env`; the rest is on you.
   them before running them. The host setup (Elastic IP, DuckDNS record,
   security group, `SITE_ADDRESS` in `.env`, the timer) is in the README's
   Deployment section.
+
+## Adding a Python Dependency
+
+- If for some reason you need to add a new Python dependency, edit the relevant requirements/*.txt file (never a .lock.txt file) then regenerate its lock and commit both:
+
+    make lock
