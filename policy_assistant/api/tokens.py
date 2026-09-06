@@ -14,20 +14,22 @@ need has to sit below both of them.
 
 import os
 
+from fastapi.security.utils import get_authorization_scheme_param
 from jose import JWTError, jwt
 
-ALGORITHM = "HS256"
+_ALGORITHM = "HS256"
 
 
-def secret_key() -> str | None:
+def _secret_key() -> str | None:
+    """The signing secret as currently set in the environment, or None."""
     return os.getenv("JWT_SECRET_KEY")
 
 
 def encode_token(claims: dict) -> str:
-    secret = secret_key()
+    secret = _secret_key()
     if not secret:
         raise RuntimeError("JWT_SECRET_KEY is not set; cannot sign a token")
-    return jwt.encode(claims, secret, algorithm=ALGORITHM)
+    return jwt.encode(claims, secret, algorithm=_ALGORITHM)
 
 
 def decode_claims(token: str) -> dict | None:
@@ -37,11 +39,11 @@ def decode_claims(token: str) -> dict | None:
     signature, expired, or not a JWT at all. Callers decide what None means:
     require_auth answers 401, the 429 log line writes "unknown".
     """
-    secret = secret_key()
+    secret = _secret_key()
     if not secret:
         return None
     try:
-        return jwt.decode(token, secret, algorithms=[ALGORITHM])
+        return jwt.decode(token, secret, algorithms=[_ALGORITHM])
     except JWTError:
         return None
 
@@ -55,7 +57,13 @@ def cred_claim(claims: dict | None) -> str | None:
 
 
 def bearer_token(authorization: str | None) -> str | None:
-    """The token in an ``Authorization: Bearer ...`` header value, or None."""
-    if not authorization or not authorization.startswith("Bearer "):
+    """The token in an ``Authorization: Bearer ...`` header value, or None.
+
+    Parsed with the same helper FastAPI's ``HTTPBearer`` uses, so a header
+    that ``require_auth`` accepts (scheme in any case, surrounding whitespace
+    stripped) yields the same token here. An empty token is None, not "".
+    """
+    scheme, token = get_authorization_scheme_param(authorization)
+    if scheme.lower() != "bearer" or not token:
         return None
-    return authorization[len("Bearer ") :]
+    return token

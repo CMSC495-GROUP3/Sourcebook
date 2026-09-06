@@ -70,11 +70,24 @@ def test_auth_dependency_and_rate_limit_log_agree(
     )
 
 
+@pytest.mark.parametrize(
+    "header",
+    ["bearer {token}", "BEARER {token}", "Bearer  {token}", "Bearer {token} "],
+    ids=["lowercase-scheme", "uppercase-scheme", "two-spaces", "trailing-space"],
+)
+def test_header_shapes_http_bearer_accepts_are_logged_with_the_same_cred(client, header):
+    # HTTPBearer lowercases the scheme and strips the token; the log line must
+    # not call a request "unknown" that the auth dependency let through.
+    value = header.format(token=_token())
+    assert client.get("/api/conversations", headers={"Authorization": value}).status_code == 200
+    assert _cred_claim(_request_with(value)) == PRIMARY_PASSWORD_HASH_VAR
+
+
 def test_missing_or_malformed_authorization_header_yields_no_cred():
     assert _cred_claim(_request_with(None)) is None
     assert _cred_claim(_request_with("Basic abc")) is None
     assert _cred_claim(_request_with("Bearer")) is None
-    assert tokens.bearer_token("Bearer ") == ""
+    assert _cred_claim(_request_with("Bearer ")) is None
 
 
 def test_secret_is_read_at_call_time(monkeypatch):
