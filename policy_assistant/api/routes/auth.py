@@ -8,10 +8,10 @@ import anyio
 import bcrypt
 from anyio import CapacityLimiter
 from fastapi import APIRouter, HTTPException, Request, status
-from jose import jwt
 from pydantic import BaseModel
 
 from policy_assistant.api.limiter import limiter
+from policy_assistant.api.tokens import encode_token
 from policy_assistant.rag.config import LOGIN_THREADPOOL_TOKENS
 
 logger = logging.getLogger(__name__)
@@ -22,9 +22,6 @@ router = APIRouter()
 # checkpw is milliseconds, not generation-length.
 _login_limiter = CapacityLimiter(LOGIN_THREADPOOL_TOKENS)
 
-# No default — main.py already enforced this is set at startup
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
 # bcrypt hashes at most 72 bytes. bcrypt 4.x silently truncated longer input;
@@ -159,7 +156,7 @@ def credential_fingerprint(password_hash: str) -> str:
 def create_access_token(data: dict, expires_delta: timedelta) -> str:
     payload = data.copy()
     payload.update({"exp": datetime.now(UTC) + expires_delta})
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return encode_token(payload)
 
 
 def _authenticate(password: str, client_host: str) -> TokenResponse:

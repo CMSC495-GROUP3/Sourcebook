@@ -4,8 +4,10 @@ import os
 
 from dotenv import load_dotenv
 
-# Load .env before importing routes — route modules read env vars at import
-# time, so load_dotenv must run first.
+# Load .env before importing anything else — rag/config.py reads every tuning
+# knob at import and the required-variable check below runs at import, so
+# load_dotenv must come first. (The JWT secret is the exception: api/tokens.py
+# reads it per call.)
 load_dotenv()
 
 # Fail fast on missing secrets. A clear startup error beats a silent security
@@ -24,11 +26,10 @@ from contextlib import asynccontextmanager  # noqa: E402
 import anyio.to_thread  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from slowapi import _rate_limit_exceeded_handler  # noqa: E402
 from slowapi.errors import RateLimitExceeded  # noqa: E402
 
 from policy_assistant.api.db import ensure_indexes  # noqa: E402
-from policy_assistant.api.limiter import limiter  # noqa: E402
+from policy_assistant.api.limiter import limiter, rate_limit_exceeded_handler  # noqa: E402
 from policy_assistant.api.routes.auth import (  # noqa: E402
     PasswordHashError,
     validate_password_hashes,
@@ -90,7 +91,7 @@ app = FastAPI(
 
 # Attach limiter state so slowapi can find it on the app instance
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # In production Nginx proxies the API and the frontend under one origin, so CORS
 # is only needed for local development against the Vite dev server.
