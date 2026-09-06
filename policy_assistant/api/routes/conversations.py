@@ -79,11 +79,29 @@ def _require_project(project_id: str | None) -> None:
 
 @router.get("/conversations", dependencies=[Depends(require_auth)])
 def list_conversations():
+    """List conversations; treat unresolved project ids as ungrouped.
+
+    Read-side only: a stored project_id that no longer matches any project is
+    returned as null so the sidebar (and any other client that groups by
+    existing projects) still shows the conversation under ungrouped. Stored
+    rows are not rewritten here. Write-path TOCTOU and transactional cleanup
+    remain separate; see #142.
+    """
     docs = conversations_col.find(
         {},
         {"session_id": 1, "title": 1, "project_id": 1, "updated_at": 1, "_id": 0},
     ).sort("updated_at", DESCENDING)
-    return [_serialize(d) for d in docs]
+    known_project_ids = {
+        project["project_id"] for project in projects_col.find({}, {"project_id": 1, "_id": 0})
+    }
+    listed: list[dict] = []
+    for doc in docs:
+        serialized = _serialize(doc)
+        project_id = serialized.get("project_id")
+        if project_id is not None and project_id not in known_project_ids:
+            serialized["project_id"] = None
+        listed.append(serialized)
+    return listed
 
 
 @router.post("/conversations", dependencies=[Depends(require_auth)])

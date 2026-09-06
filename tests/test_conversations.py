@@ -110,6 +110,27 @@ def test_deleting_unknown_project_does_not_unassign_orphaned_conversation(client
     )
 
 
+def test_list_conversations_treats_unresolved_project_ids_as_ungrouped(client, auth):
+    """Orphan project_id values must still appear in the list as ungrouped."""
+    conversations_col.insert_one(
+        {
+            "session_id": "visible-orphan",
+            "title": "Still visible",
+            "project_id": "deleted-project",
+            "messages": [],
+        }
+    )
+
+    listed = client.get("/api/conversations", headers=auth).json()
+    assert len(listed) == 1
+    assert listed[0]["session_id"] == "visible-orphan"
+    assert listed[0]["project_id"] is None
+    # Stored row is unchanged; only the list view normalizes for grouping clients.
+    assert conversations_col.find_one({"session_id": "visible-orphan"})["project_id"] == (
+        "deleted-project"
+    )
+
+
 def test_delete_project_keeps_project_when_unassign_raises(client, auth, monkeypatch):
     """If update_many fails, the project must still be present (no delete yet)."""
     project = client.post("/api/projects", json={"name": "Fragile"}, headers=auth).json()
@@ -185,14 +206,18 @@ def test_conversation_titles_and_project_names_are_normalized_and_bounded(client
     assert project.json()["name"] == "Q3 Planning"
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="assign-after-delete window, see #142",
+)
 def test_assignment_can_interleave_with_project_delete(client, auth, monkeypatch):
-    """Reproduce validate+create TOCTOU: insert can land after the project is deleted.
+    """Expected atomic behavior for validate+create vs delete (see #142).
 
     `_require_project` and `insert_one` are separate steps with no shared Mongo
     session/transaction (fakemongo and `rag/mongo.py` expose none). Freezing the
-    create between those steps lets a concurrent delete finish first, producing
-    an assignment to a missing project_id. This documents the pilot limitation;
-    it does not claim atomic referential integrity.
+    create between those steps lets a concurrent delete finish first. Desired
+    outcome once #142 lands: the create is rejected, or the conversation is not
+    left assigned to a deleted project. Marked strict xfail until then.
     """
     project = client.post("/api/projects", json={"name": "Race"}, headers=auth).json()
     pid = project["project_id"]
@@ -230,11 +255,14 @@ def test_assignment_can_interleave_with_project_delete(client, auth, monkeypatch
     assert not creator.is_alive()
 
     created = results[0]
+    if created.status_code == 404:
+        assert created.json() == {"detail": "Project not found."}
+        return
+
     assert created.status_code == 200, created.text
-    assert created.json()["project_id"] == pid
     assert (
         client.get(f"/api/conversations/{created.json()['session_id']}", headers=auth).json()[
             "project_id"
         ]
-        == pid
+        is None
     )

@@ -70,7 +70,7 @@ def delete_project(project_id: str):
 
     Stub/fakemongo and the shared `MongoClient` in `rag/mongo.py` do not expose
     Atlas transactions; this pilot does not claim strict referential integrity
-    under concurrency. See the follow-up issue linked from PR #133.
+    under concurrency. See #142.
     """
     if projects_col.find_one({"project_id": project_id}) is None:
         raise HTTPException(status_code=404, detail="Project not found.")
