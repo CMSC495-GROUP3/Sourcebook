@@ -28,8 +28,11 @@ export default function IndexedPage({ library }: Props) {
       <div className="ruled flex-1 px-6 pt-6 pb-12">
         {total != null && (
           <div className="flex max-w-100 flex-col">
-            <h3 className="relative top-[11px] font-display text-[32px] leading-12 font-medium tracking-tight text-ink">
-              What you can ask about
+            {/* A running head, not a second title: the left page already carries the
+                question in the display face at 40px, so this is the same face in
+                italic at 22px, and the entries below it are the substance. */}
+            <h3 className="relative top-px font-display text-[22px] leading-6 font-normal text-ink-2 italic">
+              Topics you can ask about
             </h3>
             {categories.length > 0 && (
               <ul className="mt-6 flex flex-col" aria-label="Categories">
@@ -37,7 +40,7 @@ export default function IndexedPage({ library }: Props) {
                   <li key={category} className="leading-6">
                     <Link
                       to={`/documents?category=${encodeURIComponent(category)}`}
-                      className="text-[14px] text-ink-2 transition-colors hover:text-ink"
+                      className="text-[15px] font-medium text-ink transition-colors hover:text-accent"
                     >
                       {category}
                     </Link>

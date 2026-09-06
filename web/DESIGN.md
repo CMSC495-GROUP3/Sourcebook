@@ -29,9 +29,11 @@ desk: a headline, one large question box, four example questions in two
 columns, and what is indexed. When the main area is wide enough for the
 source pane to dock (1160px), that last part is a facing page in the pane's
 slot: a 60px header band, then a table of contents on ruled paper behind a
-hairline spine 24px past the column: "What you can ask about" in the
-display face, the category links, one line saying every answer cites one of
-the indexed policies, and the link into the library. The book has two pages before anything is cited, and the source pane
+hairline spine 24px past the column: a running head in the display face's
+italic at 22px ("Topics you can ask about", kept well below the 40px
+question beside it), the category links at 15px medium, one line saying
+every answer cites one of the indexed policies, and the link into the
+library. The book has two pages before anything is cited, and the source pane
 later lands where the facing page was. Narrower than that, it is a strip
 under the examples. The column does not move in either case.
 
