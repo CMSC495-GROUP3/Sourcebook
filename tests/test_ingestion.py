@@ -380,3 +380,43 @@ def test_document_with_no_passages_keeps_no_reading_copy(monkeypatch):
 
     assert FAKE_DB["passages"].count_documents({"source": "documents/empty.md"}) == 0
     assert [b["source"] for b in FAKE_DB["document_bodies"].find({})] == ["documents/pto.md"]
+
+
+def test_each_body_is_written_right_after_its_own_passages(monkeypatch):
+    """A body must not trail the whole corpus: while passages are upserted a
+    document's reading copy may be one version behind, but only until its own
+    passages are in, never until every document's are."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        ("documents/pto.md", "Title: Paid Time Off\n\nEmployees accrue 15 PTO days."),
+        ("documents/conduct.md", "Title: Code of Conduct\n\nEmployees act professionally."),
+    ]
+    writes: list[tuple[str, str]] = []
+
+    def recording(name: str):
+        collection = FAKE_DB[name]
+        original = collection.update_one
+
+        def update_one(query, update, upsert=False):
+            writes.append((name, query["source"]))
+            return original(query, update, upsert=upsert)
+
+        monkeypatch.setattr(collection, "update_one", update_one)
+        return collection
+
+    class Provider:
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", recording)
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    assert writes == [
+        ("passages", "documents/pto.md"),
+        ("document_bodies", "documents/pto.md"),
+        ("passages", "documents/conduct.md"),
+        ("document_bodies", "documents/conduct.md"),
+    ]

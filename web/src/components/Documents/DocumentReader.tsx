@@ -5,16 +5,20 @@
  * Two modes, because the two panes answer different questions. The library
  * shows the document as it is: the original markdown, rendered. The source
  * pane shows the stored passages, because it is the audit trail for a citation
- * and should display what retrieval actually saw. A library whose corpus was
- * indexed before bodies were stored falls back to passages until ingestion is
- * re-run.
+ * and should display what retrieval actually saw. The library falls back to
+ * passages in two cases: the corpus was indexed before bodies were stored, or
+ * the body cannot be rendered (a pathological document must not blank the
+ * page for everyone, since the library opens the first result on its own).
  */
-import type { AnchorHTMLAttributes, ReactNode } from 'react'
-import ReactMarkdown from 'react-markdown'
+import { Component, type ComponentProps, type ReactNode, useState } from 'react'
+import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useDocumentBody } from '../../hooks/useDocumentBody'
 import { usePassages } from '../../hooks/usePassages'
 import { DOCUMENT_PROSE } from '../../lib/prose'
 import type { PolicyDocument } from '../../types'
+
+type Mode = 'document' | 'passages'
 
 interface Props {
   document: PolicyDocument
@@ -24,20 +28,18 @@ interface Props {
   mode?: Mode
 }
 
-const NBSP = '\u00a0'
-
-type Mode = 'document' | 'passages'
+const NBSP = ' '
 
 /**
  * Metadata line; spaces inside each item are non-breaking so items wrap whole.
  * The passage count is retrieval detail, so it appears only beside passages.
  */
-function documentMeta(document: PolicyDocument, mode: Mode): string {
+function documentMeta(document: PolicyDocument, withPassageCount: boolean): string {
   return [
     document.category,
     document.effective_date && `effective${NBSP}${document.effective_date}`,
     document.owner,
-    mode === 'passages' &&
+    withPassageCount &&
       `${document.passage_count}${NBSP}passage${document.passage_count !== 1 ? 's' : ''}`,
   ]
     .filter((item): item is string => Boolean(item))
@@ -46,12 +48,54 @@ function documentMeta(document: PolicyDocument, mode: Mode): string {
 }
 
 /** Links in a document open in a new tab; the app itself is not a place to navigate away from. */
-function DocumentLink({ href, children }: AnchorHTMLAttributes<HTMLAnchorElement>) {
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer">
-      {children}
-    </a>
-  )
+function DocumentLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
+  void node // react-markdown's syntax-tree node, not a DOM attribute
+  return <a {...props} target="_blank" rel="noopener noreferrer" />
+}
+
+/** Images are not shown, so a document cannot make every reader's browser fetch from a third-party host. The alt text stays. */
+function DocumentImage({ alt }: ComponentProps<'img'> & ExtraProps) {
+  return alt ? <span>{alt}</span> : null
+}
+
+/**
+ * The document title above is an h2 under the page's h1, so body headings
+ * step down one level each. This also keeps a document that starts with a
+ * single `#` from adding a second h1 to the page.
+ */
+const MARKDOWN_COMPONENTS: Components = {
+  a: DocumentLink,
+  img: DocumentImage,
+  h1: 'h2',
+  h2: 'h3',
+  h3: 'h4',
+  h4: 'h5',
+  h5: 'h6',
+  h6: 'h6',
+}
+
+const REMARK_PLUGINS = [remarkGfm]
+
+interface BoundaryProps {
+  children: ReactNode
+  onError: () => void
+}
+
+/** Catches a render failure inside the markdown and reports it, so the reader can fall back. */
+class RenderBoundary extends Component<BoundaryProps, { failed: boolean }> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  componentDidCatch() {
+    this.props.onError()
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
 }
 
 function PassageList({ passages }: { passages: string[] }) {
@@ -70,10 +114,15 @@ function PassageList({ passages }: { passages: string[] }) {
 }
 
 export default function DocumentReader({ document, actions, mode = 'document' }: Props) {
-  const wantBody = mode === 'document'
+  // The source whose body failed to render, if any. Keyed by source rather
+  // than a boolean so switching documents clears it without an effect.
+  const [failedSource, setFailedSource] = useState<string | null>(null)
+  const renderFailed = failedSource === document.source
+
+  const wantBody = mode === 'document' && !renderFailed
   const body = useDocumentBody(wantBody ? document.source : null)
   // Passages are fetched only when they will be shown: always in passages
-  // mode, and in document mode only once the body is known to be missing.
+  // mode, and in document mode only once the body is known to be unusable.
   const showPassages = !wantBody || body.unavailable
   const passages = usePassages(showPassages ? document.source : null)
 
@@ -86,32 +135,35 @@ export default function DocumentReader({ document, actions, mode = 'document' }:
         <h2 className="font-display text-[24px] leading-[1.2] font-medium tracking-tight text-ink">
           {document.title}
         </h2>
-        <p className="tnum text-[12.5px] text-ink-2">{documentMeta(document, mode)}</p>
+        <p className="tnum text-[12.5px] text-ink-2">{documentMeta(document, showPassages)}</p>
         {actions && <div className="flex flex-wrap items-center gap-3 pt-1">{actions}</div>}
       </header>
 
-      {loading && <p className="text-[13px] text-ink-3">Loading…</p>}
+      {loading && <p role="status" className="text-[13px] text-ink-3">Loading…</p>}
       {error && <p role="alert" className="text-[13px] text-brick">{error}</p>}
 
       {!loading && !error && body.body !== null && (
-        <div className={DOCUMENT_PROSE}>
-          {/*
-            This renders uploaded content. react-markdown emits raw HTML as
-            text and drops javascript: URLs by default; do not add rehype-raw
-            here. Images are dropped too, so a document cannot make every
-            reader's browser fetch from a third-party host.
-          */}
-          <ReactMarkdown disallowedElements={['img']} components={{ a: DocumentLink }}>
-            {body.body}
-          </ReactMarkdown>
-        </div>
+        <RenderBoundary key={document.source} onError={() => setFailedSource(document.source)}>
+          <div className={DOCUMENT_PROSE}>
+            {/*
+              This renders uploaded content. react-markdown emits raw HTML as
+              text and drops javascript: URLs by default; do not add rehype-raw
+              here. Images are replaced by their alt text (see DocumentImage).
+            */}
+            <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>
+              {body.body}
+            </ReactMarkdown>
+          </div>
+        </RenderBoundary>
       )}
 
       {!loading && !error && showPassages && (
         <>
-          {wantBody && (
+          {mode === 'document' && (
             <p className="text-[13px] text-ink-3">
-              The full text of this document is not indexed yet. These are the passages the assistant reads.
+              {renderFailed
+                ? 'This document could not be displayed as a page. These are the passages the assistant reads.'
+                : 'The full text of this document is not indexed yet. These are the passages the assistant reads.'}
             </p>
           )}
           <PassageList passages={passages.passages} />

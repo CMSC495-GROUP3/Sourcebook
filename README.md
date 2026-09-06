@@ -586,6 +586,22 @@ locally, plus one variable in `.env`.
    `docker builder prune -f` by hand before a deploy that rebuilds both
    images, and see [Root disk](#root-disk) below.
 
+7. Load the corpus. Ingestion runs from a shell on the host, not from a
+   container: it needs the ingest dependencies and reads the same `.env`.
+
+   ```bash
+   python3 -m venv .venv
+   .venv/bin/pip install -r requirements/ingest.lock.txt
+   .venv/bin/python -m policy_assistant.rag.seed_documents    # first time: upload data/sample-policies/ to S3
+   .venv/bin/python -m policy_assistant.rag.embed_documents
+   ```
+
+   Run the embed command again whenever the documents in S3 change, and once
+   after deploying a version that stores document bodies; until then the
+   library shows each document as its passages with a notice. `.venv/` is
+   ignored by git, so it does not disturb the auto-deploy's clean-checkout
+   check.
+
 ### Root disk
 
 The pilot instance launched with a ~7 GB root volume. Docker images are about
@@ -884,7 +900,10 @@ The product name lives in three places: `APP_NAME` in
 - **Re-ingestion is not atomic.** Passages are upserted one at a time, so for a
   few seconds a document whose chunk boundaries moved can be retrieved with an
   old chunk and its replacement side by side. Acceptable for a pilot; a staged
-  collection swap would close the window.
+  collection swap would close the window. The reading copy of
+  a document is written right after its passages, so for the same moment its
+  body can be one version behind them, and an ingestion killed mid-run leaves
+  the documents it had not reached on the previous version until it is rerun.
 - **Hosting is one instance with no redundancy**, on a free DuckDNS subdomain.
   A real deployment would sit on a company domain behind a load balancer. The
   Compose file would move unchanged; only `SITE_ADDRESS` would differ.

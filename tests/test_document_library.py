@@ -103,6 +103,10 @@ def test_body_is_served_whole_and_only_to_signed_in_users(client, auth):
     FAKE_DB["document_bodies"].delete_many({})
     missing = client.get("/api/documents/body", params={"source": "documents/pto.md"}, headers=auth)
     assert missing.status_code == 404
+    assert "re-run ingestion" in missing.json()["detail"]
+    unknown = client.get("/api/documents/body", params={"source": "nope"}, headers=auth)
+    assert unknown.status_code == 404
+    assert unknown.json()["detail"] == "Document not found."
     assert (
         client.get("/api/documents/body", params={"source": "documents/pto.md"}).status_code == 401
     )

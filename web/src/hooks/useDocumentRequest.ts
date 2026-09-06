@@ -6,6 +6,9 @@ interface Result<T> {
   error: string
 }
 
+/** What the reader shows when any request for a document fails. */
+export const LOAD_ERROR = 'Could not load this document.'
+
 export interface DocumentRequest<T> {
   /** The fetched value, or null while loading, on error, or when `source` is null. */
   value: T | null

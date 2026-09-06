@@ -75,8 +75,9 @@ def embed_and_store() -> None:
         )
 
     provider = get_provider()
-    prepared_records: list[dict] = []
-    prepared_bodies: list[dict] = []
+    # One entry per document: its passage records and, when it has any, its
+    # reading copy. Kept together so they are written together below.
+    prepared: list[tuple[list[dict], dict | None]] = []
     active_chunks: dict[str, set[int]] = {}
 
     # Prepare the complete replacement corpus before changing the live collection.
@@ -96,34 +97,37 @@ def embed_and_store() -> None:
         for record, embedding in zip(records, embeddings, strict=False):
             record["embedding"] = embedding
 
-        prepared_records.extend(records)
         # A document with no passages is absent from the library, so it keeps
         # no reading copy either.
-        if records:
-            prepared_bodies.append(document_record(document, key))
+        prepared.append((records, document_record(document, key) if records else None))
         active_chunks[key] = {record["chunk_index"] for record in records}
 
         print(f"  {document['title'][:45]:45} {len(records):>3} passages")
 
-    # Upsert the new corpus while the previous corpus remains queryable.
-    for record in prepared_records:
-        collection.update_one(
-            {
-                "source": record["source"],
-                "chunk_index": record["chunk_index"],
-            },
-            {"$set": record},
-            upsert=True,
-        )
-
-    # The reading copy of each document, keyed by source like its passages.
-    for body in prepared_bodies:
-        bodies.update_one({"source": body["source"]}, {"$set": body}, upsert=True)
+    # Upsert the new corpus while the previous corpus remains queryable. Each
+    # document's reading copy goes in right after its passages, so a body is
+    # at most one document's worth of writes behind the passages it belongs to.
+    passage_count = 0
+    body_sources: list[str] = []
+    for records, body in prepared:
+        for record in records:
+            collection.update_one(
+                {
+                    "source": record["source"],
+                    "chunk_index": record["chunk_index"],
+                },
+                {"$set": record},
+                upsert=True,
+            )
+        passage_count += len(records)
+        if body is not None:
+            bodies.update_one({"source": body["source"]}, {"$set": body}, upsert=True)
+            body_sources.append(body["source"])
 
     # Remove documents that no longer exist in S3.
     active_sources = list(active_chunks)
     stale_count = collection.delete_many({"source": {"$nin": active_sources}}).deleted_count
-    bodies.delete_many({"source": {"$nin": [body["source"] for body in prepared_bodies]}})
+    bodies.delete_many({"source": {"$nin": body_sources}})
 
     # Remove obsolete chunks when an existing document now produces fewer passages.
     for source, chunk_indexes in active_chunks.items():
@@ -140,7 +144,7 @@ def embed_and_store() -> None:
     # Only invalidate cached answers after the replacement corpus is complete.
     version = bump_corpus_version()
 
-    print(f"\nDone. {len(documents)} documents → {len(prepared_records)} passages in MongoDB.")
+    print(f"\nDone. {len(documents)} documents → {passage_count} passages in MongoDB.")
     print(f"Removed {stale_count} stale passages.")
     print(f"Corpus version now {version[:8]} — cached answers invalidated.")
     print(

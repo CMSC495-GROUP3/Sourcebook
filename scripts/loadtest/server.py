@@ -133,8 +133,8 @@ mongo.get_db = lambda: _FAKE_DB
 mongo.get_collection = lambda name: LatentCollection(_FAKE_DB[name])
 
 # The canned passages also live in the passages collection, so the Policy
-# Library has one document to list and expand under `make stub`. Retrieval
-# never reads them (it is replaced below); only /api/documents does.
+# Library has one document to list under `make stub`. Retrieval never reads
+# them (it is replaced below); only /api/documents does.
 from policy_assistant.rag.config import (  # noqa: E402
     DOCUMENT_BODIES_COLLECTION,
     PASSAGES_COLLECTION,
@@ -154,9 +154,12 @@ _FAKE_DB[DOCUMENT_BODIES_COLLECTION].insert_one(
             "## Accrual\n\n"
             "Full-time employees accrue paid time off each pay period based on length "
             "of service:\n\n"
-            "- **Up to two years:** 15 days per year\n"
-            "- **Years three to five:** 20 days per year\n"
-            "- **Year six and beyond:** 25 days per year\n\n"
+            "| Years of service | Annual accrual |\n"
+            "|------------------|----------------|\n"
+            "| 0 through 2      | 15 days        |\n"
+            "| 3 through 5      | 20 days        |\n"
+            "| 6 or more        | 25 days        |\n\n"
+            "Part-time employees accrue on a **prorated** basis.\n\n"
             "Accrual begins on the first day of employment and there is no waiting "
             "period before accrued time may be used.\n\n"
             "## Requesting time off\n\n"

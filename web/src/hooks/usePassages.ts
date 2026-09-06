@@ -1,5 +1,5 @@
 import { fetchPassages } from '../api/documents'
-import { useDocumentRequest } from './useDocumentRequest'
+import { LOAD_ERROR, useDocumentRequest } from './useDocumentRequest'
 
 interface PassagesState {
   passages: string[]
@@ -7,10 +7,8 @@ interface PassagesState {
   error: string
 }
 
-const ERROR = 'Could not load this document.'
-
 /** The indexed passages for `source`, in order. Skipped when `source` is null. */
 export function usePassages(source: string | null): PassagesState {
-  const { value, loading, error } = useDocumentRequest(source, fetchPassages, ERROR)
+  const { value, loading, error } = useDocumentRequest(source, fetchPassages, LOAD_ERROR)
   return { passages: value ?? [], loading, error }
 }

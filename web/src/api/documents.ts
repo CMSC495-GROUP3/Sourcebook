@@ -5,7 +5,7 @@
  */
 import { isAxiosError } from 'axios'
 import client from './client'
-import type { DocumentsResponse, PolicyDocument } from '../types'
+import type { DocumentBody, DocumentsResponse, PolicyDocument } from '../types'
 
 const DOCUMENTS_PAGE_SIZE = 50
 
@@ -46,9 +46,7 @@ export async function fetchPassages(source: string): Promise<string[]> {
  */
 export async function fetchDocumentBody(source: string): Promise<string | null> {
   try {
-    const res = await client.get<{ source: string; body: string }>('/api/documents/body', {
-      params: { source },
-    })
+    const res = await client.get<DocumentBody>('/api/documents/body', { params: { source } })
     return res.data.body
   } catch (error) {
     if (isAxiosError(error) && error.response?.status === 404) return null

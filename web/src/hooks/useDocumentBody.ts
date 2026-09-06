@@ -1,5 +1,5 @@
 import { fetchDocumentBody } from '../api/documents'
-import { useDocumentRequest } from './useDocumentRequest'
+import { LOAD_ERROR, useDocumentRequest } from './useDocumentRequest'
 
 interface DocumentBodyState {
   /** The markdown body. Null while loading, on error, or when the corpus has no stored body for it. */
@@ -10,11 +10,9 @@ interface DocumentBodyState {
   unavailable: boolean
 }
 
-const ERROR = 'Could not load this document.'
-
 /** The full markdown body for `source`. Skipped when `source` is null. */
 export function useDocumentBody(source: string | null): DocumentBodyState {
-  const { value, loading, error } = useDocumentRequest(source, fetchDocumentBody, ERROR)
+  const { value, loading, error } = useDocumentRequest(source, fetchDocumentBody, LOAD_ERROR)
   return {
     body: value,
     loading,

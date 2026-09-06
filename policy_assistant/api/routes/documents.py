@@ -158,13 +158,16 @@ def get_document_body(source: str):
     """The full markdown body of one document — powers the Policy Library reader.
 
     Served from the reading copy ingestion stores per document, never stitched
-    from passages: chunks overlap, so joining them would repeat text. 404 when
-    the corpus was ingested before bodies were stored; the client falls back
-    to passages until ingestion is re-run.
+    from passages: chunks overlap, so joining them would repeat text. Two 404s:
+    a source the library does not know, and one it lists whose body was never
+    stored because the corpus was ingested before bodies were kept. The client
+    treats both the same, falling back to passages, but the detail says which.
     """
     record = document_bodies_col.find_one({"source": source}, {"_id": 0, "source": 1, "body": 1})
     if record is None:
-        raise HTTPException(status_code=404, detail="Document body not indexed.")
+        if passages_col.find_one({"source": source}, {"_id": 1}) is None:
+            raise HTTPException(status_code=404, detail="Document not found.")
+        raise HTTPException(status_code=404, detail="Document body not indexed; re-run ingestion.")
     return record
 
 

@@ -15,8 +15,8 @@ const ELEMENTS = [
   'prose-a:text-accent prose-a:underline-offset-3 prose-a:hover:text-accent-ink',
   'prose-code:rounded prose-code:bg-paper-2 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[13px] prose-code:font-normal prose-code:text-ink prose-code:before:content-none prose-code:after:content-none',
   'prose-pre:rounded-lg prose-pre:border prose-pre:border-rule prose-pre:bg-paper-2 prose-pre:text-[13px] prose-pre:text-ink',
-  'prose-blockquote:border-l-rule-strong prose-blockquote:text-ink-2 prose-blockquote:not-italic prose-blockquote:font-normal',
-  'prose-hr:border-rule prose-table:text-[14px] prose-th:text-ink prose-td:text-ink',
+  'prose-blockquote:border-l-rule-strong prose-blockquote:text-ink-2 prose-blockquote:not-italic prose-blockquote:font-normal prose-blockquote:[quotes:none]',
+  'prose-hr:border-rule prose-table:text-[14px] prose-thead:border-rule prose-tr:border-rule prose-th:text-ink prose-td:text-ink',
 ]
 
 /** Markdown inside a chat answer, kept close to the surrounding UI type. */
@@ -30,12 +30,14 @@ export const ANSWER_PROSE = [
 /**
  * A policy document read in full. Set in the display face at reading size,
  * the way the library showed passages, with room between sections. The
- * document title is an h2 above this block, so body headings step down from it.
+ * reader renders the document's `#` as h2, `##` as h3, and so on (see
+ * DocumentReader), so the scale here starts at h2. Long tokens such as URLs
+ * wrap rather than widen the column.
  */
 export const DOCUMENT_PROSE = [
-  'prose max-w-none font-display text-[16.5px] leading-[1.6] text-ink',
+  'prose max-w-none font-display text-[16.5px] leading-[1.6] text-ink break-words',
   'prose-p:my-3.5 prose-p:text-ink prose-ul:my-3 prose-ol:my-3',
-  'prose-h1:text-[21px] prose-h1:mt-8 prose-h1:mb-2 prose-h2:text-[19px] prose-h2:mt-8 prose-h2:mb-2 prose-h3:text-[17px] prose-h3:mt-6 prose-h3:mb-1.5',
+  'prose-h2:text-[21px] prose-h2:mt-8 prose-h2:mb-2 prose-h3:text-[19px] prose-h3:mt-8 prose-h3:mb-2 prose-h4:text-[17px] prose-h4:mt-6 prose-h4:mb-1.5',
   'prose-headings:first:mt-0',
   ...ELEMENTS,
 ].join(' ')
