@@ -4,8 +4,8 @@ The values live in `src/index.css` inside the Tailwind `@theme` block. This
 file explains them. Change the CSS, then update this page.
 
 The direction is paper and ink. Warm off-white surfaces, near-black text, and
-one plum accent that appears only on the brand mark, links, and the active row
-in the sidebar. Status colors carry meaning and nothing else. The chat reads
+one bottle-green accent that appears only on the brand mark, links, and the
+active row in the sidebar. Status colors carry meaning and nothing else. The chat reads
 like a Q&A column with footnote-style citations rather than chat bubbles,
 because the citations are what the product is judged on.
 
@@ -75,11 +75,11 @@ hues. Hex values here are approximations for design tools.
 | `ink` | 24% 0.014 60 | #241E19 | text, primary buttons |
 | `ink-2` | 47% 0.015 60 | #615953 | secondary text, meta |
 | `ink-3` | 62% 0.013 60 | #8C847E | icons, placeholders, decoration |
-| `accent` | 40% 0.10 330 | #653161 | brand mark, links, active nav icon |
-| `accent-ink` | 33% 0.10 330 | #501E4D | link hover, active row text, button hover |
-| `accent-soft` | 94.5% 0.025 330 | #F7E7F5 | active row, focus halo, selection |
-| `accent-rule` | 86% 0.05 330 | #E5C6E1 | reserved for accent borders |
-| `moss` | 50% 0.10 150 | #337344 | strong retrieval match, "sent" check |
+| `accent` | 42% 0.09 160 | #0C5C3C | brand mark, links, active nav icon |
+| `accent-ink` | 34% 0.09 160 | #004527 | link hover, active row text, button hover |
+| `accent-soft` | 94% 0.03 160 | #DBF2E4 | active row, focus halo, selection |
+| `accent-rule` | 85% 0.06 160 | #ACDAC0 | reserved for accent borders |
+| `moss` | 50% 0.10 150 | #337344 | strong retrieval match, "sent" check (sits beside the accent on purpose) |
 | `ochre` | 62% 0.13 72 | #B6770B | partial match dot, refusal icon |
 | `ochre-ink` | 45% 0.11 72 | #7A4F06 | refusal label text |
 | `ochre-soft` | 96.5% 0.03 85 | #FDF2DD | refusal panel |
@@ -90,7 +90,7 @@ hues. Hex values here are approximations for design tools.
 The match meter is a 112px track with a word (strong, partial, weak) and the
 percentage, plus an info button whose popover explains what it measures.
 
-Contrast on `paper`: `ink` 15:1, `ink-2` 6.4:1, `accent` 9:1, `moss` 5.2:1,
+Contrast on `paper`: `ink` 15:1, `ink-2` 6.4:1, `accent` 7.5:1, `moss` 5.2:1,
 `brick` 5.4:1. `ink-3` is 3.3:1, so it is never used for body copy, only for
 icons, placeholders, and labels that repeat information shown elsewhere.
 
@@ -115,9 +115,9 @@ under `:root[data-theme="dark"]` in `src/index.css`.
 | `ink` | 93% 0.008 85 | #EAE7E2 |
 | `ink-2` | 75% 0.01 80 | #B1ADA7 |
 | `ink-3` | 58% 0.012 70 | #7F7973 |
-| `accent` | 78% 0.09 330 | #D9A3D3 |
-| `accent-ink` | 87% 0.07 330 | #EFC4EA |
-| `accent-soft` | 31% 0.05 330 | #3F273C |
+| `accent` | 78% 0.11 160 | #73CD9F |
+| `accent-ink` | 86% 0.09 160 | #9CE4BD |
+| `accent-soft` | 30% 0.05 160 | #143525 |
 | `moss` | 72% 0.11 150 | #6FB880 |
 | `ochre` | 76% 0.13 75 | #E1A447 |
 | `ochre-ink` | 86% 0.1 82 | #F2CB83 |
@@ -185,6 +185,6 @@ chevron rotation on disclosures, and the streaming caret. All of them respect
 
 An open book seen from above, with a reference dot where a footnote marker
 sits. The favicon is `public/favicon.svg`; the React version in
-`src/components/Layout/Brand.tsx` uses theme colors. Plum on paper by
+`src/components/Layout/Brand.tsx` uses theme colors. Green on paper by
 default. For print or dark contexts, swap the fill for `ink` or draw the
 glyph in `accent` on `paper-3`.
