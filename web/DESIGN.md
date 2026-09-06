@@ -154,11 +154,14 @@ Two families, both self-hosted from `@fontsource-variable` and imported in
 | Role | Face | Size / line | Where |
 | --- | --- | --- | --- |
 | Display | Newsreader Variable 500 | 40 / 44 | empty-state heading (32 on phones) |
-| Display | Newsreader Variable 500 | 32 / 36 | page titles, sign-in |
+| Display | Newsreader Variable 500 | 44 / 48 | sign-in headline (34 on phones), on the 24px rules |
+| Display | Newsreader Variable 500 | 32 / 36 | page titles |
 | Display | Newsreader Variable 500 | 22 / 29 | the question in a chat turn (20 on phones) |
 | Display | Newsreader Variable 500 | 21 | wordmark in the sidebar |
+| Display | Newsreader Variable 400 italic | 22 / 24 | running head on the home's facing page |
 | UI | IBM Plex Sans Variable 400 | 15 / 25 | answer body, chat input |
 | UI | IBM Plex Sans Variable 400 | 14 / 21 | default |
+| UI | IBM Plex Sans Variable 400 | 16 / 24, 14 / 24 | sign-in copy and facing-page entries, on the 24px rules |
 | UI | IBM Plex Sans Variable 500 | 13.5 / 20 | sidebar rows, buttons |
 | UI | IBM Plex Sans Variable 400 | 12.5 / 19 | meta, match badge, hints |
 | Label | IBM Plex Sans Variable 600 | 11, +8% tracking, caps | section labels (`caps` utility) |
