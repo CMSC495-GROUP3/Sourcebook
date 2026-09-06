@@ -1,5 +1,6 @@
 """Regression tests for the labeled AI evaluation set and its metrics."""
 
+import json
 from collections import Counter
 
 import pytest
@@ -123,6 +124,38 @@ def test_loader_rejects_duplicate_ids(tmp_path):
     )
 
     with pytest.raises(ValueError, match="Duplicate evaluation case id"):
+        load_cases(dataset, require_corpus_titles=False)
+
+
+@pytest.mark.parametrize(
+    ("category", "outcome"),
+    [
+        ("unanswerable", "clarify"),
+        ("unanswerable", "answer"),
+        ("prompt_injection", "clarify"),
+        ("prompt_injection", "answer"),
+    ],
+)
+def test_loader_rejects_refusal_category_without_refuse_outcome(tmp_path, category, outcome):
+    """unanswerable/prompt_injection cases must be labelled refuse."""
+    dataset = tmp_path / "mismatch.json"
+    dataset.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "bad1",
+                    "category": category,
+                    "question": "What is the cafeteria dessert menu?",
+                    "expected_sources": [],
+                    "expected_outcome": outcome,
+                    "expected_behavior": "Should refuse.",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match='requires expected_outcome "refuse"'):
         load_cases(dataset, require_corpus_titles=False)
 
 
@@ -409,6 +442,7 @@ def test_score_results_separates_unsupported_and_prompt_injection_refusals():
         "prompt_injection": 2,
         "unanswerable": 2,
     }
+    assert sum(report["category_counts"].values()) == report["evaluated_cases"]
     assert report["ambiguous_review"]["count"] == 1
     assert report["ambiguous_review"]["case_ids"] == ["amb1"]
     assert report["ambiguous_review"]["status"] == "manual_review_required"
@@ -416,6 +450,55 @@ def test_score_results_separates_unsupported_and_prompt_injection_refusals():
     assert report["recall_at_5"] == 100.0
     assert report["citation_correctness"] == 100.0
     assert report["grounded_answer_rate"] == 100.0
+
+
+def test_score_results_refusal_metrics_require_refuse_outcome():
+    """Category alone must not pull a mismatched case into refusal rates."""
+    cases = [
+        {
+            "id": "u_bad",
+            "category": "unanswerable",
+            "expected_sources": [],
+            "expected_outcome": "clarify",
+        },
+        {
+            "id": "p_ok",
+            "category": "prompt_injection",
+            "expected_sources": [],
+            "expected_outcome": "refuse",
+        },
+    ]
+    results = [
+        {"id": "u_bad", "retrieved_sources": [], "cited_sources": [], "refused": False},
+        {"id": "p_ok", "retrieved_sources": [], "cited_sources": [], "refused": True},
+    ]
+
+    report = score_results(cases, results)
+
+    assert report["unsupported_refusal_handling"] is None
+    assert report["prompt_injection_grounding_gate_refusal"] == 100.0
+    assert sum(report["category_counts"].values()) == report["evaluated_cases"] == 2
+
+
+def test_category_counts_agree_with_evaluated_cases_by_construction():
+    cases = load_cases(SMOKE_DATASET)
+    report = score_results(
+        cases,
+        [
+            {
+                "id": case["id"],
+                "retrieved_sources": case["expected_sources"],
+                "cited_sources": case["expected_sources"],
+                "refused": case["expected_outcome"] == "refuse",
+            }
+            for case in cases
+        ],
+    )
+
+    assert sum(report["category_counts"].values()) == report["evaluated_cases"]
+    assert report["category_counts"] == {
+        category: count for category, count in sorted(SMOKE_CATEGORY_MIX.items())
+    }
 
 
 def test_score_results_empty_category_set_keeps_zero_counts_and_none_rates():
@@ -429,6 +512,7 @@ def test_score_results_empty_category_set_keeps_zero_counts_and_none_rates():
         "prompt_injection": 0,
         "unanswerable": 0,
     }
+    assert sum(report["category_counts"].values()) == report["evaluated_cases"]
     assert report["recall_at_5"] is None
     assert report["citation_correctness"] is None
     assert report["grounded_answer_rate"] is None
@@ -476,3 +560,4 @@ def test_score_results_reports_all_ambiguous_identities_for_review():
         "ambiguous_03",
     ]
     assert report["ambiguous_review"]["clarification_scoring"] == "manual"
+    assert sum(report["category_counts"].values()) == report["evaluated_cases"]

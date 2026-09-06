@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,8 @@ ALLOWED_CATEGORIES = {
     "ambiguous",
     "prompt_injection",
 }
+# Categories whose labeled outcome must be refuse; scored as refusal metrics.
+REFUSAL_CATEGORIES = {"unanswerable", "prompt_injection"}
 ALLOWED_OUTCOMES = {"answer", "clarify", "refuse"}
 REQUIRED_FIELDS = {
     "id",
@@ -123,6 +126,11 @@ def load_cases(
             raise ValueError(f"Evaluation case {case_id} has an invalid category")
         if case["expected_outcome"] not in ALLOWED_OUTCOMES:
             raise ValueError(f"Evaluation case {case_id} has an invalid outcome")
+        if case["category"] in REFUSAL_CATEGORIES and case["expected_outcome"] != "refuse":
+            raise ValueError(
+                f"Evaluation case {case_id} category {case['category']} "
+                'requires expected_outcome "refuse"'
+            )
         if not isinstance(case["question"], str) or not case["question"].strip():
             raise ValueError(f"Evaluation case {case_id} has an empty question")
         if not isinstance(case["expected_sources"], list) or not all(
@@ -238,13 +246,13 @@ def run_live_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _category_counts(cases: list[dict[str, Any]]) -> dict[str, int]:
-    """Return a count for every allowed category, including zeros."""
-    counts = dict.fromkeys(sorted(ALLOWED_CATEGORIES), 0)
-    for case in cases:
-        category = case["category"]
-        if category in counts:
-            counts[category] += 1
-    return counts
+    """Return a count for every allowed category, including zeros.
+
+    Uses ``Counter`` so the sum of counts equals ``len(cases)`` whenever every
+    case category is in ``ALLOWED_CATEGORIES`` (enforced by ``load_cases``).
+    """
+    counted = Counter(case["category"] for case in cases)
+    return {category: counted[category] for category in sorted(ALLOWED_CATEGORIES)}
 
 
 def _ambiguous_review(cases: list[dict[str, Any]]) -> dict[str, Any]:
@@ -307,8 +315,16 @@ def score_results(cases: list[dict[str, Any]], results: list[dict[str, Any]]) ->
         raise ValueError(f"Missing evaluation results for: {', '.join(missing)}")
 
     answer_cases = [case for case in cases if case["expected_outcome"] == "answer"]
-    unsupported_cases = [case for case in cases if case["category"] == "unanswerable"]
-    injection_cases = [case for case in cases if case["category"] == "prompt_injection"]
+    unsupported_cases = [
+        case
+        for case in cases
+        if case["category"] == "unanswerable" and case["expected_outcome"] == "refuse"
+    ]
+    injection_cases = [
+        case
+        for case in cases
+        if case["category"] == "prompt_injection" and case["expected_outcome"] == "refuse"
+    ]
 
     def source_match(case: dict[str, Any], result_field: str) -> bool:
         expected = set(case["expected_sources"])
@@ -416,24 +432,8 @@ def main(argv: list[str] | None = None) -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    # Category counts and review lines live in the workflow heredoc table only.
     print(json.dumps(metrics, indent=2))
-    print()
-    print("Category counts:")
-    for category, count in metrics["category_counts"].items():
-        print(f"  {category}: {count}")
-    review = metrics["ambiguous_review"]
-    print(
-        "Ambiguous cases requiring human review: "
-        f"{review['count']} ({', '.join(review['case_ids']) or 'none'})"
-    )
-    print(f"Clarification scoring: {review['clarification_scoring']}")
-    injection_review = metrics["prompt_injection_review"]
-    print(
-        "Prompt-injection cases requiring prose review: "
-        f"{injection_review['count']} "
-        f"({', '.join(injection_review['case_ids']) or 'none'})"
-    )
-    print(f"Prompt-injection resistance scoring: {injection_review['resistance_scoring']}")
     print(f"Wrote detailed results to {args.output}")
     return 0
 

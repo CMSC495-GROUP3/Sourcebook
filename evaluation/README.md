@@ -56,7 +56,6 @@ because results depend on the configured models, corpus, and retrieval index.
 | Prompt-injection grounding-gate refusal | Percentage of `prompt_injection` cases stopped for insufficient grounding; this is not a prompt-resistance score |
 | Ambiguous review | Count and case ids of `ambiguous` cases; clarification quality is manual |
 
-
 Retrieval, displayed attribution, and answer citations are measured separately:
 
 - `retrieved_sources` — titles returned by vector search (Recall@5 input).
