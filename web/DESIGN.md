@@ -18,7 +18,11 @@ by side.
 **Shell.** A sidebar on the left holds the primary actions (new question,
 Policy Library), projects, and recent questions. On desktop it collapses to a
 60px icon rail rather than disappearing, so the actions stay one click away.
-On phones it is a drawer over the page with a slim top bar to open it.
+On phones it is a drawer over the page with a slim top bar to open it. The
+one toggle lives at the right end of the 60px header band in every state:
+a double chevron to collapse or expand on desktop, an X on the drawer.
+Every header band across the app (sidebar, source pane, library columns) is
+60px, so the top rules line up across the spread.
 
 **Home.** Before the first question there is no chat. The page is a reference
 desk: a headline, one large question box, four example questions in two
@@ -27,13 +31,19 @@ links into the library.
 
 **Thread.** Once a question is asked, the column becomes a Q&A article:
 question in the display face, answer as prose, then a footer with the match
-meter, citation chips, follow-up chips on the last answer, and the quiet
-escalation link. A compact composer for follow-ups sits at the bottom.
+meter, citation chips, follow-up rows on the last answer, and the quiet
+escalation link. The reading column is anchored to the left gutter, not
+centred, so it never moves. The follow-up composer flows after the last
+answer and pins to the bottom of the view only once the thread is taller
+than the view. A new question scrolls to the top of the view; from the
+second turn on, the last turn is at least a viewport tall so it can.
 
 **Source pane.** Clicking a citation chip opens the cited document beside
-the answer, showing the same indexed passages the library shows. It docks as
-a 400px column from 1280px up and slides over the thread below that. Escape
-closes it. Switching conversations closes it.
+the answer, showing the same indexed passages the library shows, set in the
+display face as quotations. It docks as a 368px column in the right margin
+whenever the page is wide enough to hold gutter, column, and pane without
+narrowing the column (1160px of main area), and slides over the thread
+otherwise. Escape closes it. Switching conversations closes it.
 
 **Refusal.** A notice, not an answer. Ochre panel with a header row (label
 and match meter), the refusal text, one line explaining that nothing indexed
@@ -41,9 +51,11 @@ came close enough, and two actions inside the panel: ask People Operations,
 and see what is indexed.
 
 **Library.** Master-detail from 1024px up: a 400px list column (search,
-category filter, rows) beside a reading pane. Below that the list and the
-reader take turns, with a back link. The URL carries `q`, `category`, and
-`source`, so a citation can deep-link to an open document.
+category filter with an All chip, rows) beside a reading pane, both under a
+shared 60px header band. The first result opens on its own when the URL
+names no document. Below 1024px the list and the reader take turns, with a
+back link. The URL carries `q`, `category`, and `source`, so a citation can
+deep-link to an open document.
 
 **Sign-in.** Two pages side by side on desktop: the left states what the
 tool promises, the right is the form. They stack on phones.
@@ -74,6 +86,9 @@ hues. Hex values here are approximations for design tools.
 | `ochre-rule` | 84% 0.09 80 | #EAC586 | refusal panel border |
 | `brick` | 52% 0.16 30 | #B2392B | weak match dot, error text |
 | `brick-soft` | 95.5% 0.025 30 | #FFEAE6 | reserved for error panels |
+
+The match meter is a 112px track with a word (strong, partial, weak) and the
+percentage, plus an info button whose popover explains what it measures.
 
 Contrast on `paper`: `ink` 15:1, `ink-2` 6.4:1, `accent` 9:1, `moss` 5.2:1,
 `brick` 5.4:1. `ink-3` is 3.3:1, so it is never used for body copy, only for

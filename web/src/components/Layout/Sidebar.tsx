@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react'
 import {
-  Plus, MessageSquare, BookOpen, LogOut, Pencil, Trash2,
+  Plus, MessageCircleQuestionMark, BookOpen, LogOut, Pencil, Trash2,
   Check, X, ChevronRight, FolderOpen, FolderPlus, Folder,
 } from 'lucide-react'
 import { useConversations } from '../../hooks/useConversations'
@@ -22,7 +22,7 @@ interface SidebarProps {
 
 // One row style for everything in the rail: conversations, projects, nav.
 const ROW = 'flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-md text-[13.5px] transition-colors'
-const ROW_IDLE = 'text-ink hover:bg-ink/5'
+const ROW_IDLE = 'text-ink hover:bg-paper-3'
 const ROW_ACTIVE = 'bg-accent-soft font-medium text-accent-ink'
 const ICON_BUTTON = 'flex shrink-0 cursor-pointer items-center justify-center rounded transition-colors'
 const RAIL_BUTTON = 'flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors'
@@ -141,28 +141,21 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
       <aside
         id="app-sidebar"
         aria-label="Navigation"
-        className="flex h-screen w-15 shrink-0 flex-col items-center border-r border-rule bg-paper-2 py-3"
+        className="flex h-screen w-15 shrink-0 flex-col items-center border-r border-rule bg-paper-2"
       >
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label="Open sidebar"
-          aria-expanded={false}
-          aria-controls="app-sidebar"
-          title="Open sidebar"
-          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-ink/5"
-        >
+        <div className="flex h-15 w-full shrink-0 items-center justify-center border-b border-rule">
           <BrandMark size={24} />
-        </button>
-        <div className="mt-2 flex flex-col items-center gap-1">
+        </div>
+        <div className="mt-2.5 flex flex-col items-center gap-1">
+          <SidebarToggle kind="expand" onToggle={onToggle} />
           <button
             type="button"
             onClick={() => navigate('/chat')}
             title="New question"
             aria-label="New question"
-            className={`${RAIL_BUTTON} border border-rule-strong bg-paper-3 text-ink hover:border-ink-3`}
+            className={`${RAIL_BUTTON} text-ink hover:bg-paper-3`}
           >
-            <Plus size={17} aria-hidden="true" />
+            <Plus size={18} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -170,21 +163,20 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
             title="Policy Library"
             aria-label="Policy Library"
             aria-current={onLibrary ? 'page' : undefined}
-            className={`${RAIL_BUTTON} ${onLibrary ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-ink/5 hover:text-ink'}`}
+            className={`${RAIL_BUTTON} ${onLibrary ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-paper-3 hover:text-ink'}`}
           >
             <BookOpen size={18} aria-hidden="true" />
           </button>
         </div>
-        <div className="mt-auto flex flex-col items-center gap-1">
-          <SidebarToggle open={false} onToggle={onToggle} />
+        <div className="mt-auto flex flex-col items-center pb-3">
           <button
             type="button"
             onClick={logout}
             title="Sign out"
             aria-label="Sign out"
-            className={`${RAIL_BUTTON} text-ink-3 hover:bg-ink/5 hover:text-ink`}
+            className={`${RAIL_BUTTON} text-ink-3 hover:bg-paper-3 hover:text-ink`}
           >
-            <LogOut size={17} aria-hidden="true" />
+            <LogOut size={18} aria-hidden="true" />
           </button>
         </div>
       </aside>
@@ -211,7 +203,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
       <div className="flex h-15 shrink-0 items-center gap-2.5 border-b border-rule pr-3 pl-4">
         <BrandMark size={24} />
         <Wordmark className="flex-1 text-[21px] leading-none" />
-        <SidebarToggle open={open} onToggle={onToggle} />
+        <SidebarToggle kind={isDesktop ? 'collapse' : 'close'} onToggle={onToggle} className="-mr-1" />
       </div>
 
       {/* Primary actions */}
@@ -344,11 +336,11 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
       </nav>
 
       {/* Sign out */}
-      <div className="flex flex-col gap-0.5 border-t border-rule px-3 pt-2 pb-3.5">
+      <div className="border-t border-rule px-3 pt-2 pb-3">
         <button
           type="button"
           onClick={logout}
-          className={`${ROW} h-[34px] px-2.5 text-ink-2 hover:bg-ink/5 hover:text-ink`}
+          className={`${ROW} h-[34px] px-2.5 text-ink-2 hover:bg-paper-3 hover:text-ink`}
         >
           <LogOut size={15} aria-hidden="true" className="text-ink-3" />
           Sign out
@@ -405,23 +397,27 @@ function ConversationItem({
     )
   }
 
-  // The actions appear on hover, and stay visible while any of them has
-  // keyboard focus so they can be reached with Tab.
-  const actionClass = `${ICON_BUTTON} h-6 w-6 text-ink-3 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100`
+  // The actions overlay the end of the row on hover, and stay while any of
+  // them has keyboard focus, so the title keeps the full width until then.
+  const actionClass = `${ICON_BUTTON} h-6 w-6 text-ink-3`
+  const overlayClass = `absolute inset-y-0 right-1 hidden items-center gap-0.5 pl-5 group-hover:flex group-focus-within:flex bg-linear-to-l to-transparent ${
+    isActive ? 'from-accent-soft from-70%' : 'from-paper-3 from-70%'
+  }`
 
   return (
-    <div className={`group ${ROW} h-[34px] pr-1.5 pl-2.5 ${isActive ? ROW_ACTIVE : ROW_IDLE}`}>
-      <MessageSquare size={14} aria-hidden="true" className={`shrink-0 ${isActive ? 'text-accent' : 'text-ink-3'}`} />
+    <div className={`group relative ${ROW} h-[34px] pr-2 pl-2.5 ${isActive ? ROW_ACTIVE : ROW_IDLE}`}>
+      <MessageCircleQuestionMark size={14} aria-hidden="true" className={`shrink-0 ${isActive ? 'text-accent' : 'text-ink-3'}`} />
       <button
         type="button"
         onClick={() => onNavigate(conv.session_id)}
         aria-current={isActive ? 'page' : undefined}
+        title={conv.title}
         className="min-w-0 flex-1 cursor-pointer truncate text-left"
       >
         {conv.title}
       </button>
 
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className={overlayClass}>
         <button
           type="button"
           onClick={() => onStartEdit(conv)}

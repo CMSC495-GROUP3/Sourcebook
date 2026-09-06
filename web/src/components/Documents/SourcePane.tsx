@@ -52,19 +52,19 @@ export default function SourcePane({ title, onClose }: Props) {
 
   return (
     <section aria-label="Source" className="flex h-full flex-col bg-paper-3">
-      <header className="flex h-13 shrink-0 items-center justify-between border-b border-rule pr-2 pl-5">
+      <header className="flex h-15 shrink-0 items-center justify-between border-b border-rule pr-2.5 pl-5">
         <span className="caps text-ink-3">Source</span>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close source"
-          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-ink/5 hover:text-ink"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-paper-2 hover:text-ink"
         >
           <X size={18} aria-hidden="true" />
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-5 py-5">
+      <div className="flex-1 overflow-y-auto px-5 py-6">
         {resolution.status === 'loading' && <p className="text-[13px] text-ink-3">Loading…</p>}
         {resolution.status === 'error' && (
           <p role="alert" className="text-[13px] text-brick">Could not load this source right now.</p>

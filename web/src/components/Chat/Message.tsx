@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
 import { AlertCircle, BookOpen } from 'lucide-react'
@@ -8,6 +9,8 @@ import EscalateButton from './EscalateButton'
 import type { ChatMessage } from '../../hooks/useChat'
 
 interface Props {
+  /** Attached to the block so the list can scroll a question into view. */
+  ref?: Ref<HTMLDivElement>
   message: ChatMessage
   /** Position in the conversation; the escalation request names the turn by it. */
   index: number
@@ -37,9 +40,9 @@ const PROSE = [
   'prose-hr:border-rule prose-table:text-[14px] prose-th:text-ink prose-td:text-ink',
 ].join(' ')
 
-function Question({ text, first }: { text: string; first: boolean }) {
+function Question({ text, first, ref }: { text: string; first: boolean; ref?: Ref<HTMLDivElement> }) {
   return (
-    <div className={`flex flex-col gap-1.5 ${first ? '' : 'border-t border-rule pt-8'}`}>
+    <div ref={ref} className={`flex scroll-mt-[22px] flex-col gap-1.5 ${first ? '' : 'border-t border-rule pt-8'}`}>
       <span className="caps text-ink-3">Question</span>
       <p className="font-display text-[21px] leading-[1.3] font-medium tracking-tight text-ink sm:text-[24px]">{text}</p>
     </div>
@@ -47,15 +50,15 @@ function Question({ text, first }: { text: string; first: boolean }) {
 }
 
 export default function Message({
-  message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated,
+  ref, message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated,
 }: Props) {
   if (message.role === 'user') {
-    return <Question text={message.content} first={index === 0} />
+    return <Question ref={ref} text={message.content} first={index === 0} />
   }
 
   if (message.refused) {
     return (
-      <div className="flex flex-col gap-3">
+      <div ref={ref} className="flex flex-col gap-3">
         <div className="rounded-lg border border-ochre-rule bg-ochre-soft">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-ochre-rule/70 px-4 py-2.5">
             <span className="caps inline-flex items-center gap-2 text-ochre-ink">
@@ -93,7 +96,7 @@ export default function Message({
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div ref={ref} className="flex flex-col gap-5">
       <div className={`${PROSE} ${isStreaming ? 'caret' : ''}`}>
         <ReactMarkdown>{message.content}</ReactMarkdown>
       </div>

@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useState } from 'react'
 import { AlertCircle, BookOpen, LifeBuoy, Quote } from 'lucide-react'
 import client, { TOKEN_KEY } from '../../api/client'
-import { APP_NAME, APP_TAGLINE, ESCALATION_CONTACT } from '../../config'
+import { APP_NAME, ESCALATION_CONTACT } from '../../config'
 import { BrandMark } from '../Layout/Brand'
 
 interface Props {
@@ -58,7 +58,9 @@ export default function LoginForm({ onSuccess }: Props) {
             <h1 className="font-display text-[34px] leading-[1.08] font-medium tracking-tight text-ink md:text-[44px]">
               The policy, with its source.
             </h1>
-            <p className="max-w-110 text-[15px] leading-normal text-ink-2 md:text-[16px]">{APP_TAGLINE}</p>
+            <p className="max-w-110 text-[15px] leading-normal text-ink-2 md:text-[16px]">
+              Ask about company policy in plain words. Sourcebook answers from the indexed policy documents and shows you where each answer came from.
+            </p>
           </div>
           <ul className="hidden flex-col gap-3.5 md:flex">
             {PROMISES.map(({ icon: Icon, text }) => (
@@ -95,12 +97,15 @@ export default function LoginForm({ onSuccess }: Props) {
               className="h-11 w-full rounded-md border border-rule-strong bg-paper-3 px-3.5 text-[16px] text-ink transition-colors placeholder:text-ink-3 focus:border-accent focus:ring-3 focus:ring-accent-soft focus:outline-none sm:text-[15px]"
             />
           </div>
-          {error && (
-            <p id="password-error" role="alert" className="-mt-2 flex items-center gap-1.5 text-[13px] text-brick">
-              <AlertCircle size={14} aria-hidden="true" />
-              {error}
-            </p>
-          )}
+          {/* Always rendered so the form does not jump when an error appears. */}
+          <p id="password-error" role="alert" className="-mt-2 flex min-h-5 items-center gap-1.5 text-[13px] text-brick">
+            {error && (
+              <>
+                <AlertCircle size={14} aria-hidden="true" />
+                {error}
+              </>
+            )}
+          </p>
           <button
             type="submit"
             disabled={loading || !password}

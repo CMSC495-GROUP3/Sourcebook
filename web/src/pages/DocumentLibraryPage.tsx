@@ -17,6 +17,7 @@ import { searchDocuments, listCategories } from '../api/documents'
 import DocumentCard from '../components/Documents/DocumentCard'
 import DocumentReader from '../components/Documents/DocumentReader'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { READING_COLUMN, READING_GUTTER } from '../lib/layout'
 import type { PolicyDocument } from '../types'
 
 const DEBOUNCE_MS = 300
@@ -89,6 +90,15 @@ export default function DocumentLibraryPage() {
   }
 
   const selected = documents.find((doc) => doc.source === selectedSource) ?? null
+
+  // Two panes with nothing in the reader is a wasted page. Open the first
+  // result when no document is named in the URL.
+  useEffect(() => {
+    if (!twoPane || selectedSource || documents.length === 0) return
+    const next = new URLSearchParams(searchParams)
+    next.set('source', documents[0].source)
+    setSearchParams(next, { replace: true })
+  }, [twoPane, selectedSource, documents, searchParams, setSearchParams])
   const filtered = Boolean(query.trim() || activeCategory)
   const count = loading
     ? 'Loading…'
@@ -98,13 +108,13 @@ export default function DocumentLibraryPage() {
 
   const list = (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-col gap-4 px-5 pt-7 pb-4 sm:px-6">
-        <div className="flex items-baseline justify-between gap-3">
-          <h1 className="font-display text-[26px] leading-none font-medium tracking-tight text-ink">
-            Policy Library
-          </h1>
-          <span className="tnum text-[12.5px] text-ink-2" aria-live="polite">{count}</span>
-        </div>
+      <header className="flex h-15 shrink-0 items-baseline justify-between gap-3 border-b border-rule px-5 pt-[19px]">
+        <h1 className="font-display text-[22px] leading-none font-medium tracking-tight text-ink">
+          Policy Library
+        </h1>
+        <span className="tnum text-[12.5px] text-ink-2" aria-live="polite">{count}</span>
+      </header>
+      <div className="flex flex-col gap-3 px-5 pt-4 pb-3">
         <div className="relative">
           <Search
             size={15}
@@ -122,13 +132,13 @@ export default function DocumentLibraryPage() {
         </div>
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by category">
-            {categories.map((category) => {
+            {['', ...categories].map((category) => {
               const active = category === activeCategory
               return (
                 <button
-                  key={category}
+                  key={category || '__all__'}
                   type="button"
-                  onClick={() => handleCategory(category)}
+                  onClick={() => (category ? handleCategory(category) : handleCategory(activeCategory))}
                   aria-pressed={active}
                   className={`h-7 cursor-pointer rounded-full border px-3 text-[12.5px] transition-colors ${
                     active
@@ -136,13 +146,13 @@ export default function DocumentLibraryPage() {
                       : 'border-rule bg-paper-3 text-ink-2 hover:border-ink-3 hover:text-ink'
                   }`}
                 >
-                  {category}
+                  {category || 'All'}
                 </button>
               )
             })}
           </div>
         )}
-      </header>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-6 sm:px-3">
         {error && <p role="alert" className="px-3 text-[14px] text-brick">{error}</p>}
@@ -169,19 +179,27 @@ export default function DocumentLibraryPage() {
   )
 
   const reader = selected ? (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto w-full max-w-170 px-5 py-7 sm:px-8 sm:py-10">
-        {!twoPane && (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className={`flex h-15 shrink-0 items-center gap-4 border-b border-rule ${READING_GUTTER}`}>
+        {twoPane ? (
+          <span className="caps text-ink-3">{selected.category ?? 'Policy'}</span>
+        ) : (
           <button
             type="button"
             onClick={() => select(null)}
-            className="mb-5 inline-flex cursor-pointer items-center gap-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
+            className="inline-flex h-10 cursor-pointer items-center gap-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
           >
             <ArrowLeft size={14} aria-hidden="true" />
             All policies
           </button>
         )}
-        <DocumentReader document={selected} />
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className={`${READING_GUTTER} py-7 sm:py-8`}>
+          <div className={READING_COLUMN}>
+            <DocumentReader document={selected} />
+          </div>
+        </div>
       </div>
     </div>
   ) : (

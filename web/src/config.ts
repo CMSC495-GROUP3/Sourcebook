@@ -14,9 +14,6 @@ export const APP_HEADLINE = 'What does the policy say?'
 export const APP_TAGLINE =
   'Ask about company policy and get an answer with its source. If nothing matches, it says so instead of guessing.'
 
-/** Reminder under the chat input and the sign-in card. */
-export const GROUNDING_NOTE = 'Answers come only from indexed policy documents.'
-
 /** localStorage key holding the JWT. */
 export const TOKEN_KEY = 'policy_assistant_token'
 

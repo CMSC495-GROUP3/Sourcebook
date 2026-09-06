@@ -17,13 +17,19 @@ interface Props {
   actions?: ReactNode
 }
 
+const NBSP = '\u00a0'
+
+/** Metadata line; spaces inside each item are non-breaking so items wrap whole. */
 function documentMeta(document: PolicyDocument): string {
   return [
     document.category,
-    document.effective_date && `effective ${document.effective_date}`,
+    document.effective_date && `effective${NBSP}${document.effective_date}`,
     document.owner,
-    `${document.passage_count} passage${document.passage_count !== 1 ? 's' : ''}`,
-  ].filter(Boolean).join(' · ')
+    `${document.passage_count}${NBSP}passage${document.passage_count !== 1 ? 's' : ''}`,
+  ]
+    .filter((item): item is string => Boolean(item))
+    .map((item) => item.replace(/ /g, NBSP))
+    .join(' · ')
 }
 
 export default function DocumentReader({ document, actions }: Props) {
@@ -43,11 +49,13 @@ export default function DocumentReader({ document, actions }: Props) {
       {error && <p role="alert" className="text-[13px] text-brick">{error}</p>}
 
       {!loading && !error && (
-        <ol className="flex flex-col gap-5">
+        <ol className="flex flex-col gap-6">
           {passages.map((passage, i) => (
-            <li key={i} className="flex flex-col gap-1.5">
+            <li key={i} className="flex flex-col gap-2">
               <span className="caps text-[10.5px] text-ink-3">Passage {i + 1}</span>
-              <p className="text-[14px] leading-[1.65] whitespace-pre-line text-ink">{passage}</p>
+              <blockquote className="border-l-2 border-rule-strong pl-4 font-display text-[16.5px] leading-[1.6] whitespace-pre-line text-ink">
+                {passage}
+              </blockquote>
             </li>
           ))}
         </ol>

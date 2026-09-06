@@ -106,11 +106,14 @@ export default function EscalateButton({
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); void submit() }}
-      className="flex w-full max-w-120 flex-col gap-2.5 rounded-lg border border-rule-strong bg-paper-3 p-4"
+      className="flex w-full flex-col gap-3 rounded-lg border border-rule-strong bg-paper-3 p-4"
     >
-      <label className="text-[13px] text-ink-2" htmlFor={`escalation-note-${messageIndex}`}>
-        Send this question to {ESCALATION_CONTACT}. Add context if it helps (optional).
-      </label>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-[14px] font-medium text-ink">Send to {ESCALATION_CONTACT}</h3>
+        <p className="text-[13px] leading-normal text-ink-2">
+          They get your question and this answer. You get a reference number to quote if you follow up.
+        </p>
+      </div>
       <textarea
         id={`escalation-note-${messageIndex}`}
         value={note}
@@ -119,17 +122,18 @@ export default function EscalateButton({
         rows={3}
         disabled={sending}
         autoFocus
-        placeholder="For example: my manager said this changed last quarter."
-        className="w-full resize-y rounded-md border border-rule bg-paper px-2.5 py-2 text-[16px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none disabled:opacity-60 sm:text-[14px]"
+        aria-label={`Note for ${ESCALATION_CONTACT} (optional)`}
+        placeholder="Add context if it helps. For example: my manager said this changed last quarter."
+        className="w-full resize-none rounded-md border border-rule bg-paper px-3 py-2 text-[16px] leading-normal text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none disabled:opacity-60 sm:text-[14px]"
       />
       {phase === 'error' && (
         <p role="alert" className="text-[12.5px] text-brick">{error}</p>
       )}
-      <div className="flex items-center gap-3.5">
+      <div className="flex items-center gap-3">
         <button
           type="submit"
           disabled={sending}
-          className="h-8 cursor-pointer rounded-md bg-ink px-3.5 text-[13px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-default disabled:bg-rule disabled:text-ink-3"
+          className="h-9 cursor-pointer rounded-md bg-ink px-4 text-[13.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-default disabled:bg-rule disabled:text-ink-3"
         >
           {sending ? 'Sending…' : phase === 'error' ? 'Try again' : 'Send'}
         </button>
@@ -137,7 +141,7 @@ export default function EscalateButton({
           type="button"
           disabled={sending}
           onClick={() => { setPhase('idle'); setNote(''); setError('') }}
-          className="cursor-pointer text-[13px] text-ink-2 transition-colors hover:text-ink disabled:opacity-60"
+          className="h-9 cursor-pointer px-2 text-[13.5px] text-ink-2 transition-colors hover:text-ink disabled:opacity-60"
         >
           Cancel
         </button>
