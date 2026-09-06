@@ -184,8 +184,11 @@ chevron rotation on disclosures, and the streaming caret. All of them respect
 
 ## The mark
 
-An open book seen from above, with a reference dot where a footnote marker
-sits. The favicon is `public/favicon.svg`; the React version in
-`src/components/Layout/Brand.tsx` uses theme colors. Green on paper by
-default. For print or dark contexts, swap the fill for `ink` or draw the
-glyph in `accent` on `paper-3`.
+The group's drawing: an open book with a ribbon rising out of it, as a
+sticker with a pale outline. The blues of the original are shifted to the
+green accent (cover in the deep green, ribbon in the lighter one); the
+outline and shadow are untouched, so it sits on paper and on charcoal
+alike. `public/icon.png` is the full-size mark the app renders through
+`BrandMark`; `icon-16`, `icon-32`, and `icon-180` are the browser tab and
+home-screen icons. `docs/brand/sourcebook-icon.png` is the same file and
+`sourcebook-icon-original.png` is the untouched blue original.
