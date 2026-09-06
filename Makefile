@@ -16,14 +16,14 @@ FAKE_SCORE := $(if $(REFUSE),0.50,0.78)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup stub web test cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean
+.PHONY: help setup stub web test cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean lock
 
 help: ## Show this list
 	@grep -E '^[a-z][a-z-]*:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
 setup: ## One-time: create .venv, install Python and Node dependencies
 	test -d $(VENV) || python3 -m venv $(VENV)
-	$(PIP) install -q -r requirements/dev.txt
+	$(PIP) install -q -r requirements/dev.lock.txt
 	cd $(WEB) && npm install
 
 stub: ## Run the API on :8000 with a fake model and in-memory Mongo (no accounts needed)
@@ -56,6 +56,11 @@ fmt: ## Fix lint findings and format the Python code
 audit: ## Known vulnerabilities in the Python and npm dependency trees
 	./scripts/audit.sh
 
+lock: ## Regenerate requirements/*.lock.txt from requirements/*.txt
+	$(VENV)/bin/pip-compile requirements/api.txt -o requirements/api.lock.txt
+	$(VENV)/bin/pip-compile requirements/dev.txt -o requirements/dev.lock.txt
+	$(VENV)/bin/pip-compile requirements/ingest.txt -o requirements/ingest.lock.txt	
+	
 build: ## Production build of the web app
 	cd $(WEB) && npm run -s build
 
