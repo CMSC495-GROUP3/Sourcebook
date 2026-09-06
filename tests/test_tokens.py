@@ -41,7 +41,7 @@ def _tampered(token: str) -> str:
 @pytest.mark.parametrize(
     ("make_token", "expected_cred", "expected_status"),
     [
-        (lambda: _token(), PRIMARY_PASSWORD_HASH_VAR, 200),
+        (_token, PRIMARY_PASSWORD_HASH_VAR, 200),
         (lambda: _tampered(_token()), None, 401),
         (
             lambda: create_access_token({"cred": PRIMARY_PASSWORD_HASH_VAR}, timedelta(-1)),
