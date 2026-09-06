@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, BookOpen } from 'lucide-react'
 import ConfidenceBadge from './ConfidenceBadge'
 import SourcesList from './SourcesList'
 import FollowUpButtons from './FollowUpButtons'
@@ -15,6 +15,9 @@ interface Props {
   isLast: boolean
   /** Tokens are still arriving for this message; show the caret and hold the metadata. */
   isStreaming: boolean
+  /** Title open in the source pane, so its chip can show as selected. */
+  activeSource: string | null
+  onOpenSource: (title: string) => void
   onFollowUp: (q: string) => void
   onEscalated: (index: number, escalationId: string) => void
 }
@@ -36,59 +39,70 @@ const PROSE = [
 
 function Question({ text, first }: { text: string; first: boolean }) {
   return (
-    <div className={`flex flex-col gap-1.5 ${first ? '' : 'border-t border-rule pt-7'}`}>
+    <div className={`flex flex-col gap-1.5 ${first ? '' : 'border-t border-rule pt-8'}`}>
       <span className="caps text-ink-3">Question</span>
-      <p className="font-display text-[20px] leading-[1.3] font-medium tracking-tight text-ink sm:text-[22px]">{text}</p>
+      <p className="font-display text-[21px] leading-[1.3] font-medium tracking-tight text-ink sm:text-[24px]">{text}</p>
     </div>
   )
 }
 
-export default function Message({ message, index, sessionId, isLast, isStreaming, onFollowUp, onEscalated }: Props) {
+export default function Message({
+  message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated,
+}: Props) {
   if (message.role === 'user') {
     return <Question text={message.content} first={index === 0} />
   }
 
   if (message.refused) {
     return (
-      <div className="flex flex-col gap-4">
-        <div className="flex gap-3.5 rounded-lg border border-ochre-rule bg-ochre-soft px-4 py-4 sm:px-4.5">
-          <AlertCircle size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-ochre" />
-          <div className="flex flex-col gap-1.5">
-            <span className="caps text-ochre-ink">No matching policy</span>
+      <div className="flex flex-col gap-3">
+        <div className="rounded-lg border border-ochre-rule bg-ochre-soft">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-ochre-rule/70 px-4 py-2.5">
+            <span className="caps inline-flex items-center gap-2 text-ochre-ink">
+              <AlertCircle size={15} aria-hidden="true" className="text-ochre" />
+              No matching policy
+            </span>
+            <ConfidenceBadge confidence={message.confidence} />
+          </div>
+          <div className="flex flex-col gap-1.5 px-4 py-3.5">
             <p className="text-[15px] leading-[1.55] text-ink">{message.content}</p>
             <p className="text-[13.5px] leading-normal text-ink-2">
-              This is different from a policy that exists but says no.{' '}
-              <Link to="/documents" className="text-accent underline-offset-3 hover:text-accent-ink hover:underline">
-                Check the Policy Library
-              </Link>{' '}
-              to see what is loaded today.
+              This is different from a policy that exists but says no. Nothing indexed came close enough to answer from.
             </p>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4.5 gap-y-2.5">
-          <ConfidenceBadge confidence={message.confidence} />
-          <EscalateButton
-            sessionId={sessionId}
-            messageIndex={index}
-            reason="refused"
-            escalationId={message.escalation_id}
-            prominent
-            onEscalated={(id) => onEscalated(index, id)}
-          />
+          <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
+            <EscalateButton
+              sessionId={sessionId}
+              messageIndex={index}
+              reason="refused"
+              escalationId={message.escalation_id}
+              prominent
+              onEscalated={(id) => onEscalated(index, id)}
+            />
+            <Link
+              to="/documents"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-rule-strong bg-paper-3 px-3.5 text-[13.5px] font-medium text-ink transition-colors hover:border-ink-3"
+            >
+              <BookOpen size={15} aria-hidden="true" className="text-ink-3" />
+              See what is indexed
+            </Link>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div className={`${PROSE} ${isStreaming ? 'caret' : ''}`}>
         <ReactMarkdown>{message.content}</ReactMarkdown>
       </div>
       {!isStreaming && (
-        <div className="flex flex-col gap-3.5">
-          <ConfidenceBadge confidence={message.confidence} />
-          <SourcesList sources={message.sources ?? []} />
+        <footer className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+            <ConfidenceBadge confidence={message.confidence} />
+            <SourcesList sources={message.sources ?? []} activeSource={activeSource} onOpen={onOpenSource} />
+          </div>
           {isLast && (
             <FollowUpButtons questions={message.follow_ups ?? []} onSelect={onFollowUp} />
           )}
@@ -99,7 +113,7 @@ export default function Message({ message, index, sessionId, isLast, isStreaming
             escalationId={message.escalation_id}
             onEscalated={(id) => onEscalated(index, id)}
           />
-        </div>
+        </footer>
       )}
     </div>
   )

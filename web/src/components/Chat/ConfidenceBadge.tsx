@@ -1,5 +1,5 @@
 /**
- * ConfidenceBadge — retrieval-similarity indicator shown beneath an answer.
+ * ConfidenceBadge — retrieval-similarity meter shown with an answer.
  *
  * This is the mean similarity of the passages the answer was drawn from, not a
  * probability that the answer is correct. The label says "retrieval match" for
@@ -16,16 +16,21 @@ interface Props {
 export default function ConfidenceBadge({ confidence }: Props) {
   if (confidence == null) return null
 
-  const dot =
+  const fill =
     confidence >= STRONG_MATCH ? 'bg-moss' : confidence >= PARTIAL_MATCH ? 'bg-ochre' : 'bg-brick'
+  const width = Math.max(0, Math.min(100, confidence))
 
   return (
     <span
-      className="tnum inline-flex items-center gap-2 text-[12.5px] text-ink-2"
+      className="inline-flex items-center gap-2.5 text-[12.5px] text-ink-2"
       title="Average similarity between your question and the retrieved passages. Not a measure of factual accuracy."
     >
-      <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
-      {confidence}% retrieval match
+      <span className="relative h-1.5 w-12 overflow-hidden rounded-full bg-rule" aria-hidden="true">
+        <span className={`absolute inset-y-0 left-0 rounded-full ${fill}`} style={{ width: `${width}%` }} />
+      </span>
+      <span className="tnum">
+        <span className="font-medium text-ink">{confidence}%</span> retrieval match
+      </span>
     </span>
   )
 }

@@ -1,5 +1,5 @@
 /**
- * FollowUpButtons — suggested follow-up questions, as a short list.
+ * FollowUpButtons — suggested follow-up questions, as chips.
  * Only rendered on the last assistant message. Clicking one fires sendMessage immediately.
  */
 import { ArrowUpRight } from 'lucide-react'
@@ -13,18 +13,22 @@ export default function FollowUpButtons({ questions, onSelect }: Props) {
   if (!questions.length) return null
 
   return (
-    <div className="flex flex-col border-t border-rule">
-      {questions.map((q) => (
-        <button
-          key={q}
-          type="button"
-          onClick={() => onSelect(q)}
-          className="flex min-h-10 cursor-pointer items-center gap-2.5 border-b border-rule py-2 text-left text-[13.5px] text-accent transition-colors hover:text-accent-ink"
-        >
-          <ArrowUpRight size={14} aria-hidden="true" className="shrink-0 text-ink-3" />
-          {q}
-        </button>
-      ))}
+    <div className="flex flex-col gap-2">
+      <span className="caps text-ink-3">Follow up</span>
+      <ul className="flex flex-wrap gap-2">
+        {questions.map((q) => (
+          <li key={q}>
+            <button
+              type="button"
+              onClick={() => onSelect(q)}
+              className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-rule bg-paper-3 py-1 pr-3.5 pl-3 text-left text-[13px] text-ink transition-colors hover:border-ink-3 hover:text-accent-ink"
+            >
+              <ArrowUpRight size={13} aria-hidden="true" className="shrink-0 text-ink-3" />
+              {q}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

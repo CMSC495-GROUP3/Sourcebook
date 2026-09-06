@@ -1,7 +1,7 @@
 /**
  * MessageList — the conversation, laid out as a Q&A column.
  * Auto-scrolls to the bottom when a new message arrives.
- * Shows a pulsing dot row while the assistant is thinking.
+ * Shows a status line while retrieval runs and before the first token.
  */
 import { useEffect, useRef } from 'react'
 import Message from './Message'
@@ -12,11 +12,15 @@ interface Props {
   sessionId: string | null
   loading: boolean
   streaming: boolean
+  activeSource: string | null
+  onOpenSource: (title: string) => void
   onFollowUp: (q: string) => void
   onEscalated: (index: number, escalationId: string) => void
 }
 
-export default function MessageList({ messages, sessionId, loading, streaming, onFollowUp, onEscalated }: Props) {
+export default function MessageList({
+  messages, sessionId, loading, streaming, activeSource, onOpenSource, onFollowUp, onEscalated,
+}: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -26,8 +30,8 @@ export default function MessageList({ messages, sessionId, loading, streaming, o
   const lastIndex = messages.length - 1
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-190 flex-col gap-7 px-5 pt-7 pb-6 sm:px-8 sm:pt-11">
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto flex w-full max-w-190 flex-col gap-8 px-5 pt-8 pb-6 sm:px-8 sm:pt-12">
         {messages.map((msg, i) => (
           <Message
             key={i}
@@ -36,17 +40,18 @@ export default function MessageList({ messages, sessionId, loading, streaming, o
             sessionId={sessionId}
             isLast={i === lastIndex && msg.role === 'assistant'}
             isStreaming={streaming && i === lastIndex && msg.role === 'assistant'}
+            activeSource={activeSource}
+            onOpenSource={onOpenSource}
             onFollowUp={onFollowUp}
             onEscalated={onEscalated}
           />
         ))}
 
         {loading && (
-          <div className="flex h-6 items-center gap-1.5" role="status" aria-label="Waiting for an answer">
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3 [animation-delay:0ms] motion-reduce:animate-none" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3 [animation-delay:150ms] motion-reduce:animate-none" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3 [animation-delay:300ms] motion-reduce:animate-none" />
-          </div>
+          <p role="status" className="flex items-center gap-2.5 text-[13px] text-ink-2">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-accent motion-reduce:animate-none" aria-hidden="true" />
+            Searching the indexed policies…
+          </p>
         )}
 
         <div ref={bottomRef} />

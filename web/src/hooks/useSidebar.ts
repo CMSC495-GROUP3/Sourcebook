@@ -14,11 +14,12 @@ function readDesktopPreference(): boolean {
 }
 
 /**
- * Whether the sidebar is showing, and the controls to change that.
+ * Whether the sidebar is expanded, and the controls to change that.
  *
- * On desktop the choice is remembered across reloads. On a phone the sidebar
- * always starts closed and closes again after navigation, because it covers
- * most of the screen; that state is never saved.
+ * On desktop "closed" means the icon rail, not gone, and the choice is
+ * remembered across reloads. On a phone the sidebar is a drawer that always
+ * starts closed and closes again after navigation, because it covers most of
+ * the screen; that state is never saved.
  */
 export function useSidebar() {
   const isDesktop = useMediaQuery(DESKTOP_QUERY)

@@ -1,8 +1,8 @@
 import axios from 'axios'
 import { useState } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, BookOpen, LifeBuoy, Quote } from 'lucide-react'
 import client, { TOKEN_KEY } from '../../api/client'
-import { APP_NAME, GROUNDING_NOTE } from '../../config'
+import { APP_NAME, APP_TAGLINE, ESCALATION_CONTACT } from '../../config'
 import { BrandMark } from '../Layout/Brand'
 
 interface Props {
@@ -18,6 +18,12 @@ function loginErrorMessage(err: unknown): string {
   if (status === 429) return 'Too many attempts. Wait a minute and try again.'
   return 'Sign-in is unavailable right now. Try again in a moment.'
 }
+
+const PROMISES = [
+  { icon: Quote, text: 'Every answer names the policy documents it came from.' },
+  { icon: BookOpen, text: 'Answers come only from the indexed library, which you can read in full.' },
+  { icon: LifeBuoy, text: `When nothing matches, it says so and hands you to ${ESCALATION_CONTACT}.` },
+]
 
 export default function LoginForm({ onSuccess }: Props) {
   const [password, setPassword] = useState('')
@@ -40,17 +46,39 @@ export default function LoginForm({ onSuccess }: Props) {
   }
 
   return (
-    <div className="ruled relative flex min-h-svh w-full flex-col items-center justify-center bg-paper px-4 py-16">
-      <div className="flex w-full max-w-100 flex-col gap-7 rounded-xl border border-rule-strong bg-paper-3 p-7 shadow-card sm:p-10">
-        <div className="flex flex-col gap-3.5">
-          <BrandMark size={44} />
-          <div className="flex flex-col gap-1.5">
-            <h1 className="font-display text-[34px] leading-none font-medium tracking-tight text-ink">{APP_NAME}</h1>
-            <p className="text-[14.5px] text-ink-2">Enter the password to continue.</p>
-          </div>
+    <div className="grid min-h-svh w-full grid-cols-1 bg-paper md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      {/* The left page: what this is. */}
+      <section className="ruled flex flex-col justify-between gap-10 border-b border-rule bg-paper-2 px-6 py-8 md:border-r md:border-b-0 md:px-12 md:py-12 lg:px-16">
+        <div className="flex items-center gap-3">
+          <BrandMark size={32} />
+          <span className="font-display text-[24px] leading-none font-medium tracking-tight text-ink">{APP_NAME}</span>
         </div>
+        <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-3">
+            <h1 className="font-display text-[34px] leading-[1.08] font-medium tracking-tight text-ink md:text-[44px]">
+              The policy, with its source.
+            </h1>
+            <p className="max-w-110 text-[15px] leading-normal text-ink-2 md:text-[16px]">{APP_TAGLINE}</p>
+          </div>
+          <ul className="hidden flex-col gap-3.5 md:flex">
+            {PROMISES.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-start gap-3 text-[14px] leading-normal text-ink">
+                <Icon size={16} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
+                {text}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="hidden text-[12.5px] text-ink-3 md:block">Internal tool. Ask {ESCALATION_CONTACT} for the password.</p>
+      </section>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3" noValidate>
+      {/* The right page: the form. */}
+      <section className="flex items-center justify-center px-6 py-12 md:px-12">
+        <form onSubmit={handleSubmit} className="flex w-full max-w-90 flex-col gap-6" noValidate>
+          <div className="flex flex-col gap-1.5">
+            <h2 className="font-display text-[28px] leading-none font-medium tracking-tight text-ink">Sign in</h2>
+            <p className="text-[14px] text-ink-2">Enter the shared password to continue.</p>
+          </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="password" className="text-[12.5px] font-medium text-ink-2">
               Password
@@ -64,11 +92,11 @@ export default function LoginForm({ onSuccess }: Props) {
               autoFocus
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? 'password-error' : undefined}
-              className="h-11 w-full rounded-md border border-rule-strong bg-paper px-3.5 text-[16px] text-ink transition-colors placeholder:text-ink-3 focus:border-accent focus:ring-3 focus:ring-accent-soft focus:outline-none sm:text-[15px]"
+              className="h-11 w-full rounded-md border border-rule-strong bg-paper-3 px-3.5 text-[16px] text-ink transition-colors placeholder:text-ink-3 focus:border-accent focus:ring-3 focus:ring-accent-soft focus:outline-none sm:text-[15px]"
             />
           </div>
           {error && (
-            <p id="password-error" role="alert" className="flex items-center gap-1.5 text-[13px] text-brick">
+            <p id="password-error" role="alert" className="-mt-2 flex items-center gap-1.5 text-[13px] text-brick">
               <AlertCircle size={14} aria-hidden="true" />
               {error}
             </p>
@@ -76,13 +104,13 @@ export default function LoginForm({ onSuccess }: Props) {
           <button
             type="submit"
             disabled={loading || !password}
-            className="mt-1 h-11 cursor-pointer rounded-md bg-ink text-[14.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-3"
+            className="h-11 cursor-pointer rounded-md bg-ink text-[14.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-3"
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
+          <p className="text-[12.5px] text-ink-3 md:hidden">Internal tool. Ask {ESCALATION_CONTACT} for the password.</p>
         </form>
-      </div>
-      <p className="absolute bottom-8 px-4 text-center text-[12.5px] text-ink-3">{GROUNDING_NOTE}</p>
+      </section>
     </div>
   )
 }

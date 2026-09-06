@@ -25,6 +25,7 @@ const ROW = 'flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-md 
 const ROW_IDLE = 'text-ink hover:bg-ink/5'
 const ROW_ACTIVE = 'bg-accent-soft font-medium text-accent-ink'
 const ICON_BUTTON = 'flex shrink-0 cursor-pointer items-center justify-center rounded transition-colors'
+const RAIL_BUTTON = 'flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors'
 
 export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: SidebarProps) {
   const routerNavigate = useNavigate()
@@ -133,11 +134,68 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
     onDelete: handleDeleteConversation,
   }
 
-  // Desktop: part of the row, simply absent when closed. Phone: a drawer over
-  // the page that slides in; it stays mounted so the slide can animate, and
-  // `inert` keeps its controls out of the tab order while it is off screen.
+  // Desktop, collapsed: a narrow rail that keeps the primary actions on
+  // screen. The conversation list is one click away behind the toggle.
+  if (isDesktop && !open) {
+    return (
+      <aside
+        id="app-sidebar"
+        aria-label="Navigation"
+        className="flex h-screen w-15 shrink-0 flex-col items-center border-r border-rule bg-paper-2 py-3"
+      >
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label="Open sidebar"
+          aria-expanded={false}
+          aria-controls="app-sidebar"
+          title="Open sidebar"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-ink/5"
+        >
+          <BrandMark size={24} />
+        </button>
+        <div className="mt-2 flex flex-col items-center gap-1">
+          <button
+            type="button"
+            onClick={() => navigate('/chat')}
+            title="New question"
+            aria-label="New question"
+            className={`${RAIL_BUTTON} border border-rule-strong bg-paper-3 text-ink hover:border-ink-3`}
+          >
+            <Plus size={17} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/documents')}
+            title="Policy Library"
+            aria-label="Policy Library"
+            aria-current={onLibrary ? 'page' : undefined}
+            className={`${RAIL_BUTTON} ${onLibrary ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-ink/5 hover:text-ink'}`}
+          >
+            <BookOpen size={18} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-auto flex flex-col items-center gap-1">
+          <SidebarToggle open={false} onToggle={onToggle} />
+          <button
+            type="button"
+            onClick={logout}
+            title="Sign out"
+            aria-label="Sign out"
+            className={`${RAIL_BUTTON} text-ink-3 hover:bg-ink/5 hover:text-ink`}
+          >
+            <LogOut size={17} aria-hidden="true" />
+          </button>
+        </div>
+      </aside>
+    )
+  }
+
+  // Phone: a drawer over the page that slides in; it stays mounted so the
+  // slide can animate, and `inert` keeps its controls out of the tab order
+  // while it is off screen.
   const layoutClass = isDesktop
-    ? open ? 'flex' : 'hidden'
+    ? 'flex'
     : `fixed inset-y-0 left-0 z-40 flex transform transition-transform duration-200 motion-reduce:transition-none ${
         open ? 'translate-x-0 shadow-drawer' : '-translate-x-full'
       }`
@@ -156,20 +214,29 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
         <SidebarToggle open={open} onToggle={onToggle} />
       </div>
 
-      {/* New chat */}
-      <div className="px-3 pt-3 pb-1">
+      {/* Primary actions */}
+      <div className="flex flex-col gap-0.5 px-3 pt-3 pb-1">
         <button
           type="button"
           onClick={() => navigate('/chat')}
           className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-md border border-rule-strong bg-paper-3 px-3 text-[13.5px] font-medium text-ink shadow-[0_1px_0_rgb(36_30_25/0.04)] transition-colors hover:border-ink-3"
         >
           <Plus size={15} aria-hidden="true" />
-          New chat
+          New question
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/documents')}
+          aria-current={onLibrary ? 'page' : undefined}
+          className={`${ROW} mt-1.5 h-[34px] px-2.5 ${onLibrary ? ROW_ACTIVE : ROW_IDLE}`}
+        >
+          <BookOpen size={15} aria-hidden="true" className={onLibrary ? 'text-accent' : 'text-ink-3'} />
+          Policy Library
         </button>
       </div>
 
       {/* Scrollable middle */}
-      <nav className="flex-1 overflow-y-auto px-3 py-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-1" aria-label="Recent questions">
 
         {/* ── Projects section ─────────────────────────────────────────── */}
         <div className="mt-3 flex h-7 items-center justify-between px-2.5">
@@ -209,7 +276,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
           )}
 
           {projects.length === 0 && !creatingProject && (
-            <p className="px-2.5 py-1 text-[12.5px] text-ink-3">No projects yet.</p>
+            <p className="px-2.5 py-1 text-[12.5px] text-ink-3">Group questions into a project.</p>
           )}
 
           {projects.map((project) => {
@@ -259,38 +326,25 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
           })}
         </div>
 
-        {/* ── Ungrouped conversations ───────────────────────────────────── */}
-        {(projects.length > 0 || ungrouped.length > 0) && (
-          <div>
-            {projects.length > 0 && (
-              <div className="mt-3.5 flex h-7 items-center px-2.5">
-                <span className="caps text-ink-3">Conversations</span>
-              </div>
-            )}
-            <div className="flex flex-col gap-0.5">
-              {ungrouped.map((conv) => (
-                <ConversationItem key={conv.session_id} conv={conv} {...itemProps} />
-              ))}
-            </div>
+        {/* ── Recent questions ──────────────────────────────────────────── */}
+        <div className="mt-3.5 flex h-7 items-center px-2.5">
+          <span className="caps text-ink-3">Recent</span>
+        </div>
+        {ungrouped.length === 0 ? (
+          <p className="px-2.5 py-1 text-[12.5px] text-ink-3">
+            {conversations.length === 0 ? 'Questions you ask will be kept here.' : 'Everything is filed under a project.'}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {ungrouped.map((conv) => (
+              <ConversationItem key={conv.session_id} conv={conv} {...itemProps} />
+            ))}
           </div>
-        )}
-
-        {conversations.length === 0 && projects.length === 0 && !creatingProject && (
-          <p className="px-2.5 py-2 text-[12.5px] text-ink-3">No conversations yet.</p>
         )}
       </nav>
 
-      {/* Bottom nav */}
+      {/* Sign out */}
       <div className="flex flex-col gap-0.5 border-t border-rule px-3 pt-2 pb-3.5">
-        <button
-          type="button"
-          onClick={() => navigate('/documents')}
-          aria-current={onLibrary ? 'page' : undefined}
-          className={`${ROW} h-[34px] px-2.5 ${onLibrary ? ROW_ACTIVE : ROW_IDLE}`}
-        >
-          <BookOpen size={15} aria-hidden="true" className={onLibrary ? 'text-accent' : 'text-ink-3'} />
-          Policy Library
-        </button>
         <button
           type="button"
           onClick={logout}

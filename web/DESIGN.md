@@ -9,6 +9,45 @@ in the sidebar. Status colors carry meaning and nothing else. The chat reads
 like a Q&A column with footnote-style citations rather than chat bubbles,
 because the citations are what the product is judged on.
 
+## Layout
+
+The app is an open book. The left page is the question and its answer; the
+right page is the source. Everything else is arranged to keep those two side
+by side.
+
+**Shell.** A sidebar on the left holds the primary actions (new question,
+Policy Library), projects, and recent questions. On desktop it collapses to a
+60px icon rail rather than disappearing, so the actions stay one click away.
+On phones it is a drawer over the page with a slim top bar to open it.
+
+**Home.** Before the first question there is no chat. The page is a reference
+desk: a headline, one large question box, four example questions in two
+columns, and a strip stating how many policies are indexed with category
+links into the library.
+
+**Thread.** Once a question is asked, the column becomes a Q&A article:
+question in the display face, answer as prose, then a footer with the match
+meter, citation chips, follow-up chips on the last answer, and the quiet
+escalation link. A compact composer for follow-ups sits at the bottom.
+
+**Source pane.** Clicking a citation chip opens the cited document beside
+the answer, showing the same indexed passages the library shows. It docks as
+a 400px column from 1280px up and slides over the thread below that. Escape
+closes it. Switching conversations closes it.
+
+**Refusal.** A notice, not an answer. Ochre panel with a header row (label
+and match meter), the refusal text, one line explaining that nothing indexed
+came close enough, and two actions inside the panel: ask People Operations,
+and see what is indexed.
+
+**Library.** Master-detail from 1024px up: a 400px list column (search,
+category filter, rows) beside a reading pane. Below that the list and the
+reader take turns, with a back link. The URL carries `q`, `category`, and
+`source`, so a citation can deep-link to an open document.
+
+**Sign-in.** Two pages side by side on desktop: the left states what the
+tool promises, the right is the form. They stack on phones.
+
 ## Palette
 
 Colors are defined in oklch so lightness and chroma stay comparable across

@@ -1,49 +1,41 @@
 /**
- * SourcesList — the policy documents an answer was drawn from, numbered like
- * footnotes. Open by default: the citations are the point of the product, so
- * they are visible without a click. Each one links to the Policy Library
- * filtered to that title, where the indexed passages can be read.
+ * SourcesList — the documents an answer was drawn from, as numbered citation
+ * chips. Clicking one opens that document in the source pane beside the
+ * answer, so a reader can check the passage without leaving the conversation.
  */
-import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react'
-import { ChevronRight } from 'lucide-react'
-import { Link } from 'react-router-dom'
-
 interface Props {
   sources: string[]
+  /** Title currently open in the source pane, if any. */
+  activeSource?: string | null
+  onOpen: (title: string) => void
 }
 
-export default function SourcesList({ sources }: Props) {
+export default function SourcesList({ sources, activeSource, onOpen }: Props) {
   if (!sources.length) return null
 
   return (
-    <Disclosure defaultOpen>
-      {({ open }) => (
-        <div className="flex flex-col gap-1.5">
-          <DisclosureButton className="inline-flex cursor-pointer items-center gap-1.5 self-start text-[12.5px] text-ink-2 transition-colors hover:text-ink">
-            <ChevronRight
-              size={12}
-              aria-hidden="true"
-              className={`text-ink-3 transition-transform duration-150 motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
-            />
-            {sources.length} source{sources.length !== 1 ? 's' : ''}
-          </DisclosureButton>
-          <DisclosurePanel as="ol" className="flex flex-col gap-1">
-            {sources.map((src, i) => (
-              <li key={src} className="flex items-baseline gap-2.5 text-[13px]">
-                <span className="tnum w-3.5 shrink-0 text-right text-ink-3" aria-hidden="true">
-                  {i + 1}
-                </span>
-                <Link
-                  to={`/documents?q=${encodeURIComponent(src)}`}
-                  className="text-accent underline-offset-3 hover:text-accent-ink hover:underline"
-                >
-                  {src}
-                </Link>
-              </li>
-            ))}
-          </DisclosurePanel>
-        </div>
-      )}
-    </Disclosure>
+    <ol className="flex flex-wrap gap-1.5" aria-label="Sources">
+      {sources.map((title, i) => {
+        const active = title === activeSource
+        return (
+          <li key={title} className="min-w-0 max-w-full">
+            <button
+              type="button"
+              onClick={() => onOpen(title)}
+              aria-pressed={active}
+              title="Read the indexed passages"
+              className={`inline-flex h-7 max-w-full cursor-pointer items-center gap-2 rounded-md border pr-2.5 pl-2 text-[12.5px] transition-colors ${
+                active
+                  ? 'border-accent bg-accent-soft text-accent-ink'
+                  : 'border-rule bg-paper-3 text-ink hover:border-accent hover:text-accent-ink'
+              }`}
+            >
+              <span className={`tnum ${active ? 'text-accent' : 'text-ink-3'}`} aria-hidden="true">{i + 1}</span>
+              <span className="truncate">{title}</span>
+            </button>
+          </li>
+        )
+      })}
+    </ol>
   )
 }

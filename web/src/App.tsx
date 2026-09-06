@@ -22,10 +22,6 @@ function readIsAuthenticated(): boolean {
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const sidebar = useSidebar()
-  // On desktop the toggle lives in the sidebar while it is open. Everywhere
-  // else (sidebar hidden, or any phone) a slim bar above the page holds it
-  // and the brand, so pages never have to leave room for a floating button.
-  const showTopBar = !sidebar.open || !sidebar.isDesktop
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -43,7 +39,9 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
         />
       )}
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {showTopBar && (
+        {/* On desktop the sidebar is always on screen, expanded or as a rail,
+            so only phones need a bar to reach it from. */}
+        {!sidebar.isDesktop && (
           <div className="flex h-13 shrink-0 items-center gap-2.5 border-b border-rule px-2">
             <SidebarToggle open={sidebar.open} onToggle={sidebar.toggle} />
             <BrandMark size={20} />
