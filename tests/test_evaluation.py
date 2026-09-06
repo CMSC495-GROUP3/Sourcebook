@@ -561,3 +561,20 @@ def test_score_results_reports_all_ambiguous_identities_for_review():
     ]
     assert report["ambiguous_review"]["clarification_scoring"] == "manual"
     assert sum(report["category_counts"].values()) == report["evaluated_cases"]
+
+
+def test_hr_lifecycle_full_cases_reference_new_policies():
+    """New full-tier lifecycle cases exist and name titles that are in the corpus."""
+    cases = {case["id"]: case for case in load_cases(FULL_DATASET)}
+    for case_id in (
+        "full_answerable_39",
+        "full_answerable_41",
+        "full_answerable_43",
+        "full_answerable_44",
+        "full_answerable_45",
+        "full_answerable_46",
+    ):
+        assert case_id in cases
+    assert "Paid Time Off (PTO) Policy" in cases["full_answerable_43"]["expected_sources"]
+    assert "Parental Leave Policy" in cases["full_answerable_46"]["expected_sources"]
+    validate_sources_against_corpus(load_cases(FULL_DATASET))
