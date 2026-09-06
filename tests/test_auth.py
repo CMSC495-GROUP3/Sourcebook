@@ -8,9 +8,9 @@ from datetime import timedelta
 import bcrypt
 import pytest
 from conftest import TEST_PASSWORD
-from jose import jwt
 
 from policy_assistant.api.routes import auth as auth_routes
+from policy_assistant.api.tokens import decode_claims
 
 
 def _cost4_hash() -> str:
@@ -93,11 +93,8 @@ def test_login_records_which_password_was_used(client, monkeypatch, caplog, pass
     with caplog.at_level(logging.INFO, logger="policy_assistant.api.routes.auth"):
         response = client.post("/api/auth/login", json={"password": password})
     assert response.status_code == 200
-    claims = jwt.decode(
-        response.json()["access_token"],
-        auth_routes.SECRET_KEY,
-        algorithms=[auth_routes.ALGORITHM],
-    )
+    claims = decode_claims(response.json()["access_token"])
+    assert claims is not None
     assert claims["sub"] == "user"
     assert claims["cred"] == variable
     assert claims["fingerprint"] == auth_routes.credential_fingerprint(os.environ[variable])
