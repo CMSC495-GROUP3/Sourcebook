@@ -31,7 +31,9 @@ source pane to dock (1160px), that last part is a facing page in the pane's
 slot: a 60px header band, then a table of contents on ruled paper behind a
 hairline spine 24px past the column: a running head in the display face's
 italic at 22px ("Topics you can ask about", kept well below the 40px
-question beside it), the category links at 15px medium, one line saying
+question beside it), the category links at 14px in the same secondary ink,
+indented behind a small chevron that goes green with the text on hover, one
+line saying
 every answer cites one of the indexed policies, and the link into the
 library. The book has two pages before anything is cited, and the source pane
 later lands where the facing page was. Narrower than that, it is a strip

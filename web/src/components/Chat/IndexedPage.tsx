@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, ChevronRight } from 'lucide-react'
 import type { LibrarySummary } from '../../hooks/useLibrarySummary'
 
 interface Props {
@@ -30,7 +30,9 @@ export default function IndexedPage({ library }: Props) {
           <div className="flex max-w-100 flex-col">
             {/* A running head, not a second title: the left page already carries the
                 question in the display face at 40px, so this is the same face in
-                italic at 22px, and the entries below it are the substance. */}
+                italic at 22px. The entries share its ink and sit 8px smaller behind
+                a chevron in the gutter, like chapters under a part title; tone,
+                not size, is what would make them outrank it. */}
             <h3 className="relative top-px font-display text-[22px] leading-6 font-normal text-ink-2 italic">
               Topics you can ask about
             </h3>
@@ -40,8 +42,13 @@ export default function IndexedPage({ library }: Props) {
                   <li key={category} className="leading-6">
                     <Link
                       to={`/documents?category=${encodeURIComponent(category)}`}
-                      className="text-[15px] font-medium text-ink transition-colors hover:text-accent"
+                      className="group inline-flex items-center gap-1 text-[14px] leading-6 text-ink-2 transition-colors hover:text-accent-ink"
                     >
+                      <ChevronRight
+                        size={12}
+                        aria-hidden="true"
+                        className="shrink-0 text-ink-3 transition-colors group-hover:text-accent-ink"
+                      />
                       {category}
                     </Link>
                   </li>
