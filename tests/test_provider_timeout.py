@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import anyio.to_thread
-import httpx
 import openai
 import pytest
 from conftest import TEST_PASSWORD
@@ -45,7 +44,7 @@ def test_openai_client_uses_configured_timeout_and_retries(monkeypatch):
     assert captured["api_key"] == "sk-test-not-used"
     assert captured["max_retries"] == 0
     timeout = captured["timeout"]
-    assert isinstance(timeout, httpx.Timeout)
+    assert isinstance(timeout, openai.Timeout)
     assert timeout.read == 12.5
     assert timeout.write == 12.5
     assert timeout.connect == 5.0
