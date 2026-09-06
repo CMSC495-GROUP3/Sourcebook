@@ -41,6 +41,12 @@ jobs:
       # Settings live in pyproject.toml. `make fmt` fixes everything this reports.
       - run: ruff check --output-format github .
       - run: ruff format --check --diff .
+      - name: Lock files match requirements
+        run: |
+          pip install pip-tools
+          diff --ignore-matching-lines='^#' <(pip-compile --quiet --output-file=- requirements/api.txt) requirements/api.lock.txt
+          diff --ignore-matching-lines='^#' <(pip-compile --quiet --output-file=- requirements/dev.txt) requirements/dev.lock.txt
+          diff --ignore-matching-lines='^#' <(pip-compile --quiet --output-file=- requirements/ingest.txt) requirements/ingest.lock.txt
 
   python-tests:
     name: Python tests (Python ${{ matrix.python }})
@@ -58,8 +64,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: requirements/*.txt
-      - run: pip install -r requirements/dev.txt
+          cache-dependency-path: requirements/*.lock.txt
+      - run: pip install -r requirements/dev.lock.txt
       # Everything external is stubbed by tests/conftest.py: no database, no
       # model provider, no secrets needed.
       - name: Run the suite with coverage
