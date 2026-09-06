@@ -249,8 +249,14 @@ covers `.env`; the rest is on you.
   security group, `SITE_ADDRESS` in `.env`, the timer) is in the README's
   Deployment section.
 
-## Adding a Python Dependency
+## Adding a Python dependency
 
-- If for some reason you need to add a new Python dependency, edit the relevant requirements/*.txt file (never a .lock.txt file) then regenerate its lock and commit both:
+Edit the relevant `requirements/*.txt` file, never a `.lock.txt`, then regenerate
+the locks and commit both:
 
     make lock
+
+`make setup` installs `pip-tools`, which provides `pip-compile`. CI runs the
+same command and fails if a committed lock no longer matches its `.txt`. To
+upgrade pinned versions on purpose, run `pip-compile --upgrade` on the file you
+mean to move and commit that as its own change.

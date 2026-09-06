@@ -41,12 +41,16 @@ jobs:
       # Settings live in pyproject.toml. `make fmt` fixes everything this reports.
       - run: ruff check --output-format github .
       - run: ruff format --check --diff .
+      # Same invocation as `make lock`. pip-compile keeps the pins already in the
+      # output file, so this only changes a lock when its requirements/*.txt
+      # changed; upgrades are a deliberate `pip-compile --upgrade` in their own PR.
       - name: Lock files match requirements
         run: |
           pip install pip-tools
-          diff --ignore-matching-lines='^#' <(pip-compile --quiet --output-file=- requirements/api.txt) requirements/api.lock.txt
-          diff --ignore-matching-lines='^#' <(pip-compile --quiet --output-file=- requirements/dev.txt) requirements/dev.lock.txt
-          diff --ignore-matching-lines='^#' <(pip-compile --quiet --output-file=- requirements/ingest.txt) requirements/ingest.lock.txt
+          pip-compile --quiet -o requirements/api.lock.txt requirements/api.txt
+          pip-compile --quiet -o requirements/dev.lock.txt requirements/dev.txt
+          pip-compile --quiet -o requirements/ingest.lock.txt requirements/ingest.txt
+          git diff --exit-code -- requirements/*.lock.txt
 
   python-tests:
     name: Python tests (Python ${{ matrix.python }})
