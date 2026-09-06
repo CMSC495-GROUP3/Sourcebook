@@ -300,8 +300,8 @@ ingestion script uses, at 1536 doubles per vector:
 
 |                |                                             |
 | -------------- | ------------------------------------------- |
-| Documents      | 37                                          |
-| Passages       | 142                                         |
+| Documents      | 42                                          |
+| Passages       | 157                                         |
 | Vector storage | about 1.7 MB, 0.33% of the 512 MB allowance |
 
 An earlier 11-document corpus measured 0.55 MB in Atlas against 0.58 MB by the
@@ -466,7 +466,7 @@ password's sessions; the other password's sessions keep working.
 
 ### 2. Load the corpus
 
-`data/sample-policies/` holds 37 fictional HR documents for demonstration.
+`data/sample-policies/` holds 42 fictional HR documents for demonstration.
 Replace them with real ones and the same commands apply.
 
 ```bash
@@ -561,27 +561,35 @@ locally, plus one variable in `.env`.
    runs a weekly `docker builder prune -f --keep-storage 300M` so the build
    cache cannot fill the root volume between rebuilds. `auto_deploy.sh`
    also prunes when root free space drops under 1 GiB before a rebuild.
-   Until the volume is grown (see [Root disk](#root-disk) below), run
+   The pilot host's root volume was grown to 16 GB on 2026-09-05 (issue
+   #79), so a rebuild no longer competes with the build cache for space. If
+   `df -h /` ever shows under about 1 GB free again, run
    `docker builder prune -f` by hand before a deploy that rebuilds both
-   images if `df -h /` shows under about 1 GB free.
+   images, and see [Root disk](#root-disk) below.
 
 ### Root disk
 
-The pilot instance ships with a small root volume (~7 GB). Docker images are
-about 500 MB; one full rebuild leaves ~1 GB of build cache, which is enough
-to make the next rebuild fail for lack of space. Grow the EBS volume to
-16 GB (or more) in the AWS console, then on the instance:
+The pilot instance launched with a ~7 GB root volume. Docker images are about
+500 MB and one full rebuild leaves ~1 GB of build cache, which was enough to
+make the next rebuild fail for lack of space (issue #79). The volume was grown
+to 16 GB on 2026-09-05, which left about 8 GB free after a warm rebuild, and
+`docker-prune.timer` is enabled so the cache cannot creep into that headroom.
+The pre-build prune in `auto_deploy.sh` stays as a backstop.
+
+To grow the volume again, change its size in the AWS console (gp3 resizes
+online), then on the instance:
 
 ```bash
 lsblk
-sudo growpart /dev/nvme0n1 1
-sudo resize2fs /dev/nvme0n1p1
+sudo growpart /dev/xvda 1
+sudo resize2fs /dev/xvda1
 df -h /
 ```
 
-Device names come from `lsblk`; older instances may show `/dev/xvda` instead
-of `nvme0n1`. The resize is online. Keep `docker-prune.timer` enabled so the
-cache still cannot creep to fill whatever headroom you add.
+Device names come from `lsblk`. The pilot host shows `/dev/xvda`; Nitro
+instance types show `/dev/nvme0n1` and `nvme0n1p1` instead. `growpart` prints
+`NOCHANGE` when the partition already fills the volume, which means the volume
+itself has not been grown yet.
 
 ### Automatic deploys
 
@@ -626,7 +634,8 @@ git update-ref -d refs/deployed/main
 Hosts that already run the older auto-deploy timer need a one-time handoff
 before the first tick that executes the retry-aware script. Without a seeded
 `refs/deployed/main`, that tick diffs against the empty tree, rebuilds both
-images with `--pull`, and recreates Caddy—risky on a near-full root disk.
+images with `--pull`, and recreates Caddy: a slow, avoidable rebuild that
+failed outright while the root disk was near full (issue #79).
 
 1. Confirm the checkout is clean under the new rule (untracked files count):
 
@@ -793,6 +802,7 @@ policy_assistant/   the Python application, one package, absolute imports only
     main.py           app factory and lifespan; mounts routes/
     db.py             collection handles and index creation
     limiter.py        the slowapi rate limiter; routes set the limits
+    tokens.py         JWT signing and verification, shared by auth, deps, and limiter
     analytics.py      one query_logs record per request
     notify.py         best-effort webhook delivery for escalations
     routes/           one file per area
@@ -816,7 +826,7 @@ tests/              pytest suite; conftest.py stubs every external service
 scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, and the
                     load-test harness in loadtest/
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
-data/               37 fictional sample policies
+data/               42 fictional sample policies
 docs/brand/         the Sourcebook icon
 requirements/       base.txt shared; api.txt (the Docker image), ingest.txt, lint.txt, dev.txt (everything)
 pyproject.toml      ruff and pytest settings

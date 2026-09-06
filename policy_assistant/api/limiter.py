@@ -5,42 +5,34 @@ that needs a rate limit decorator.
 """
 
 import logging
-import os
 
 from fastapi import Request
 from fastapi.responses import Response
-from jose import JWTError, jwt
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+
+from policy_assistant.api.tokens import bearer_token, cred_claim, decode_claims
 
 logger = logging.getLogger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
 
-# Same secret the auth dependency uses. Read at call time so tests that patch
-# the env after import still see the current value.
-_ALGORITHM = "HS256"
-
 
 def _cred_claim(request: Request) -> str | None:
-    """Return the JWT ``cred`` claim for logging, or None if absent/invalid.
+    """Return the JWT ``cred`` claim for logging, or None.
 
-    Does not log the token. A missing or bad Authorization header is treated
-    the same as no claim — rate limits also cover unauthenticated routes.
+    Same decode as require_auth, via policy_assistant.api.tokens, so the log
+    line and the auth check cannot disagree about who a token belongs to. None
+    means the header is missing or malformed, the token does not verify, or
+    the claim is not shaped like a variable name; a verified, well-shaped
+    ``cred`` is logged as is, whether or not it names a configured hash. Does
+    not log the token. Rate limits also cover unauthenticated routes.
     """
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    token = bearer_token(request.headers.get("Authorization"))
+    if token is None:
         return None
-    secret = os.getenv("JWT_SECRET_KEY")
-    if not secret:
-        return None
-    try:
-        payload = jwt.decode(auth[7:], secret, algorithms=[_ALGORITHM])
-    except JWTError:
-        return None
-    cred = payload.get("cred")
-    return cred if isinstance(cred, str) else None
+    return cred_claim(decode_claims(token))
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Response:
