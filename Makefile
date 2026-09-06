@@ -27,7 +27,7 @@ FAKE_SCORE := $(if $(REFUSE),0.50,0.78)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup stub web test cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean
+.PHONY: help setup stub web test cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean lock
 
 help: ## Show this list
 ifeq ($(OS),Windows_NT)
@@ -42,7 +42,7 @@ setup: ## One-time: create .venv, install Python and Node dependencies
 ifeq ($(wildcard $(VENV)/.),)
 	$(PYTHON) -m venv $(VENV)
 endif
-	$(PIP) install -q -r requirements/dev.txt
+	$(PIP) install -q -r requirements/dev.lock.txt
 	cd $(WEB) && npm install
 
 stub: export APP_PASSWORD_HASH = $(shell $(PY) -c "import bcrypt; print(bcrypt.hashpw(b'$(DEV_PASSWORD)', bcrypt.gensalt()).decode())")
@@ -75,6 +75,11 @@ fmt: ## Fix lint findings and format the Python code
 
 audit: ## Known vulnerabilities in the Python and npm dependency trees
 	./scripts/audit.sh
+
+lock: ## Regenerate requirements/*.lock.txt from requirements/*.txt (same command CI checks with)
+	$(VENV_BIN)/pip-compile --quiet -o requirements/api.lock.txt requirements/api.txt
+	$(VENV_BIN)/pip-compile --quiet -o requirements/dev.lock.txt requirements/dev.txt
+	$(VENV_BIN)/pip-compile --quiet -o requirements/ingest.lock.txt requirements/ingest.txt
 
 build: ## Production build of the web app
 	cd $(WEB) && npm run -s build
