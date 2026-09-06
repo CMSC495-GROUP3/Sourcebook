@@ -26,6 +26,8 @@ botocore==1.43.89
     # via
     #   boto3
     #   s3transfer
+build==1.6.0
+    # via pip-tools
 cachecontrol[filecache]==0.14.4
     # via
     #   cachecontrol
@@ -40,7 +42,9 @@ cffi==2.1.1
 charset-normalizer==3.5.1
     # via requests
 click==8.5.0
-    # via uvicorn
+    # via
+    #   pip-tools
+    #   uvicorn
 coverage[toml]==7.16.0
     # via pytest-cov
 cryptography==50.0.1
@@ -124,18 +128,22 @@ packageurl-python==0.17.6
     # via cyclonedx-python-lib
 packaging==26.3
     # via
+    #   build
     #   langchain-core
     #   langsmith
     #   limits
     #   pip-audit
     #   pip-requirements-parser
     #   pytest
+    #   wheel
 pip-api==0.0.34
     # via pip-audit
 pip-audit==2.10.1
     # via -r requirements/dev.txt
 pip-requirements-parser==32.0.1
     # via pip-audit
+pip-tools==7.6.1
+    # via -r requirements/dev.txt
 platformdirs==4.11.7
     # via pip-audit
 pluggy==1.6.0
@@ -166,6 +174,10 @@ pymongo==4.18.0
     # via -r requirements/base.txt
 pyparsing==3.3.2
     # via pip-requirements-parser
+pyproject-hooks==1.2.0
+    # via
+    #   build
+    #   pip-tools
 pytest==9.1.1
     # via
     #   -r requirements/dev.txt
@@ -261,6 +273,8 @@ websockets==17.1
     # via
     #   langsmith
     #   uvicorn
+wheel==0.48.0
+    # via pip-tools
 wrapt==2.4.0
     # via deprecated
 xxhash==4.0.1
@@ -270,3 +284,4 @@ zstandard==0.25.0
 
 # The following packages are considered to be unsafe in a requirements file:
 # pip
+# setuptools

@@ -300,8 +300,8 @@ ingestion script uses, at 1536 doubles per vector:
 
 |                |                                             |
 | -------------- | ------------------------------------------- |
-| Documents      | 37                                          |
-| Passages       | 142                                         |
+| Documents      | 42                                          |
+| Passages       | 157                                         |
 | Vector storage | about 1.7 MB, 0.33% of the 512 MB allowance |
 
 An earlier 11-document corpus measured 0.55 MB in Atlas against 0.58 MB by the
@@ -466,7 +466,7 @@ password's sessions; the other password's sessions keep working.
 
 ### 2. Load the corpus
 
-`data/sample-policies/` holds 37 fictional HR documents for demonstration.
+`data/sample-policies/` holds 42 fictional HR documents for demonstration.
 Replace them with real ones and the same commands apply.
 
 ```bash
@@ -796,6 +796,7 @@ policy_assistant/   the Python application, one package, absolute imports only
     main.py           app factory and lifespan; mounts routes/
     db.py             collection handles and index creation
     limiter.py        the slowapi rate limiter; routes set the limits
+    tokens.py         JWT signing and verification, shared by auth, deps, and limiter
     analytics.py      one query_logs record per request
     notify.py         best-effort webhook delivery for escalations
     routes/           one file per area
@@ -819,7 +820,7 @@ tests/              pytest suite; conftest.py stubs every external service
 scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, and the
                     load-test harness in loadtest/
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
-data/               37 fictional sample policies
+data/               42 fictional sample policies
 docs/brand/         the Sourcebook icon
 requirements/       base.txt shared; api.txt (the Docker image), ingest.txt, lint.txt, dev.txt (everything)
 pyproject.toml      ruff and pytest settings
