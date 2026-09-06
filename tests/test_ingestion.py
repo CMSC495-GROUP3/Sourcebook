@@ -162,8 +162,8 @@ def test_reingestion_replaces_stale_passages_and_invalidates_cache(monkeypatch):
     ]
 
     class Provider:
-        def embed(self, _text: str) -> list[float]:
-            return [0.25, 0.75]
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
 
     monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
     monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
@@ -272,3 +272,75 @@ def test_ingestion_batches_embeddings_per_document(monkeypatch):
 
     assert len(provider.calls) == 1
     assert len(provider.calls[0]) > 1
+
+
+def test_failed_embedding_leaves_corpus_and_version_untouched(monkeypatch):
+    """The property #89 cares about most: a rebuild that dies part-way changes
+    nothing. Two documents; the provider embeds the first and raises on the
+    second, so the failure lands after some work has been done."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        ("documents/pto.md", "Title: Paid Time Off\n\nEmployees accrue 15 PTO days."),
+        ("documents/conduct.md", "Title: Code of Conduct\n\nEmployees act professionally."),
+    ]
+    seeded = [
+        {"source": "documents/pto.md", "chunk_index": 0, "text": "old pto", "embedding": [0.1]},
+        {"source": "documents/gone.md", "chunk_index": 0, "text": "old gone", "embedding": [0.2]},
+    ]
+    FAKE_DB["passages"].insert_many([dict(record) for record in seeded])
+    version_before = get_corpus_version()
+
+    class Provider:
+        calls = 0
+
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            Provider.calls += 1
+            if Provider.calls == 2:
+                raise RuntimeError("embedding service unavailable")
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    with pytest.raises(RuntimeError, match="embedding service unavailable"):
+        ingestion.embed_and_store()
+
+    remaining = [
+        {key: value for key, value in passage.items() if key != "_id"}
+        for passage in FAKE_DB["passages"].find({})
+    ]
+    assert remaining == seeded
+    assert get_corpus_version() == version_before
+
+
+def test_document_that_shrinks_loses_its_obsolete_chunks(monkeypatch):
+    """Three chunks on record for one source; the new version yields one. The
+    per-source delete must drop chunk 1 and 2 and keep the stale-source delete
+    from touching a source that is still present."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [("documents/pto.md", "Title: Paid Time Off\n\nOne short paragraph now.")]
+    for index in range(3):
+        FAKE_DB["passages"].insert_one(
+            {
+                "source": "documents/pto.md",
+                "chunk_index": index,
+                "text": f"old chunk {index}",
+                "embedding": [0.1 * index],
+            }
+        )
+
+    class Provider:
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    passages = list(FAKE_DB["passages"].find({"source": "documents/pto.md"}))
+    assert [passage["chunk_index"] for passage in passages] == [0]
+    assert passages[0]["text"] == "One short paragraph now."
+    assert passages[0]["embedding"] == [0.25, 0.75]

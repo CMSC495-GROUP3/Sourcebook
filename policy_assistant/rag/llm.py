@@ -171,6 +171,9 @@ class OpenAIProvider(LLMProvider):
         return response.data[0].embedding
 
     def embed_many(self, texts: list[str]) -> list[list[float]]:
+        """One request per document's chunks. A document is a few dozen chunks,
+        far below the API's 2048-input and per-request token limits; a whole
+        corpus in one call would not be, so keep batches per document."""
         if not texts:
             return []
 
@@ -180,7 +183,9 @@ class OpenAIProvider(LLMProvider):
                 input=texts,
             )
 
-        return [item.embedding for item in response.data]
+        # Each item carries the index of its input. The docs say the list is
+        # already in input order; sorting makes the upsert independent of that.
+        return [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
 
     def embedding_dimensions(self) -> int:
         return self.EMBEDDING_DIMENSIONS

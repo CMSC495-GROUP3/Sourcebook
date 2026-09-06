@@ -84,20 +84,13 @@ def embed_and_store() -> None:
         records = passage_records(document, key, chunks)
 
         texts = [record["text"] for record in records]
-        embed_many = getattr(provider, "embed_many", None)
-
-        if embed_many is not None:
-            embeddings = embed_many(texts)
-        else:
-            embeddings = [provider.embed(text) for text in texts]
-
+        embeddings = provider.embed_many(texts)
         if len(embeddings) != len(records):
             raise RuntimeError(
                 f"Embedding provider returned {len(embeddings)} vectors "
                 f"for {len(records)} passages from {key}."
             )
-
-        for record, embedding in zip(records, embeddings, strict=True):
+        for record, embedding in zip(records, embeddings, strict=False):
             record["embedding"] = embedding
 
         prepared_records.extend(records)
