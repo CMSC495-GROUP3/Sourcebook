@@ -72,35 +72,69 @@ def embed_and_store() -> None:
             f"run python -m policy_assistant.rag.seed_documents first."
         )
 
-    # Replace the corpus wholesale so re-runs never leave stale or duplicated
-    # passages behind. Small corpus, so a full rebuild is cheaper than diffing.
-    deleted = collection.delete_many({}).deleted_count
-    print(f"Cleared {deleted} existing passages.\n")
+    provider = get_provider()
+    prepared_records: list[dict] = []
+    active_chunks: dict[str, set[int]] = {}
 
-    total = 0
+    # Prepare the complete replacement corpus before changing the live collection.
+    # If parsing or embedding fails, the existing corpus remains untouched.
     for key, raw in documents:
         document = parse_document(key, raw)
         chunks = splitter.split_text(document["body"])
         records = passage_records(document, key, chunks)
 
-        for record in records:
-            record["embedding"] = get_provider().embed(record["text"])
+        texts = [record["text"] for record in records]
+        embeddings = provider.embed_many(texts)
+        if len(embeddings) != len(records):
+            raise RuntimeError(
+                f"Embedding provider returned {len(embeddings)} vectors "
+                f"for {len(records)} passages from {key}."
+            )
+        for record, embedding in zip(records, embeddings, strict=False):
+            record["embedding"] = embedding
 
-        if records:
-            collection.insert_many(records)
-            total += len(records)
+        prepared_records.extend(records)
+        active_chunks[key] = {record["chunk_index"] for record in records}
 
-        print(f"  {document['title']:<45} {len(records):>3} passages")
+        print(f"  {document['title'][:45]:45} {len(records):>3} passages")
 
-    # Changing the corpus version invalidates every cached answer, because the
-    # version is part of the cache key. Nothing needs to be deleted.
+    # Upsert the new corpus while the previous corpus remains queryable.
+    for record in prepared_records:
+        collection.update_one(
+            {
+                "source": record["source"],
+                "chunk_index": record["chunk_index"],
+            },
+            {"$set": record},
+            upsert=True,
+        )
+
+    # Remove documents that no longer exist in S3.
+    active_sources = list(active_chunks)
+    stale_count = collection.delete_many({"source": {"$nin": active_sources}}).deleted_count
+
+    # Remove obsolete chunks when an existing document now produces fewer passages.
+    for source, chunk_indexes in active_chunks.items():
+        if chunk_indexes:
+            stale_count += collection.delete_many(
+                {
+                    "source": source,
+                    "chunk_index": {"$nin": list(chunk_indexes)},
+                }
+            ).deleted_count
+        else:
+            stale_count += collection.delete_many({"source": source}).deleted_count
+
+    # Only invalidate cached answers after the replacement corpus is complete.
     version = bump_corpus_version()
-    print(f"\nDone. {len(documents)} documents → {total} passages in MongoDB.")
+
+    print(f"\nDone. {len(documents)} documents → {len(prepared_records)} passages in MongoDB.")
+    print(f"Removed {stale_count} stale passages.")
     print(f"Corpus version now {version[:8]} — cached answers invalidated.")
     print(
         "\nIf you have not created it yet, add an Atlas Vector Search index named "
-        f"'{os.getenv('VECTOR_INDEX_NAME', 'vector_index')}' on the "
-        f"'{PASSAGES_COLLECTION}' collection — see the README."
+        f'"{os.getenv("VECTOR_INDEX_NAME", "vector_index")}" on the '
+        f'"{PASSAGES_COLLECTION}" collection — see the README.'
     )
 
 

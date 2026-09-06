@@ -474,6 +474,19 @@ python -m policy_assistant.rag.seed_documents     # upload data/sample-policies/
 python -m policy_assistant.rag.embed_documents    # chunk, embed, store in Atlas
 ```
 
+Re-ingestion keeps the current corpus available while the replacement is
+prepared. Every document is parsed and embedded first, one batch per document;
+if any of that fails, the live collection and the corpus version are left as
+they were. Then the new passages are upserted in place by `(source,
+chunk_index)`, and only after they are all written does ingestion remove
+sources and chunks that are no longer present in S3 and bump the corpus
+version. The live `passages` collection is never emptied, and the Atlas
+collection and its Vector Search index are never renamed or recreated. The
+one caveat: while the upsert loop runs, a document whose chunk boundaries
+moved can briefly have an old chunk and its overlapping replacement side by
+side, so retrieval for a few seconds may surface both. That is consistent
+enough to answer from, which is what #89 asked for.
+
 In Atlas, create a Vector Search index named `vector_index` on the `passages`
 collection:
 
@@ -856,8 +869,10 @@ The product name lives in three places: `APP_NAME` in
   and the collection handles bind at import. `uvicorn --workers` is safe
   because each worker imports the app after forking. See
   `policy_assistant/rag/mongo.py`.
-- **Ingestion replaces the whole corpus** on each run rather than diffing.
-  Cheap and predictable at this size, wasteful at scale.
+- **Re-ingestion is not atomic.** Passages are upserted one at a time, so for a
+  few seconds a document whose chunk boundaries moved can be retrieved with an
+  old chunk and its replacement side by side. Acceptable for a pilot; a staged
+  collection swap would close the window.
 - **Hosting is one instance with no redundancy**, on a free DuckDNS subdomain.
   A real deployment would sit on a company domain behind a load balancer. The
   Compose file would move unchanged; only `SITE_ADDRESS` would differ.

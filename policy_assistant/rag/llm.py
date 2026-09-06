@@ -56,6 +56,10 @@ class LLMProvider(ABC):
         index — see the migration note in the README.
         """
 
+    def embed_many(self, texts: list[str]) -> list[list[float]]:
+        """Return embedding vectors for multiple texts in input order."""
+        return [self.embed(text) for text in texts]
+
     @abstractmethod
     def embedding_dimensions(self) -> int:
         """Vector length this provider's embedding model produces."""
@@ -165,6 +169,23 @@ class OpenAIProvider(LLMProvider):
                 input=text,
             )
         return response.data[0].embedding
+
+    def embed_many(self, texts: list[str]) -> list[list[float]]:
+        """One request per document's chunks. A document is a few dozen chunks,
+        far below the API's 2048-input and per-request token limits; a whole
+        corpus in one call would not be, so keep batches per document."""
+        if not texts:
+            return []
+
+        with self._request_slot():
+            response = self._client.embeddings.create(
+                model=self.EMBEDDING_MODEL,
+                input=texts,
+            )
+
+        # Each item carries the index of its input. The docs say the list is
+        # already in input order; sorting makes the upsert independent of that.
+        return [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
 
     def embedding_dimensions(self) -> int:
         return self.EMBEDDING_DIMENSIONS
