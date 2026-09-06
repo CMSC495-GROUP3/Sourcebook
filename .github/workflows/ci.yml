@@ -201,6 +201,17 @@ jobs:
           -e LLM_PROVIDER=fake
           policy-assistant-api:ci
           python -c "import bcrypt, os; os.environ['APP_PASSWORD_HASH'] = bcrypt.hashpw(b'ci', bcrypt.gensalt(4)).decode(); import policy_assistant.api.main; print('API image imports cleanly')"
+      - name: API image can construct the OpenAI provider
+        # The import check above runs with LLM_PROVIDER=fake, so it never
+        # reaches OpenAIProvider.__init__, where the SDK imports live. This
+        # step does, with a placeholder key. get_provider() only builds the
+        # client; nothing is sent to OpenAI until embed or stream is called.
+        run: >
+          docker run --rm
+          -e LLM_PROVIDER=openai
+          -e OPENAI_API_KEY=sk-ci-placeholder
+          policy-assistant-api:ci
+          python -c "from policy_assistant.rag.llm import get_provider; p = get_provider(); print('provider', p.name, 'ready')"
       - name: Compose file is valid
         run: |
           cp .env.example .env
