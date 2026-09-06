@@ -120,14 +120,16 @@ def test_secret_is_read_at_call_time(monkeypatch):
     assert tokens.decode_claims(token) is None, (
         "a token signed under the old secret must not verify"
     )
-    assert tokens.cred_claim(tokens.decode_claims(tokens.encode_token({"cred": "x"}))) == "x"
+    # A token minted under the rotated secret verifies, with cred intact.
+    assert tokens.cred_claim(tokens.decode_claims(_token())) == PRIMARY_PASSWORD_HASH_VAR
 
 
 def test_forged_cred_cannot_split_the_rate_limit_log_line(client, caplog):
     """The login route is rate limited but not authenticated, so it is the one
     place a token that require_auth would reject still reaches the 429 log
     line. A newline in ``cred`` used to land there verbatim (issue #153)."""
-    forged = f"Bearer {_token(cred='APP_PASSWORD_HASH\\nWARNING forged line')}"
+    forged_cred = "APP_PASSWORD_HASH\nWARNING forged line"
+    forged = f"Bearer {_token(cred=forged_cred)}"
     limiter.enabled = True
     limiter.reset()
     with caplog.at_level(logging.WARNING, logger="policy_assistant.api.limiter"):
