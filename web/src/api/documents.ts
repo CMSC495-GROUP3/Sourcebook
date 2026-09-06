@@ -38,8 +38,12 @@ export async function fetchPassages(source: string): Promise<string[]> {
   return res.data
 }
 
-/** Resolve a cited title to its library record; null when the corpus no longer has it. */
+/**
+ * Resolve a cited title to its library record; null when the corpus no longer
+ * has it. Exact title only: the pane is the audit trail for a citation, so a
+ * near miss must show as missing rather than as a different document.
+ */
 export async function findDocumentByTitle(title: string): Promise<PolicyDocument | null> {
   const { items } = await searchDocuments({ q: title, limit: 5 })
-  return items.find((doc) => doc.title === title) ?? items[0] ?? null
+  return items.find((doc) => doc.title === title) ?? null
 }

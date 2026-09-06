@@ -14,6 +14,7 @@
  */
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import { BookOpen } from 'lucide-react'
 import { APP_HEADLINE, APP_TAGLINE } from '../config'
 import { useChat } from '../hooks/useChat'
@@ -157,13 +158,15 @@ export default function ChatPage() {
         </aside>
       )}
 
+      {/* Over the thread it is a dialog: focus moves in, Tab stays in, Escape and
+          the backdrop close it, and focus returns to the chip that opened it. */}
       {activeSource && !docked && (
-        <>
-          <div className="fixed inset-0 z-30 bg-ink/35" onClick={closeSource} aria-hidden="true" />
-          <aside className="fixed inset-y-0 right-0 z-40 w-full max-w-105 shadow-drawer">
-            <SourcePane title={activeSource} onClose={closeSource} />
-          </aside>
-        </>
+        <Dialog open onClose={closeSource} aria-label="Source" className="relative z-40">
+          <DialogBackdrop className="fixed inset-0 bg-ink/35" />
+          <DialogPanel className="fixed inset-y-0 right-0 w-full max-w-105 shadow-drawer">
+            <SourcePane title={activeSource} onClose={closeSource} modal />
+          </DialogPanel>
+        </Dialog>
       )}
     </div>
   )

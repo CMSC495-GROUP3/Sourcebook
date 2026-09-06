@@ -36,7 +36,7 @@ export default function DocumentCard({ document, selected, onSelect }: Props) {
           {document.preview && (
             <span className="line-clamp-2 text-[12.5px] leading-normal text-ink-2">{document.preview}</span>
           )}
-          <span className="tnum flex flex-wrap items-center gap-x-2 text-[11.5px] text-ink-3">
+          <span className="tnum flex flex-wrap items-center gap-x-2 text-[12px] text-ink-2">
             {document.category && <span className="caps text-[10px]">{document.category}</span>}
             <span>{meta}</span>
           </span>

@@ -52,10 +52,12 @@ export default function MessageList({
   const lastQuestion = turns.length ? turns[turns.length - 1].question : -1
 
   // Instant rather than smooth: a smooth scroll is cancelled by the layout
-  // changes that follow (the status line, then streaming tokens).
+  // changes that follow (the status line, then streaming tokens). sessionId
+  // is a dependency because two conversations with the same number of turns
+  // share a lastQuestion index, and switching between them must still scroll.
   useEffect(() => {
     questionRefs.current.get(lastQuestion)?.scrollIntoView({ block: 'start', behavior: 'auto' })
-  }, [lastQuestion])
+  }, [lastQuestion, sessionId])
 
   const renderMessage = (index: number) => (
     <Message

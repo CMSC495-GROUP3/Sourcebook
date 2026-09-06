@@ -13,6 +13,8 @@ import type { PolicyDocument } from '../../types'
 interface Props {
   title: string
   onClose: () => void
+  /** Rendered inside a dialog that owns Escape and focus; skip the pane's own Escape handler. */
+  modal?: boolean
 }
 
 // Each result remembers the title it answers, so a pane that switches title
@@ -22,7 +24,7 @@ type Resolved =
   | { title: string; status: 'error' }
   | { title: string; status: 'ready'; document: PolicyDocument }
 
-export default function SourcePane({ title, onClose }: Props) {
+export default function SourcePane({ title, onClose, modal = false }: Props) {
   const [resolved, setResolved] = useState<Resolved | null>(null)
 
   useEffect(() => {
@@ -43,12 +45,13 @@ export default function SourcePane({ title, onClose }: Props) {
   const resolution = resolved?.title === title ? resolved : { status: 'loading' as const }
 
   useEffect(() => {
+    if (modal) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [onClose, modal])
 
   return (
     <section aria-label="Source" className="flex h-full flex-col bg-paper-3">
