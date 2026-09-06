@@ -4,8 +4,10 @@ import os
 
 from dotenv import load_dotenv
 
-# Load .env before importing routes — route modules read env vars at import
-# time, so load_dotenv must run first.
+# Load .env before importing anything else — rag/config.py reads every tuning
+# knob at import and the required-variable check below runs at import, so
+# load_dotenv must come first. (The JWT secret is the exception: api/tokens.py
+# reads it per call.)
 load_dotenv()
 
 # Fail fast on missing secrets. A clear startup error beats a silent security

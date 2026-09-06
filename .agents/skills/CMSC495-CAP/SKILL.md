@@ -36,6 +36,7 @@ CI runs 3.11 through 3.14. Node 22 in CI, Node 26 in the image.
 policy_assistant/   the Python application, one package, absolute imports only
   api/              FastAPI app. main.py mounts routes/; db.py binds collection handles at import
     routes/         one file per area: auth, chat, conversations, documents, escalations, projects
+    tokens.py       JWT signing and verification; auth.py, routes/deps.py, and limiter.py all use it
     analytics.py    one query_logs row per request
     notify.py       webhook delivery for escalations
   rag/              the pipeline, imported by api/ and run offline for ingestion

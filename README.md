@@ -796,6 +796,7 @@ policy_assistant/   the Python application, one package, absolute imports only
     main.py           app factory and lifespan; mounts routes/
     db.py             collection handles and index creation
     limiter.py        the slowapi rate limiter; routes set the limits
+    tokens.py         JWT signing and verification, shared by auth, deps, and limiter
     analytics.py      one query_logs record per request
     notify.py         best-effort webhook delivery for escalations
     routes/           one file per area
