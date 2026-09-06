@@ -114,10 +114,11 @@ class OpenAIProvider(LLMProvider):
     EMBEDDING_DIMENSIONS = int(os.getenv("OPENAI_EMBEDDING_DIMENSIONS", "1536"))
 
     def __init__(self) -> None:
-        # Lazy: FakeProvider must import this module without openai/httpx installed
-        # (Docker smoke with LLM_PROVIDER=fake). Keep both imports here.
-        import httpx
-        from openai import OpenAI
+        # Lazy: FakeProvider must import this module without openai installed
+        # (Docker smoke with LLM_PROVIDER=fake). Timeout comes from the SDK, not
+        # from httpx directly: openai 3.x depends on httpx2, so the api image has
+        # no module named httpx and a bare import fails on the first chat.
+        from openai import OpenAI, Timeout
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -130,7 +131,7 @@ class OpenAIProvider(LLMProvider):
         # THREADPOOL_TOKENS slot for the full read timeout.
         self._client = OpenAI(
             api_key=api_key,
-            timeout=httpx.Timeout(
+            timeout=Timeout(
                 connect=5.0,
                 read=OPENAI_TIMEOUT_SECONDS,
                 write=OPENAI_TIMEOUT_SECONDS,
