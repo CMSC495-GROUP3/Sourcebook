@@ -132,6 +132,15 @@ _FAKE_DB = FakeDB()
 mongo.get_db = lambda: _FAKE_DB
 mongo.get_collection = lambda name: LatentCollection(_FAKE_DB[name])
 
+# The canned passages also live in the passages collection, so the Policy
+# Library has one document to list and expand under `make stub`. Retrieval
+# never reads them (it is replaced below); only /api/documents does.
+from policy_assistant.rag.config import PASSAGES_COLLECTION  # noqa: E402
+
+_FAKE_DB[PASSAGES_COLLECTION].insert_many(
+    [{**p, "owner": "People Operations"} for p in CANNED_PASSAGES]
+)
+
 from policy_assistant.rag import cache  # noqa: E402
 
 cache.get_collection = mongo.get_collection

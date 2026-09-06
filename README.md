@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/brand/sourcebook-icon.svg" width="112" height="112" alt="Sourcebook">
+  <img src="docs/brand/sourcebook-icon.png" width="112" height="112" alt="Sourcebook">
 </p>
 
 <h1 align="center">Sourcebook</h1>

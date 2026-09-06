@@ -1,41 +1,43 @@
 /**
- * SourcesList — collapsible accordion naming the policy documents an answer was drawn from.
- * Uses Headless UI Disclosure so the open/close state is accessible and animated.
+ * SourcesList — the documents an answer was drawn from, as citation chips.
+ * Clicking one opens that document in the source pane beside the answer, so a
+ * reader can check the passage without leaving the conversation.
  */
-import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react'
-import { ChevronRight } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
 
 interface Props {
   sources: string[]
+  /** Title currently open in the source pane, if any. */
+  activeSource?: string | null
+  onOpen: (title: string) => void
 }
 
-
-export default function SourcesList({ sources }: Props) {
+export default function SourcesList({ sources, activeSource, onOpen }: Props) {
   if (!sources.length) return null
 
   return (
-    <Disclosure>
-      {({ open }) => (
-        <div className="mt-2">
-          <DisclosureButton className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors cursor-pointer">
-            <ChevronRight
-              size={12}
-              className={`transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
-            />
-            {sources.length} source document{sources.length !== 1 ? 's' : ''}
-          </DisclosureButton>
-          <DisclosurePanel className="mt-1.5 flex flex-wrap gap-1.5">
-            {sources.map((src) => (
-              <span
-                key={src}
-                className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-gray-300 border border-white/10"
-              >
-                {src}
-              </span>
-            ))}
-          </DisclosurePanel>
-        </div>
-      )}
-    </Disclosure>
+    <ul className="flex flex-wrap gap-1.5" aria-label="Sources">
+      {sources.map((title) => {
+        const active = title === activeSource
+        return (
+          <li key={title} className="max-w-full min-w-0">
+            <button
+              type="button"
+              onClick={() => onOpen(title)}
+              aria-pressed={active}
+              title={active ? 'Close the source' : 'Read the indexed passages'}
+              className={`inline-flex h-7 max-w-full cursor-pointer items-center gap-1.5 rounded-md border pr-2.5 pl-2 text-[12.5px] transition-colors ${
+                active
+                  ? 'border-accent bg-accent-soft text-accent-ink'
+                  : 'border-rule bg-paper-3 text-ink hover:border-accent hover:text-accent-ink'
+              }`}
+            >
+              <BookOpen size={13} aria-hidden="true" className={`shrink-0 ${active ? 'text-accent' : 'text-ink-3'}`} />
+              <span className="truncate">{title}</span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

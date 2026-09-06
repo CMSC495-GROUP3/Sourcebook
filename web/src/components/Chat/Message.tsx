@@ -1,5 +1,7 @@
+import type { Ref } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { AlertCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { AlertCircle, BookOpen } from 'lucide-react'
 import ConfidenceBadge from './ConfidenceBadge'
 import SourcesList from './SourcesList'
 import FollowUpButtons from './FollowUpButtons'
@@ -7,42 +9,71 @@ import EscalateButton from './EscalateButton'
 import type { ChatMessage } from '../../hooks/useChat'
 
 interface Props {
+  /** Attached to the block so the list can scroll a question into view. */
+  ref?: Ref<HTMLDivElement>
   message: ChatMessage
   /** Position in the conversation; the escalation request names the turn by it. */
   index: number
   sessionId: string | null
   isLast: boolean
+  /** Tokens are still arriving for this message; show the caret and hold the metadata. */
+  isStreaming: boolean
+  /** Title open in the source pane, so its chip can show as selected. */
+  activeSource: string | null
+  onOpenSource: (title: string) => void
   onFollowUp: (q: string) => void
   onEscalated: (index: number, escalationId: string) => void
 }
 
-export default function Message({ message, index, sessionId, isLast, onFollowUp, onEscalated }: Props) {
+// Markdown inside an answer, kept close to the surrounding UI type.
+const PROSE = [
+  'prose max-w-none text-[15px] leading-[1.65] text-ink',
+  'prose-p:my-2.5 prose-p:text-ink',
+  'prose-headings:font-display prose-headings:font-medium prose-headings:tracking-tight prose-headings:text-ink',
+  'prose-h1:text-[22px] prose-h1:mt-4 prose-h1:mb-1.5 prose-h2:text-[19px] prose-h2:mt-4 prose-h2:mb-1.5 prose-h3:text-[16px] prose-h3:mt-3 prose-h3:mb-1',
+  'prose-ul:my-2 prose-ul:pl-5 prose-ol:my-2 prose-ol:pl-5 prose-li:my-1 prose-li:marker:text-ink-3',
+  'prose-strong:font-semibold prose-strong:text-ink prose-em:text-ink-2',
+  'prose-a:text-accent prose-a:underline-offset-3 hover:prose-a:text-accent-ink',
+  'prose-code:rounded prose-code:bg-paper-2 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[13px] prose-code:font-normal prose-code:text-ink prose-code:before:content-none prose-code:after:content-none',
+  'prose-pre:rounded-lg prose-pre:border prose-pre:border-rule prose-pre:bg-paper-2 prose-pre:text-[13px] prose-pre:text-ink',
+  'prose-blockquote:border-l-rule-strong prose-blockquote:text-ink-2 prose-blockquote:not-italic prose-blockquote:font-normal',
+  'prose-hr:border-rule prose-table:text-[14px] prose-th:text-ink prose-td:text-ink',
+].join(' ')
+
+function Question({ text, first, ref }: { text: string; first: boolean; ref?: Ref<HTMLDivElement> }) {
+  return (
+    <div ref={ref} className={`flex scroll-mt-[22px] flex-col gap-1.5 ${first ? '' : 'border-t border-rule pt-8'}`}>
+      <span className="caps text-ink-3">Question</span>
+      <p className="font-display text-[21px] leading-[1.3] font-medium tracking-tight text-ink sm:text-[24px]">{text}</p>
+    </div>
+  )
+}
+
+export default function Message({
+  ref, message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated,
+}: Props) {
   if (message.role === 'user') {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[75%] px-4 py-2.5 rounded-2xl rounded-br-sm bg-[#C2B067]/15 border border-[#C2B067]/20 text-gray-100 text-sm">
-          {message.content}
-        </div>
-      </div>
-    )
+    return <Question ref={ref} text={message.content} first={index === 0} />
   }
 
   if (message.refused) {
     return (
-      <div className="flex justify-start">
-        <div className="max-w-[85%] space-y-2">
-          <div className="flex gap-2.5 px-4 py-3 rounded-2xl rounded-bl-sm bg-amber-500/8 border border-amber-500/25 text-sm text-gray-200">
-            <AlertCircle size={15} className="flex-shrink-0 text-amber-400/90 mt-0.5" />
-            <div>
-              <p className="leading-relaxed">{message.content}</p>
-              <p className="text-xs text-gray-500 mt-2">
-                No indexed policy matched your question closely enough to answer from.
-                Check the Policy Library to see what is currently loaded.
-              </p>
-            </div>
-          </div>
-          <div className="px-1 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div ref={ref} className="flex flex-col gap-3">
+        <div className="rounded-lg border border-ochre-rule bg-ochre-soft">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-ochre-rule/70 px-4 py-2.5">
+            <span className="caps inline-flex items-center gap-2 text-ochre-ink">
+              <AlertCircle size={15} aria-hidden="true" className="text-ochre" />
+              No matching policy
+            </span>
             <ConfidenceBadge confidence={message.confidence} />
+          </div>
+          <div className="flex flex-col gap-1.5 px-4 py-3.5">
+            <p className="text-[15px] leading-[1.55] text-ink">{message.content}</p>
+            <p className="text-[13.5px] leading-normal text-ink-2">
+              This is different from a policy that exists but says no. Nothing indexed came close enough to answer from.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
             <EscalateButton
               sessionId={sessionId}
               messageIndex={index}
@@ -51,6 +82,13 @@ export default function Message({ message, index, sessionId, isLast, onFollowUp,
               prominent
               onEscalated={(id) => onEscalated(index, id)}
             />
+            <Link
+              to="/documents"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-rule-strong bg-paper-3 px-3.5 text-[13.5px] font-medium text-ink transition-colors hover:border-ink-3"
+            >
+              <BookOpen size={15} aria-hidden="true" className="text-ink-3" />
+              See what is indexed
+            </Link>
           </div>
         </div>
       </div>
@@ -58,29 +96,16 @@ export default function Message({ message, index, sessionId, isLast, onFollowUp,
   }
 
   return (
-    <div className="flex justify-start">
-      <div className="max-w-[85%] space-y-2">
-        <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-white/5 border border-white/8 text-sm
-          prose prose-invert prose-sm max-w-none
-          prose-p:text-gray-200 prose-p:my-1.5 prose-p:leading-relaxed
-          prose-ul:text-gray-200 prose-ul:my-1.5 prose-ul:pl-4
-          prose-ol:text-gray-200 prose-ol:my-1.5 prose-ol:pl-4
-          prose-li:text-gray-200 prose-li:my-0.5 prose-li:marker:text-gray-500
-          prose-strong:text-gray-100 prose-strong:font-semibold
-          prose-em:text-gray-300
-          prose-code:text-[#C2B067] prose-code:bg-white/8 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-mono prose-code:before:content-none prose-code:after:content-none
-          prose-pre:bg-white/8 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:text-xs
-          prose-h1:text-gray-100 prose-h1:text-base prose-h1:font-semibold prose-h1:mt-3 prose-h1:mb-1
-          prose-h2:text-gray-100 prose-h2:text-sm prose-h2:font-semibold prose-h2:mt-3 prose-h2:mb-1
-          prose-h3:text-gray-200 prose-h3:text-sm prose-h3:font-medium prose-h3:mt-2 prose-h3:mb-1
-          prose-blockquote:border-l-[#C2B067]/50 prose-blockquote:text-gray-400 prose-blockquote:not-italic
-          prose-hr:border-white/10
-        ">
-          <ReactMarkdown>{message.content}</ReactMarkdown>
-        </div>
-        <div className="px-1 space-y-2">
-          <ConfidenceBadge confidence={message.confidence} />
-          <SourcesList sources={message.sources ?? []} />
+    <div ref={ref} className="flex flex-col gap-5">
+      <div className={`${PROSE} ${isStreaming ? 'caret' : ''}`}>
+        <ReactMarkdown>{message.content}</ReactMarkdown>
+      </div>
+      {!isStreaming && (
+        <footer className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+            <ConfidenceBadge confidence={message.confidence} />
+            <SourcesList sources={message.sources ?? []} activeSource={activeSource} onOpen={onOpenSource} />
+          </div>
           {isLast && (
             <FollowUpButtons questions={message.follow_ups ?? []} onSelect={onFollowUp} />
           )}
@@ -91,8 +116,8 @@ export default function Message({ message, index, sessionId, isLast, onFollowUp,
             escalationId={message.escalation_id}
             onEscalated={(id) => onEscalated(index, id)}
           />
-        </div>
-      </div>
+        </footer>
+      )}
     </div>
   )
 }

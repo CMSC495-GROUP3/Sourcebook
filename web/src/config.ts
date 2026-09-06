@@ -7,8 +7,12 @@
  */
 export const APP_NAME = 'Sourcebook'
 
-/** Short line under the title on the empty chat state. */
-export const APP_TAGLINE = 'Ask about company policy and get an answer with its source.'
+/** Heading on the empty chat state, before the first question. */
+export const APP_HEADLINE = 'What does the policy say?'
+
+/** Line under the heading on the empty chat state. */
+export const APP_TAGLINE =
+  'Ask about company policy and get an answer with its source. If nothing matches, it says so instead of guessing.'
 
 /** localStorage key holding the JWT. */
 export const TOKEN_KEY = 'policy_assistant_token'
