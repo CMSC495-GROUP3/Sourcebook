@@ -97,6 +97,39 @@ icons, placeholders, and labels that repeat information shown elsewhere.
 Retrieval match thresholds: 70 and above is `moss`, 40 to 69 is `ochre`,
 below 40 is `brick`. These mirror the constants in `ConfidenceBadge.tsx`.
 
+## Dark
+
+Dark keeps every relationship and inverts the ground. Surfaces are warm
+charcoal, ink is warm off-white, and the accent and status colors are
+lifted so they hold their contrast. Primary buttons become ink on paper in
+both themes, so they read as light buttons in dark mode. The values live
+under `:root[data-theme="dark"]` in `src/index.css`.
+
+| Token | Dark oklch | Hex |
+| --- | --- | --- |
+| `paper` | 22% 0.01 60 | #1E1A16 |
+| `paper-2` | 19% 0.01 60 | #17130F |
+| `paper-3` | 26% 0.011 60 | #28231F |
+| `rule` | 32% 0.012 60 | #38322D |
+| `rule-strong` | 41% 0.013 60 | #504943 |
+| `ink` | 93% 0.008 85 | #EAE7E2 |
+| `ink-2` | 75% 0.01 80 | #B1ADA7 |
+| `ink-3` | 58% 0.012 70 | #7F7973 |
+| `accent` | 78% 0.09 330 | #D9A3D3 |
+| `accent-ink` | 87% 0.07 330 | #EFC4EA |
+| `accent-soft` | 31% 0.05 330 | #3F273C |
+| `moss` | 72% 0.11 150 | #6FB880 |
+| `ochre` | 76% 0.13 75 | #E1A447 |
+| `ochre-ink` | 86% 0.1 82 | #F2CB83 |
+| `ochre-soft` | 27% 0.035 80 | #2F2512 |
+| `ochre-rule` | 42% 0.08 80 | #64470E |
+| `brick` | 72% 0.15 30 | #F47C6B |
+
+The theme follows the operating system until the person picks one with the
+toggle (sidebar footer, rail, and sign-in page). The choice is kept in
+localStorage under `theme`, and index.html applies it before the first
+paint so there is no flash.
+
 ## Type
 
 Two families, both self-hosted from `@fontsource-variable` and imported in

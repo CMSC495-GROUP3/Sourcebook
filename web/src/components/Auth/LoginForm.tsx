@@ -4,6 +4,7 @@ import { AlertCircle, BookOpen, LifeBuoy, Quote } from 'lucide-react'
 import client, { TOKEN_KEY } from '../../api/client'
 import { APP_NAME, ESCALATION_CONTACT } from '../../config'
 import { BrandMark } from '../Layout/Brand'
+import ThemeToggle from '../Layout/ThemeToggle'
 
 interface Props {
   onSuccess: () => void
@@ -46,7 +47,8 @@ export default function LoginForm({ onSuccess }: Props) {
   }
 
   return (
-    <div className="grid min-h-svh w-full grid-cols-1 bg-paper md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+    <div className="relative grid min-h-svh w-full grid-cols-1 bg-paper md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <ThemeToggle className="absolute top-3 right-3" />
       {/* The left page: what this is. */}
       <section className="ruled flex flex-col justify-between gap-10 border-b border-rule bg-paper-2 px-6 py-8 md:border-r md:border-b-0 md:px-12 md:py-12 lg:px-16">
         <div className="flex items-center gap-3">

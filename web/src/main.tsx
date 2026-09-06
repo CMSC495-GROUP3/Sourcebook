@@ -6,6 +6,8 @@ import '@fontsource-variable/newsreader/opsz.css'
 import '@fontsource-variable/newsreader/opsz-italic.css'
 import '@fontsource-variable/ibm-plex-sans/index.css'
 import './index.css'
+// Applies the theme attribute and starts following the system preference.
+import './lib/theme'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

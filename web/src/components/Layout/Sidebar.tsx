@@ -10,6 +10,7 @@ import { useProjects } from '../../hooks/useProjects'
 import { useAuth } from '../../hooks/useAuth'
 import { BrandMark, Wordmark } from './Brand'
 import SidebarToggle from './SidebarToggle'
+import ThemeToggle from './ThemeToggle'
 import type { Conversation, Project } from '../../types'
 
 interface SidebarProps {
@@ -168,7 +169,8 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
             <BookOpen size={18} aria-hidden="true" />
           </button>
         </div>
-        <div className="mt-auto flex flex-col items-center pb-3">
+        <div className="mt-auto flex flex-col items-center gap-1 pb-3">
+          <ThemeToggle />
           <button
             type="button"
             onClick={logout}
@@ -335,8 +337,8 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
         )}
       </nav>
 
-      {/* Sign out */}
-      <div className="border-t border-rule px-3 pt-2 pb-3">
+      {/* Sign out, with the theme switch beside it */}
+      <div className="flex items-center gap-1 border-t border-rule px-3 pt-2 pb-3">
         <button
           type="button"
           onClick={logout}
@@ -345,6 +347,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
           <LogOut size={15} aria-hidden="true" className="text-ink-3" />
           Sign out
         </button>
+        <ThemeToggle className="-mr-1" />
       </div>
     </aside>
   )

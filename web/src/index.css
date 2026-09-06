@@ -43,9 +43,49 @@
   --shadow-drawer: 0 12px 40px rgb(36 30 25 / 0.28);
 }
 
+/*
+ * Dark: the same paper-and-ink relationships, inverted. Surfaces are warm
+ * charcoal, ink is warm off-white, and the accent and status colors are
+ * lifted so they keep their contrast on the dark ground. Set by the
+ * data-theme attribute that src/lib/theme.ts and index.html write.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-paper: oklch(22% 0.01 60);
+  --color-paper-2: oklch(19% 0.01 60);
+  --color-paper-3: oklch(26% 0.011 60);
+  --color-rule: oklch(32% 0.012 60);
+  --color-rule-strong: oklch(41% 0.013 60);
+
+  --color-ink: oklch(93% 0.008 85);
+  --color-ink-2: oklch(75% 0.01 80);
+  --color-ink-3: oklch(58% 0.012 70);
+
+  --color-accent: oklch(78% 0.09 330);
+  --color-accent-ink: oklch(87% 0.07 330);
+  --color-accent-soft: oklch(31% 0.05 330);
+  --color-accent-rule: oklch(42% 0.07 330);
+
+  --color-moss: oklch(72% 0.11 150);
+  --color-ochre: oklch(76% 0.13 75);
+  --color-ochre-ink: oklch(86% 0.1 82);
+  --color-ochre-soft: oklch(27% 0.035 80);
+  --color-ochre-rule: oklch(42% 0.08 80);
+  --color-brick: oklch(72% 0.15 30);
+  --color-brick-soft: oklch(28% 0.05 30);
+
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.35);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 24px 48px rgb(0 0 0 / 0.4);
+  --shadow-drawer: 0 12px 40px rgb(0 0 0 / 0.6);
+
+  --ruled-line: rgb(255 255 255 / 0.06);
+}
+
 @layer base {
   :root {
     color-scheme: light;
+    --ruled-line: rgb(36 30 25 / 0.055);
   }
 
   html {
@@ -103,7 +143,7 @@
   background-image: repeating-linear-gradient(
     0deg,
     transparent 0 31px,
-    rgb(36 30 25 / 0.055) 31px 32px
+    var(--ruled-line) 31px 32px
   );
 }
 
