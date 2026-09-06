@@ -235,7 +235,9 @@ those scores come from.
 
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
-"that policy isn't loaded yet."
+"that policy isn't loaded yet." The library shows each document as its
+rendered markdown; the source pane beside an answer shows the indexed passages
+instead, since that is what the citation is evidence of.
 
 ### Refusals lead somewhere: escalation
 
@@ -402,8 +404,9 @@ near the same passage.
 
 **Abstraction.** `policy_assistant/rag/documents.py` reduces every source
 format to one shape, `{doc_id, title, category, owner, effective_date, body}`,
-which becomes one passage-and-metadata record per chunk. Supporting PDF or
-Confluence means converting to that shape. Nothing downstream changes.
+which becomes one passage-and-metadata record per chunk, plus one record per
+document holding the body whole for the Policy Library to render. Supporting
+PDF or Confluence means converting to that shape. Nothing downstream changes.
 
 **Algorithmic thinking.** Chunk size and overlap (900 and 150 characters) trade
 retrieval precision against context preservation, and approximate

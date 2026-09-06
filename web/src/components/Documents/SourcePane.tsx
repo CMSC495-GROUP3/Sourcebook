@@ -1,7 +1,9 @@
 /**
  * SourcePane — the right-hand page of the book. Opens beside an answer when a
  * citation is clicked and shows the cited document's indexed passages, so the
- * reader can check the answer without leaving the conversation.
+ * reader can check the answer without leaving the conversation. Passages, not
+ * the rendered document, because this pane is the audit trail for a citation:
+ * it shows what retrieval saw. The link to the library opens the document whole.
  */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -87,6 +89,7 @@ export default function SourcePane({ title, onClose, modal = false }: Props) {
         {resolution.status === 'ready' && (
           <DocumentReader
             document={resolution.document}
+            mode="passages"
             actions={
               <Link
                 to={`/documents?source=${encodeURIComponent(resolution.document.source)}&q=${encodeURIComponent(resolution.document.title)}`}

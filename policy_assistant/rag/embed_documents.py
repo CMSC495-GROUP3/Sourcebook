@@ -19,10 +19,11 @@ from policy_assistant.rag.cache import bump_corpus_version
 from policy_assistant.rag.config import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
+    DOCUMENT_BODIES_COLLECTION,
     PASSAGES_COLLECTION,
     S3_DOCUMENT_PREFIX,
 )
-from policy_assistant.rag.documents import parse_document, passage_records
+from policy_assistant.rag.documents import document_record, parse_document, passage_records
 from policy_assistant.rag.llm import get_provider
 from policy_assistant.rag.mongo import get_collection
 
@@ -65,6 +66,7 @@ def fetch_documents_from_s3() -> list[tuple[str, str]]:
 
 def embed_and_store() -> None:
     collection = get_collection(PASSAGES_COLLECTION)
+    bodies = get_collection(DOCUMENT_BODIES_COLLECTION)
     documents = fetch_documents_from_s3()
     if not documents:
         sys.exit(
@@ -74,6 +76,7 @@ def embed_and_store() -> None:
 
     provider = get_provider()
     prepared_records: list[dict] = []
+    prepared_bodies: list[dict] = []
     active_chunks: dict[str, set[int]] = {}
 
     # Prepare the complete replacement corpus before changing the live collection.
@@ -94,6 +97,7 @@ def embed_and_store() -> None:
             record["embedding"] = embedding
 
         prepared_records.extend(records)
+        prepared_bodies.append(document_record(document, key))
         active_chunks[key] = {record["chunk_index"] for record in records}
 
         print(f"  {document['title'][:45]:45} {len(records):>3} passages")
@@ -109,9 +113,14 @@ def embed_and_store() -> None:
             upsert=True,
         )
 
+    # The reading copy of each document, keyed by source like its passages.
+    for body in prepared_bodies:
+        bodies.update_one({"source": body["source"]}, {"$set": body}, upsert=True)
+
     # Remove documents that no longer exist in S3.
     active_sources = list(active_chunks)
     stale_count = collection.delete_many({"source": {"$nin": active_sources}}).deleted_count
+    bodies.delete_many({"source": {"$nin": active_sources}})
 
     # Remove obsolete chunks when an existing document now produces fewer passages.
     for source, chunk_indexes in active_chunks.items():

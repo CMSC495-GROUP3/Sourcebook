@@ -5,7 +5,9 @@ policy is not listed here, the assistant cannot answer questions about it, and
 seeing that directly is faster than discovering it through a refusal.
 
 Reads from the denormalized documents collection rather than passages, so
-listing the corpus never touches the embedding vectors.
+listing the corpus never touches the embedding vectors. Opening a document to
+read serves its full body from the document_bodies collection; the passages
+endpoint remains for showing exactly what retrieval saw.
 """
 
 import re
@@ -13,7 +15,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pymongo import ASCENDING, UpdateOne
 
-from policy_assistant.api.db import documents_col, meta_col, passages_col
+from policy_assistant.api.db import document_bodies_col, documents_col, meta_col, passages_col
 from policy_assistant.api.limiter import limiter
 from policy_assistant.api.routes.deps import require_auth
 from policy_assistant.rag.cache import bump_corpus_version, get_corpus_version
@@ -151,12 +153,28 @@ def list_categories():
     return sorted(v for v in values if v)
 
 
+@router.get("/documents/body", dependencies=[Depends(require_auth)])
+def get_document_body(source: str):
+    """The full markdown body of one document — powers the Policy Library reader.
+
+    Served from the reading copy ingestion stores per document, never stitched
+    from passages: chunks overlap, so joining them would repeat text. 404 when
+    the corpus was ingested before bodies were stored; the client falls back
+    to passages until ingestion is re-run.
+    """
+    record = document_bodies_col.find_one({"source": source}, {"_id": 0, "source": 1, "body": 1})
+    if record is None:
+        raise HTTPException(status_code=404, detail="Document body not indexed.")
+    return record
+
+
 @router.get("/documents/passages", dependencies=[Depends(require_auth)])
 def get_document_passages(source: str):
-    """Ordered passages for one document — powers the expand-to-read view.
+    """Ordered passages for one document — the citation audit trail.
 
-    This is the citation audit trail: it shows the exact text the assistant
-    retrieves from, not a re-rendering of the original file.
+    Shows the exact text the assistant retrieves from, not a re-rendering of
+    the original file. The source pane beside an answer uses this; the Policy
+    Library reader uses /documents/body.
     """
     passages = list(
         passages_col.find(

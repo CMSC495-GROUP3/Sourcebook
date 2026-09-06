@@ -170,12 +170,18 @@ def test_reingestion_replaces_stale_passages_and_invalidates_cache(monkeypatch):
     monkeypatch.setattr(ingestion, "get_provider", Provider)
 
     FAKE_DB["passages"].insert_one({"source": "documents/stale.md", "text": "stale"})
+    FAKE_DB["document_bodies"].insert_one({"source": "documents/stale.md", "body": "stale"})
     initial_version = get_corpus_version()
 
     ingestion.embed_and_store()
 
     first_version = get_corpus_version()
     first_passages = list(FAKE_DB["passages"].find({}))
+    bodies = list(FAKE_DB["document_bodies"].find({}, {"_id": 0}))
+    assert [body["source"] for body in bodies] == ["documents/pto.md", "documents/conduct.md"]
+    assert bodies[0]["title"] == "Paid Time Off"
+    assert bodies[0]["body"] == "Employees accrue 15 PTO days."
+    assert "embedding" not in bodies[0]
     assert first_version != initial_version
     assert len(first_passages) == 2
     assert [passage["source"] for passage in first_passages] == [
@@ -195,6 +201,8 @@ def test_reingestion_replaces_stale_passages_and_invalidates_cache(monkeypatch):
     assert get_corpus_version() != first_version
     assert FAKE_DB["passages"].count_documents({}) == 2
     assert FAKE_DB["passages"].count_documents({"source": "documents/stale.md"}) == 0
+    assert FAKE_DB["document_bodies"].count_documents({}) == 2
+    assert FAKE_DB["document_bodies"].count_documents({"source": "documents/stale.md"}) == 0
 
 
 def test_reingestion_keeps_existing_corpus_available_while_embedding(monkeypatch):

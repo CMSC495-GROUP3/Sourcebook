@@ -231,7 +231,7 @@ export default function DocumentLibraryPage() {
       <p className="max-w-80 text-[14px] leading-normal text-ink-2">
         {selectedSource
           ? 'That document is not in the current results. Clear the search or filter to find it.'
-          : 'Pick a policy to read the exact passages the assistant answers from.'}
+          : 'Pick a policy to read it in full.'}
       </p>
     </div>
   )

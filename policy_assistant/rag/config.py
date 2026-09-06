@@ -25,6 +25,12 @@ S3_DOCUMENT_PREFIX = os.getenv("S3_DOCUMENT_PREFIX", "documents/")
 # proposal — it avoids pairing a vector store with a separate document store.
 PASSAGES_COLLECTION = os.getenv("PASSAGES_COLLECTION", "passages")
 
+# MongoDB collection holding one record per source document: its metadata and
+# the full parsed body. Passages are what retrieval sees; this is what a person
+# reads in the Policy Library. Chunks overlap, so the body cannot be rebuilt
+# from them, which is why it is stored on its own.
+DOCUMENT_BODIES_COLLECTION = os.getenv("DOCUMENT_BODIES_COLLECTION", "document_bodies")
+
 # Connections held per process. Total load on the cluster is
 # (uvicorn workers x this), which must stay under the Atlas connection cap —
 # see the arithmetic in policy_assistant/rag/mongo.py before raising either number.

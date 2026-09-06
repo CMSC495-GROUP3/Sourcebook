@@ -5,8 +5,9 @@ Every source document, whatever its original format, is reduced to one shape:
     {doc_id, title, category, owner, effective_date, body}
 
 which the embedding step then splits into passages that each carry a copy of
-that metadata. Downstream code never has to know where a passage came from or
-what format it started in.
+that metadata. The same shape, body included, is stored once per document so
+the Policy Library can show the document whole. Downstream code never has to
+know where a passage came from or what format it started in.
 
 Documents are plain UTF-8 text with a short header block, blank line, then body:
 
@@ -106,3 +107,21 @@ def passage_records(document: dict, key: str, chunks: list[str]) -> list[dict]:
         }
         for index, chunk in enumerate(chunks)
     ]
+
+
+def document_record(document: dict, key: str) -> dict:
+    """Build the MongoDB record holding one document's metadata and full body.
+
+    This is the reading copy. Passages carry the same metadata but only their
+    own chunk of text, and because chunks overlap they cannot be joined back
+    into the original, so the body is kept whole here.
+    """
+    return {
+        "source": key,
+        "doc_id": document["doc_id"],
+        "title": document["title"],
+        "category": document["category"],
+        "owner": document["owner"],
+        "effective_date": document["effective_date"],
+        "body": document["body"],
+    }

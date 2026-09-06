@@ -3,6 +3,7 @@
  * pane in chat. The API is title-searchable only, so a citation (which names
  * a document by title) is resolved with a search and an exact-title match.
  */
+import { isAxiosError } from 'axios'
 import client from './client'
 import type { DocumentsResponse, PolicyDocument } from '../types'
 
@@ -36,6 +37,23 @@ export async function listCategories(): Promise<string[]> {
 export async function fetchPassages(source: string): Promise<string[]> {
   const res = await client.get<string[]>('/api/documents/passages', { params: { source } })
   return res.data
+}
+
+/**
+ * The full markdown body of one document. Null when the API has no stored body
+ * for it, which happens when the corpus was ingested before bodies were kept;
+ * the reader then falls back to passages. Any other failure throws.
+ */
+export async function fetchDocumentBody(source: string): Promise<string | null> {
+  try {
+    const res = await client.get<{ source: string; body: string }>('/api/documents/body', {
+      params: { source },
+    })
+    return res.data.body
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 404) return null
+    throw error
+  }
 }
 
 /** The most the documents endpoint returns per call. */

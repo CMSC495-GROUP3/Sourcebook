@@ -1,20 +1,27 @@
 /**
- * DocumentReader — one policy document, read in full as the passages that
- * retrieval sees. Shared by the Policy Library reading pane and the source
- * pane beside a chat answer.
+ * DocumentReader — one policy document with its metadata, shared by the
+ * Policy Library reading pane and the source pane beside a chat answer.
  *
- * Showing stored passages rather than re-rendering the original file is
- * deliberate: this is the audit trail for a citation, so it should display what
- * retrieval actually sees.
+ * Two modes, because the two panes answer different questions. The library
+ * shows the document as it is: the original markdown, rendered. The source
+ * pane shows the stored passages, because it is the audit trail for a citation
+ * and should display what retrieval actually saw. A library whose corpus was
+ * indexed before bodies were stored falls back to passages until ingestion is
+ * re-run.
  */
 import type { ReactNode } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { useDocumentBody } from '../../hooks/useDocumentBody'
 import { usePassages } from '../../hooks/usePassages'
+import { DOCUMENT_PROSE } from '../../lib/prose'
 import type { PolicyDocument } from '../../types'
 
 interface Props {
   document: PolicyDocument
   /** Rendered under the metadata line: a link back to the library, for instance. */
   actions?: ReactNode
+  /** `document` renders the full markdown; `passages` lists what retrieval indexed. */
+  mode?: 'document' | 'passages'
 }
 
 const NBSP = '\u00a0'
@@ -32,8 +39,31 @@ function documentMeta(document: PolicyDocument): string {
     .join(' · ')
 }
 
-export default function DocumentReader({ document, actions }: Props) {
-  const { passages, loading, error } = usePassages(document.source)
+function PassageList({ passages }: { passages: string[] }) {
+  return (
+    <ol className="flex flex-col gap-6">
+      {passages.map((passage, i) => (
+        <li key={i} className="flex flex-col gap-2">
+          <span className="caps text-[10.5px] text-ink-3">Passage {i + 1}</span>
+          <blockquote className="border-l-2 border-rule-strong pl-4 font-display text-[16.5px] leading-[1.6] whitespace-pre-line text-ink">
+            {passage}
+          </blockquote>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+export default function DocumentReader({ document, actions, mode = 'document' }: Props) {
+  const wantBody = mode === 'document'
+  const body = useDocumentBody(wantBody ? document.source : null)
+  // Passages are fetched only when they will be shown: always in passages
+  // mode, and in document mode only once the body is known to be missing.
+  const showPassages = !wantBody || body.unavailable
+  const passages = usePassages(showPassages ? document.source : null)
+
+  const loading = body.loading || passages.loading
+  const error = body.error || passages.error
 
   return (
     <article className="flex flex-col gap-6">
@@ -45,20 +75,24 @@ export default function DocumentReader({ document, actions }: Props) {
         {actions && <div className="flex flex-wrap items-center gap-3 pt-1">{actions}</div>}
       </header>
 
-      {loading && <p className="text-[13px] text-ink-3">Loading passages…</p>}
+      {loading && <p className="text-[13px] text-ink-3">Loading…</p>}
       {error && <p role="alert" className="text-[13px] text-brick">{error}</p>}
 
-      {!loading && !error && (
-        <ol className="flex flex-col gap-6">
-          {passages.map((passage, i) => (
-            <li key={i} className="flex flex-col gap-2">
-              <span className="caps text-[10.5px] text-ink-3">Passage {i + 1}</span>
-              <blockquote className="border-l-2 border-rule-strong pl-4 font-display text-[16.5px] leading-[1.6] whitespace-pre-line text-ink">
-                {passage}
-              </blockquote>
-            </li>
-          ))}
-        </ol>
+      {!loading && !error && body.body !== null && (
+        <div className={DOCUMENT_PROSE}>
+          <ReactMarkdown>{body.body}</ReactMarkdown>
+        </div>
+      )}
+
+      {!loading && !error && showPassages && (
+        <>
+          {wantBody && (
+            <p className="text-[13px] text-ink-3">
+              The full text of this document is not indexed yet. These are the passages the assistant reads.
+            </p>
+          )}
+          <PassageList passages={passages.passages} />
+        </>
       )}
     </article>
   )
