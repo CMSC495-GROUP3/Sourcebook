@@ -26,8 +26,13 @@ Every header band across the app (sidebar, source pane, library columns) is
 
 **Home.** Before the first question there is no chat. The page is a reference
 desk: a headline, one large question box, four example questions in two
-columns, and a strip stating how many policies are indexed with category
-links into the library.
+columns, and what is indexed. When the main area is wide enough for the
+source pane to dock (1160px), that last part is a facing page in the pane's
+slot: a 60px header band, then the count in the display face and the
+category links on ruled paper, behind a hairline spine 24px past the
+column. The book has two pages before anything is cited, and the source pane
+later lands where the facing page was. Narrower than that, it is a strip
+under the examples. The column does not move in either case.
 
 **Thread.** Once a question is asked, the column becomes a Q&A article:
 question in the display face, answer as prose, then a footer with the match
@@ -209,3 +214,18 @@ transforms, so they follow `size` and the font size and leave layout alone.
 The pairings in use: 28px beside the 21px wordmark in the sidebar and its
 rail, 24px beside 19px in the phone top bar, and 36px beside 24px on the
 sign-in page.
+
+## The ruled page
+
+The left half of the sign-in page is ruled paper, and its text is set on
+the rules. The `ruled` utility draws one hairline every 24px from the top
+of the section, 21px into each slot, so a line of 16px Plex on a 24px
+line-height rests on it with its descenders just crossing. Everything in
+that section runs on the same 24px grid: line-heights of 24 or 48, gaps and
+top padding in multiples of 24, and a small `top` nudge on the wordmark row
+and the headline so each face's baseline lands 2 to 4px above its rule. The
+footer is pinned to the bottom; on desktop the bottom padding is 48px plus
+`mod(100svh, 24px)`, the one value that is not a multiple of 24, so the
+footer's slot still starts on the grid whatever the viewport height. The
+page fits without scrolling from about 660px tall. If you change the pitch,
+change the utility and the section's spacing together.

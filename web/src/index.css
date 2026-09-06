@@ -143,12 +143,17 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Faint ruled paper behind the sign-in card. */
+/* Faint ruled paper behind the sign-in page's left half. One rule every
+   24px, drawn from the top so the phase does not depend on the section's
+   height, and 21px into each slot so a line of 16px Plex on a 24px
+   line-height sits on it with its descenders just crossing. The page's
+   type and spacing run on the same 24px grid; see LoginForm. */
 @utility ruled {
   background-image: repeating-linear-gradient(
-    0deg,
-    transparent 0 31px,
-    var(--ruled-line) 31px 32px
+    to bottom,
+    transparent 0 21px,
+    var(--ruled-line) 21px 22px,
+    transparent 22px 24px
   );
 }
 

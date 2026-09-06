@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { listCategories, searchDocuments } from '../api/documents'
 
-interface LibrarySummary {
+export interface LibrarySummary {
   total: number | null
   categories: string[]
 }
 
-/** How much is indexed, for the home page strip. Missing data just hides the strip. */
+/** How much is indexed, for the home page. Missing data just hides the strip or the facing page's body. */
 export function useLibrarySummary(): LibrarySummary {
   const [summary, setSummary] = useState<LibrarySummary>({ total: null, categories: [] })
 
@@ -25,4 +25,9 @@ export function useLibrarySummary(): LibrarySummary {
   }, [])
 
   return summary
+}
+
+/** The noun after the count, the same words in the strip and on the facing page. */
+export function policiesIndexed(total: number): string {
+  return `polic${total === 1 ? 'y' : 'ies'} indexed`
 }
