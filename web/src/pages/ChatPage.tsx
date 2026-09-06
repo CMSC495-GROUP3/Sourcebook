@@ -12,7 +12,7 @@
  * session_id lives in the URL (?session_id=uuid). When a new conversation is
  * created (first message sent), useChat calls onSessionCreated which updates the URL.
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import { BookOpen } from 'lucide-react'
@@ -120,9 +120,22 @@ export default function ChatPage() {
     setActiveSource(null)
   }
 
+  // The chip that opened the pane. The slide-over is a Dialog and restores
+  // focus on its own; the docked pane is a plain aside, so without this a
+  // keyboard user who closes it lands on body and Tabs from the top again.
+  const openerRef = useRef<HTMLElement | null>(null)
+  const openSource = (title: string) => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setActiveSource((current) => (current === title ? null : title))
+  }
+  const closeSource = () => {
+    setActiveSource(null)
+    const opener = openerRef.current
+    if (docked && opener?.isConnected) opener.focus()
+  }
+
   const hasMessages = messages.length > 0
   const busy = loading || streaming
-  const closeSource = () => setActiveSource(null)
 
   if (!hasMessages) {
     return <Home onAsk={sendMessage} busy={busy} />
@@ -140,7 +153,7 @@ export default function ChatPage() {
               loading={loading}
               streaming={streaming}
               activeSource={activeSource}
-              onOpenSource={(title) => setActiveSource((current) => (current === title ? null : title))}
+              onOpenSource={openSource}
               onFollowUp={sendMessage}
               onEscalated={markEscalated}
             />

@@ -39,6 +39,12 @@ export default function DocumentLibraryPage() {
   const [error, setError] = useState('')
   const [query, setQuery] = useState(initialQuery)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The debounced search reads the URL through this ref so a late timer builds
+  // on the params of the latest render, not the render that scheduled it.
+  const searchParamsRef = useRef(searchParams)
+  useEffect(() => {
+    searchParamsRef.current = searchParams
+  }, [searchParams])
 
   function fetchDocuments(q: string, category: string) {
     searchDocuments({ q, category })
@@ -66,11 +72,24 @@ export default function DocumentLibraryPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current)
   }, [])
 
+  // Keep ?q= and ?category= honest after the first load, so a reload or a
+  // shared link reproduces what is on screen. Replaced, not pushed: typing and
+  // filtering are not places Back should return to.
+  function syncFilters(q: string, category: string) {
+    const next = new URLSearchParams(searchParamsRef.current)
+    if (q.trim()) next.set('q', q)
+    else next.delete('q')
+    if (category) next.set('category', category)
+    else next.delete('category')
+    setSearchParams(next, { replace: true })
+  }
+
   function handleSearch(value: string) {
     setQuery(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setLoading(true)
+      syncFilters(value, activeCategory)
       fetchDocuments(value, activeCategory)
     }, DEBOUNCE_MS)
   }
@@ -79,12 +98,16 @@ export default function DocumentLibraryPage() {
     const next = category === activeCategory ? '' : category
     setActiveCategory(next)
     setLoading(true)
+    syncFilters(query, next)
     fetchDocuments(query, next)
   }
 
   function select(document: PolicyDocument | null) {
+    const source = document?.source ?? null
+    // Re-clicking the open row would only add a history entry for Back to walk.
+    if (source === selectedSource) return
     const next = new URLSearchParams(searchParams)
-    if (document) next.set('source', document.source)
+    if (source) next.set('source', source)
     else next.delete('source')
     setSearchParams(next)
   }

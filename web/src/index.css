@@ -18,10 +18,12 @@
   --color-rule: oklch(88.5% 0.012 80);
   --color-rule-strong: oklch(80% 0.016 80);
 
-  /* Text: ink, three steps. ink-3 is for icons and decoration, not body copy. */
+  /* Text: ink, three steps. ink-3 is the quietest step that still clears AA
+     (4.5:1) for small text on every paper: icons, placeholders, short labels.
+     Body copy stays ink or ink-2. */
   --color-ink: oklch(24% 0.014 60);
   --color-ink-2: oklch(47% 0.015 60);
-  --color-ink-3: oklch(62% 0.013 60);
+  --color-ink-3: oklch(52% 0.013 60);
 
   /* Accent: bottle green. Brand mark, links, the active row. Nothing else. */
   --color-accent: oklch(42% 0.09 160);
@@ -60,7 +62,7 @@
 
   --color-ink: oklch(93% 0.008 85);
   --color-ink-2: oklch(75% 0.01 80);
-  --color-ink-3: oklch(58% 0.012 70);
+  --color-ink-3: oklch(65% 0.012 70);
 
   --color-accent: oklch(78% 0.11 160);
   --color-accent-ink: oklch(86% 0.09 160);

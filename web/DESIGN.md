@@ -74,7 +74,7 @@ hues. Hex values here are approximations for design tools.
 | `rule-strong` | 80% 0.016 80 | #C3BDB2 | input and card borders |
 | `ink` | 24% 0.014 60 | #241E19 | text |
 | `ink-2` | 47% 0.015 60 | #615953 | secondary text, meta |
-| `ink-3` | 62% 0.013 60 | #8C847E | icons, placeholders, decoration |
+| `ink-3` | 52% 0.013 60 | #6F6762 | icons, placeholders, short labels and hints |
 | `accent` | 42% 0.09 160 | #0C5C3C | brand mark, links, active nav icon, filled buttons, pressed chip |
 | `accent-ink` | 34% 0.09 160 | #004527 | link hover, active row text, filled button hover |
 | `accent-soft` | 94% 0.03 160 | #DBF2E4 | active row, focus halo, selection |
@@ -90,9 +90,11 @@ hues. Hex values here are approximations for design tools.
 The match meter is a 112px track with a word (strong, partial, weak) and the
 percentage, plus an info button whose popover explains what it measures.
 
-Contrast on `paper`: `ink` 15:1, `ink-2` 6.4:1, `accent` 7.5:1, `moss` 5.2:1,
-`brick` 5.4:1. `ink-3` is 3.3:1, so it is never used for body copy, only for
-icons, placeholders, and labels that repeat information shown elsewhere.
+Contrast on `paper`: `ink` 15:1, `ink-2` 6.4:1, `ink-3` 5.1:1, `accent` 7.5:1,
+`moss` 5.2:1, `brick` 5.4:1. `ink-3` clears AA (4.5:1) for small text on every
+paper in both themes; its worst case is 4.8:1, on `paper-2` in light and on
+`paper-3` in dark. That makes it safe for placeholders, key hints, and short
+labels; body copy still uses `ink` and `ink-2`.
 
 Retrieval match thresholds: 70 and above is `moss`, 40 to 69 is `ochre`,
 below 40 is `brick`. These mirror the constants in `ConfidenceBadge.tsx`.
@@ -115,7 +117,7 @@ under `:root[data-theme="dark"]` in `src/index.css`.
 | `rule-strong` | 41% 0.013 60 | #504943 |
 | `ink` | 93% 0.008 85 | #EAE7E2 |
 | `ink-2` | 75% 0.01 80 | #B1ADA7 |
-| `ink-3` | 58% 0.012 70 | #7F7973 |
+| `ink-3` | 65% 0.012 70 | #948E87 |
 | `accent` | 78% 0.11 160 | #73CD9F |
 | `accent-ink` | 86% 0.09 160 | #9CE4BD |
 | `accent-soft` | 30% 0.05 160 | #143525 |

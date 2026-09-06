@@ -47,7 +47,11 @@ export default function SourcePane({ title, onClose, modal = false }: Props) {
   useEffect(() => {
     if (modal) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      // Escape inside a rename input, a menu, or a popover cancels that control, not the pane.
+      const target = event.target instanceof Element ? event.target : null
+      if (target?.closest('input, textarea, [role="menu"], [role="listbox"], [role="dialog"]')) return
+      onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)

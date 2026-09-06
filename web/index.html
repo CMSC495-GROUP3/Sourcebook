@@ -17,6 +17,8 @@
             theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
           }
           document.documentElement.dataset.theme = theme
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', theme === 'dark' ? '#1E1A16' : '#F9F6F1')
         } catch (e) {}
       })()
     </script>

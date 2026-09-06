@@ -43,7 +43,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
             so only phones need a bar to reach it from. */}
         {!sidebar.isDesktop && (
           <div className="flex h-13 shrink-0 items-center gap-2.5 border-b border-rule px-2">
-            <SidebarToggle kind="menu" onToggle={sidebar.toggle} />
+            <SidebarToggle kind="menu" open={sidebar.open} onToggle={sidebar.toggle} />
             <BrandMark size={20} />
             <Wordmark className="text-[19px] leading-none" />
           </div>

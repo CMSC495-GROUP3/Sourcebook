@@ -38,12 +38,17 @@ export async function fetchPassages(source: string): Promise<string[]> {
   return res.data
 }
 
+/** The most the documents endpoint returns per call. */
+const DOCUMENTS_MAX_LIMIT = 200
+
 /**
  * Resolve a cited title to its library record; null when the corpus no longer
  * has it. Exact title only: the pane is the audit trail for a citation, so a
- * near miss must show as missing rather than as a different document.
+ * near miss must show as missing rather than as a different document. The
+ * search is a substring match sorted by title, so ask for the full page: a
+ * handful of longer titles containing this one must not push it off the end.
  */
 export async function findDocumentByTitle(title: string): Promise<PolicyDocument | null> {
-  const { items } = await searchDocuments({ q: title, limit: 5 })
+  const { items } = await searchDocuments({ q: title, limit: DOCUMENTS_MAX_LIMIT })
   return items.find((doc) => doc.title === title) ?? null
 }
