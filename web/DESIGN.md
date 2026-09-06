@@ -26,8 +26,18 @@ Every header band across the app (sidebar, source pane, library columns) is
 
 **Home.** Before the first question there is no chat. The page is a reference
 desk: a headline, one large question box, four example questions in two
-columns, and a strip stating how many policies are indexed with category
-links into the library.
+columns, and what is indexed. When the main area is wide enough for the
+source pane to dock (1160px), that last part is a facing page in the pane's
+slot: a 60px header band, then a table of contents on ruled paper behind a
+hairline spine 24px past the column: a running head in the display face's
+italic at 22px ("Topics you can ask about", kept well below the 40px
+question beside it), the category links at 14px in the same secondary ink,
+indented behind a small chevron that goes green with the text on hover, one
+line saying
+every answer cites one of the indexed policies, and the link into the
+library. The book has two pages before anything is cited, and the source pane
+later lands where the facing page was. Narrower than that, it is a strip
+under the examples. The column does not move in either case.
 
 **Thread.** Once a question is asked, the column becomes a Q&A article:
 question in the display face, answer as prose, then a footer with the match
@@ -144,11 +154,14 @@ Two families, both self-hosted from `@fontsource-variable` and imported in
 | Role | Face | Size / line | Where |
 | --- | --- | --- | --- |
 | Display | Newsreader Variable 500 | 40 / 44 | empty-state heading (32 on phones) |
-| Display | Newsreader Variable 500 | 32 / 36 | page titles, sign-in |
+| Display | Newsreader Variable 500 | 44 / 48 | sign-in headline (34 on phones), on the 24px rules |
+| Display | Newsreader Variable 500 | 32 / 36 | page titles |
 | Display | Newsreader Variable 500 | 22 / 29 | the question in a chat turn (20 on phones) |
 | Display | Newsreader Variable 500 | 21 | wordmark in the sidebar |
+| Display | Newsreader Variable 400 italic | 22 / 24 | running head on the home's facing page |
 | UI | IBM Plex Sans Variable 400 | 15 / 25 | answer body, chat input |
 | UI | IBM Plex Sans Variable 400 | 14 / 21 | default |
+| UI | IBM Plex Sans Variable 400 | 16 / 24, 14 / 24 | sign-in copy and facing-page entries, on the 24px rules |
 | UI | IBM Plex Sans Variable 500 | 13.5 / 20 | sidebar rows, buttons |
 | UI | IBM Plex Sans Variable 400 | 12.5 / 19 | meta, match badge, hints |
 | Label | IBM Plex Sans Variable 600 | 11, +8% tracking, caps | section labels (`caps` utility) |
@@ -197,3 +210,30 @@ alike. `public/icon.png` is the full-size mark the app renders through
 `BrandMark`; `icon-16`, `icon-32`, and `icon-180` are the browser tab and
 home-screen icons. `docs/brand/sourcebook-icon.png` is the same file and
 `sourcebook-icon-original.png` is the untouched blue original.
+
+The mark and the name are optically aligned in `Brand.tsx`, not per call
+site. The ribbon rises out of the top of the square, so the book itself sits
+below the centre of the image; `BrandMark` nudges up by 6% of its own height
+so the book's body, not the bounding box, lands on the row's centre line and
+the ribbon clears the cap height. Newsreader keeps deep descender space and
+"Sourcebook" has no descenders, so with a tight line-height the letters sit
+above the centre of their box; `Wordmark` nudges down by 0.12em. Both are
+transforms, so they follow `size` and the font size and leave layout alone.
+The pairings in use: 28px beside the 21px wordmark in the sidebar and its
+rail, 24px beside 19px in the phone top bar, and 36px beside 24px on the
+sign-in page.
+
+## The ruled page
+
+The left half of the sign-in page is ruled paper, and its text is set on
+the rules. The `ruled` utility draws one hairline every 24px from the top
+of the section, 21px into each slot, so a line of 16px Plex on a 24px
+line-height rests on it with its descenders just crossing. Everything in
+that section runs on the same 24px grid: line-heights of 24 or 48, gaps and
+top padding in multiples of 24, and a small `top` nudge on the wordmark row
+and the headline so each face's baseline lands 2 to 4px above its rule. The
+footer is pinned to the bottom; on desktop the bottom padding is 48px plus
+`mod(100svh, 24px)`, the one value that is not a multiple of 24, so the
+footer's slot still starts on the grid whatever the viewport height. The
+page fits without scrolling from about 660px tall. If you change the pitch,
+change the utility and the section's spacing together.

@@ -1,8 +1,10 @@
 /**
  * ChatPage — ask a question, read the answer beside its source.
  *
- * Home (no session): one large question box, example questions, and a strip
- * showing what is indexed. Thread (session): the Q&A column with a composer
+ * Home (no session): one large question box, example questions, and what is
+ * indexed: a strip under the examples, or, when the page is wide enough for
+ * the source pane to dock, a facing page in the pane's slot so the book has
+ * two pages before anything is cited. Thread (session): the Q&A column with a composer
  * for follow-ups that flows after the last answer and pins to the bottom once
  * the thread is taller than the view, and a source pane that opens when a
  * citation is clicked. The reading column is anchored to the left so the pane
@@ -24,6 +26,7 @@ import { READING_COLUMN, READING_GUTTER } from '../lib/layout'
 import MessageList from '../components/Chat/MessageList'
 import ChatInput from '../components/Chat/ChatInput'
 import QuestionList from '../components/Chat/QuestionList'
+import IndexedPage from '../components/Chat/IndexedPage'
 import SourcePane from '../components/Documents/SourcePane'
 
 const STARTER_PROMPTS = [
@@ -35,65 +38,82 @@ const STARTER_PROMPTS = [
 
 /** Docked pane width. */
 const PANE_WIDTH = 368
-/** Left gutter + reading column + right gutter + pane: the room the docked layout needs without touching the column. */
-const DOCK_MIN_WIDTH = 48 + 720 + 24 + PANE_WIDTH
+/** Left gutter + reading column + right gutter: the left page, as wide as the thread's when the pane is docked. */
+const LEFT_PAGE_WIDTH = 48 + 720 + 24
+/** Left page + pane: the room the docked layout needs without touching the column. */
+const DOCK_MIN_WIDTH = LEFT_PAGE_WIDTH + PANE_WIDTH
 
 interface HomeProps {
   onAsk: (question: string) => void
   busy: boolean
+  /** Wide enough for the facing page; null until the page has been measured. */
+  docked: boolean | null
 }
 
-function Home({ onAsk, busy }: HomeProps) {
+function Home({ onAsk, busy, docked }: HomeProps) {
   const library = useLibrarySummary()
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className={`${READING_GUTTER} pt-10 pb-16 sm:pt-[12vh] sm:pb-20`}>
-        <div className={`${READING_COLUMN} flex flex-col gap-10`}>
-          <header className="flex flex-col gap-2">
-            <h1 className="font-display text-[32px] leading-[1.1] font-medium tracking-tight text-ink sm:text-[40px]">
-              {APP_HEADLINE}
-            </h1>
-            <p className="max-w-130 text-[15px] leading-normal text-ink-2 sm:text-[16px]">{APP_TAGLINE}</p>
-          </header>
+    <>
+      {/* With the facing page up, the left page keeps the thread's width so the
+          spine sits where the docked source pane's edge will. */}
+      <div
+        className={`min-h-0 overflow-y-auto ${docked ? 'shrink-0' : 'min-w-0 flex-1'}`}
+        style={docked ? { width: LEFT_PAGE_WIDTH } : undefined}
+      >
+        <div className={`${docked ? 'pr-6 pl-12' : READING_GUTTER} pt-10 pb-16 sm:pt-[12vh] sm:pb-20`}>
+          <div className={`${READING_COLUMN} flex flex-col gap-10`}>
+            <header className="flex flex-col gap-2">
+              <h1 className="font-display text-[32px] leading-[1.1] font-medium tracking-tight text-ink sm:text-[40px]">
+                {APP_HEADLINE}
+              </h1>
+              <p className="max-w-130 text-[15px] leading-normal text-ink-2 sm:text-[16px]">{APP_TAGLINE}</p>
+            </header>
 
-          <ChatInput variant="hero" onSend={onAsk} disabled={busy} />
+            <ChatInput variant="hero" onSend={onAsk} disabled={busy} />
 
-          <QuestionList label="Try one of these" questions={STARTER_PROMPTS} onSelect={onAsk} disabled={busy} columns={2} />
+            <QuestionList label="Try one of these" questions={STARTER_PROMPTS} onSelect={onAsk} disabled={busy} columns={2} />
 
-          {library.total != null && (
-            <section className="flex flex-col gap-3 border-y border-rule py-4" aria-labelledby="indexed-heading">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 id="indexed-heading" className="text-[14px] font-medium text-ink">
-                  <span className="tnum">{library.total}</span> polic{library.total === 1 ? 'y' : 'ies'} indexed
-                </h2>
-                <Link
-                  to="/documents"
-                  className="inline-flex items-center gap-1.5 text-[13px] text-accent underline-offset-3 hover:text-accent-ink hover:underline"
-                >
-                  <BookOpen size={14} aria-hidden="true" />
-                  Browse the library
-                </Link>
-              </div>
-              {library.categories.length > 0 && (
-                <ul className="flex flex-wrap gap-1.5" aria-label="Categories">
-                  {library.categories.map((category) => (
-                    <li key={category}>
-                      <Link
-                        to={`/documents?category=${encodeURIComponent(category)}`}
-                        className="inline-flex h-7 items-center rounded-full border border-rule bg-paper-3 px-3 text-[12.5px] text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
-                      >
-                        {category}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
+            {docked === false && library.total != null && (
+              <section className="flex flex-col gap-3 border-y border-rule py-4" aria-labelledby="indexed-heading">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <h2 id="indexed-heading" className="text-[14px] font-medium text-ink">
+                    <span className="tnum">{library.total}</span> polic{library.total === 1 ? 'y' : 'ies'} indexed
+                  </h2>
+                  <Link
+                    to="/documents"
+                    className="inline-flex items-center gap-1.5 text-[13px] text-accent underline-offset-3 hover:text-accent-ink hover:underline"
+                  >
+                    <BookOpen size={14} aria-hidden="true" />
+                    Browse the library
+                  </Link>
+                </div>
+                {library.categories.length > 0 && (
+                  <ul className="flex flex-wrap gap-1.5" aria-label="Categories">
+                    {library.categories.map((category) => (
+                      <li key={category}>
+                        <Link
+                          to={`/documents?category=${encodeURIComponent(category)}`}
+                          className="inline-flex h-7 items-center rounded-full border border-rule bg-paper-3 px-3 text-[12.5px] text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+                        >
+                          {category}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {docked && (
+        <aside className="min-w-0 flex-1 overflow-y-auto border-l border-rule" aria-labelledby="library-heading">
+          <IndexedPage library={library} />
+        </aside>
+      )}
+    </>
   )
 }
 
@@ -101,6 +121,9 @@ export default function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const { ref: pageRef, width: pageWidth } = useContainerWidth<HTMLDivElement>()
+  // The observer's first callback sets the width; until then neither the strip
+  // nor the facing page renders, so nothing jumps between them.
+  const measured = pageWidth > 0
   const docked = pageWidth >= DOCK_MIN_WIDTH
 
   const { messages, loading, streaming, sendMessage, markEscalated } = useChat({
@@ -138,7 +161,11 @@ export default function ChatPage() {
   const busy = loading || streaming
 
   if (!hasMessages) {
-    return <Home onAsk={sendMessage} busy={busy} />
+    return (
+      <div ref={pageRef} className="relative flex min-h-0 flex-1">
+        <Home onAsk={sendMessage} busy={busy} docked={measured ? docked : null} />
+      </div>
+    )
   }
 
   return (

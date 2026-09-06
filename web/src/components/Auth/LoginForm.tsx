@@ -2,8 +2,8 @@ import axios from 'axios'
 import { useState } from 'react'
 import { AlertCircle, BookOpen, LifeBuoy, Quote } from 'lucide-react'
 import client, { TOKEN_KEY } from '../../api/client'
-import { APP_NAME, ESCALATION_CONTACT } from '../../config'
-import { BrandMark } from '../Layout/Brand'
+import { ESCALATION_CONTACT } from '../../config'
+import { BrandMark, Wordmark } from '../Layout/Brand'
 import ThemeToggle from '../Layout/ThemeToggle'
 
 interface Props {
@@ -49,31 +49,37 @@ export default function LoginForm({ onSuccess }: Props) {
   return (
     <div className="relative grid min-h-svh w-full grid-cols-1 bg-paper md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       <ThemeToggle className="absolute top-3 right-3" />
-      {/* The left page: what this is. */}
-      <section className="ruled flex flex-col justify-between gap-10 border-b border-rule bg-paper-2 px-6 py-8 md:border-r md:border-b-0 md:px-12 md:py-12 lg:px-16">
-        <div className="flex items-center gap-3">
-          <BrandMark size={32} />
-          <span className="font-display text-[24px] leading-none font-medium tracking-tight text-ink">{APP_NAME}</span>
+      {/* The left page: what this is. It is set on the 24px grid of the ruled
+          background: every line-height, gap, and top padding is a multiple of
+          24px, and the small `top` nudges drop each face's baseline onto the
+          rule that runs 21px into its slot. The footer is pinned to the
+          bottom, so on desktop the bottom padding is 48px plus whatever the
+          viewport height leaves over after whole 24px slots, which keeps the
+          footer's slot on the grid. */}
+      <section className="ruled flex flex-col border-b border-rule bg-paper-2 px-6 py-6 md:border-r md:border-b-0 md:px-12 md:pt-12 md:pb-[calc(3rem+mod(100svh,24px))] lg:px-16">
+        <div className="relative top-[10px] flex h-12 items-center gap-3">
+          <BrandMark size={36} />
+          <Wordmark className="text-[24px] leading-none" />
         </div>
-        <div className="flex flex-col gap-8">
-          <div className="flex flex-col gap-3">
-            <h1 className="font-display text-[34px] leading-[1.08] font-medium tracking-tight text-ink md:text-[44px]">
+        <div className="mt-12 flex flex-col gap-12 md:mt-24">
+          <div className="flex flex-col gap-6">
+            <h1 className="relative top-[11px] font-display text-[34px] leading-12 font-medium tracking-tight text-ink md:top-[9px] md:text-[44px]">
               The policy, with its source.
             </h1>
-            <p className="max-w-110 text-[15px] leading-normal text-ink-2 md:text-[16px]">
+            <p className="max-w-110 text-[15px] leading-6 text-ink-2 md:text-[16px]">
               Ask about company policy in plain words. Sourcebook answers from the indexed policy documents and shows you where each answer came from.
             </p>
           </div>
-          <ul className="hidden flex-col gap-3.5 md:flex">
+          <ul className="hidden flex-col md:flex">
             {PROMISES.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-start gap-3 text-[14px] leading-normal text-ink">
-                <Icon size={16} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
+              <li key={text} className="flex items-start gap-3 text-[14px] leading-6 text-ink">
+                <Icon size={16} strokeWidth={1.75} aria-hidden="true" className="mt-1 shrink-0 text-accent" />
                 {text}
               </li>
             ))}
           </ul>
         </div>
-        <p className="hidden text-[12.5px] text-ink-3 md:block">Internal tool. Ask {ESCALATION_CONTACT} for the password.</p>
+        <p className="mt-auto hidden pt-6 text-[12.5px] leading-6 text-ink-3 md:block">Internal tool. Ask {ESCALATION_CONTACT} for the password.</p>
       </section>
 
       {/* The right page: the form. */}
