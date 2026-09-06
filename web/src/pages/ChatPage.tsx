@@ -21,7 +21,7 @@ import { BookOpen } from 'lucide-react'
 import { APP_HEADLINE, APP_TAGLINE } from '../config'
 import { useChat } from '../hooks/useChat'
 import { useContainerWidth } from '../hooks/useContainerWidth'
-import { policiesIndexed, useLibrarySummary } from '../hooks/useLibrarySummary'
+import { useLibrarySummary } from '../hooks/useLibrarySummary'
 import { READING_COLUMN, READING_GUTTER } from '../lib/layout'
 import MessageList from '../components/Chat/MessageList'
 import ChatInput from '../components/Chat/ChatInput'
@@ -78,7 +78,7 @@ function Home({ onAsk, busy, docked }: HomeProps) {
               <section className="flex flex-col gap-3 border-y border-rule py-4" aria-labelledby="indexed-heading">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <h2 id="indexed-heading" className="text-[14px] font-medium text-ink">
-                    <span className="tnum">{library.total}</span> {policiesIndexed(library.total)}
+                    <span className="tnum">{library.total}</span> polic{library.total === 1 ? 'y' : 'ies'} indexed
                   </h2>
                   <Link
                     to="/documents"

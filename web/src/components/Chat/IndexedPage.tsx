@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BookOpen } from 'lucide-react'
-import { policiesIndexed, type LibrarySummary } from '../../hooks/useLibrarySummary'
+import type { LibrarySummary } from '../../hooks/useLibrarySummary'
 
 interface Props {
   library: LibrarySummary
@@ -10,10 +10,11 @@ interface Props {
  * The facing page of the home view. The reading column is the book's left
  * page and the right margin is kept for the source pane, which docks there
  * once a citation is clicked. Before that the margin is blank, so on
- * windows wide enough to dock, this page fills it with what the strip under
- * the examples would otherwise say: how much is indexed, and where to read
- * it. Its header band is 60px like every other band, and its body is ruled
- * paper on the same 24px grid as the sign-in page.
+ * windows wide enough to dock, this page fills it with a table of contents:
+ * what can be asked about, the promise that every answer cites one of the
+ * indexed policies, and the way into the library. Its header band is 60px
+ * like every other band, and its body is ruled paper on the same 24px grid
+ * as the sign-in page.
  */
 export default function IndexedPage({ library }: Props) {
   const { total, categories } = library
@@ -27,9 +28,9 @@ export default function IndexedPage({ library }: Props) {
       <div className="ruled flex-1 px-6 pt-6 pb-12">
         {total != null && (
           <div className="flex max-w-100 flex-col">
-            <p className="relative top-[11px] font-display text-[32px] leading-12 font-medium tracking-tight text-ink">
-              <span className="tnum">{total}</span> {policiesIndexed(total)}
-            </p>
+            <h3 className="relative top-[11px] font-display text-[32px] leading-12 font-medium tracking-tight text-ink">
+              What you can ask about
+            </h3>
             {categories.length > 0 && (
               <ul className="mt-6 flex flex-col" aria-label="Categories">
                 {categories.map((category) => (
@@ -44,9 +45,18 @@ export default function IndexedPage({ library }: Props) {
                 ))}
               </ul>
             )}
+            <p className="mt-6 text-[14px] leading-6 text-ink-2">
+              {total === 1 ? (
+                <>Every answer cites the one policy indexed so far.</>
+              ) : (
+                <>
+                  Every answer cites one of the <span className="tnum">{total}</span> policies indexed.
+                </>
+              )}
+            </p>
             <Link
               to="/documents"
-              className="mt-6 inline-flex items-center gap-1.5 self-start text-[14px] leading-6 text-accent underline-offset-3 hover:text-accent-ink hover:underline"
+              className="inline-flex items-center gap-1.5 self-start text-[14px] leading-6 text-accent underline-offset-3 hover:text-accent-ink hover:underline"
             >
               <BookOpen size={14} aria-hidden="true" />
               Browse the library

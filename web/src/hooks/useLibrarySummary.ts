@@ -26,8 +26,3 @@ export function useLibrarySummary(): LibrarySummary {
 
   return summary
 }
-
-/** The noun after the count, the same words in the strip and on the facing page. */
-export function policiesIndexed(total: number): string {
-  return `polic${total === 1 ? 'y' : 'ies'} indexed`
-}
