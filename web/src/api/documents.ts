@@ -6,7 +6,7 @@
 import client from './client'
 import type { DocumentsResponse, PolicyDocument } from '../types'
 
-export const DOCUMENTS_PAGE_SIZE = 50
+const DOCUMENTS_PAGE_SIZE = 50
 
 interface SearchParams {
   q?: string

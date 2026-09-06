@@ -44,7 +44,7 @@ window.matchMedia(DARK_QUERY).addEventListener('change', () => {
   listeners.forEach((listener) => listener())
 })
 
-export function setTheme(theme: Theme) {
+function setTheme(theme: Theme) {
   current = theme
   apply(theme)
   try {

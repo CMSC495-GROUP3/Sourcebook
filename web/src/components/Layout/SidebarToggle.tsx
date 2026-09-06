@@ -27,7 +27,7 @@ export default function SidebarToggle({ kind, onToggle, className = '' }: Props)
       title={label}
       aria-expanded={expanded}
       aria-controls="app-sidebar"
-      className={`flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-ink/5 hover:text-ink ${className}`}
+      className={`flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-paper-3 hover:text-ink ${className}`}
     >
       <Icon size={18} aria-hidden="true" />
     </button>
