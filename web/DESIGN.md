@@ -39,8 +39,9 @@ than the view. A new question scrolls to the top of the view; from the
 second turn on, the last turn is at least a viewport tall so it can.
 
 **Source pane.** Clicking a citation chip opens the cited document beside
-the answer, showing the same indexed passages the library shows, set in the
-display face as quotations. It docks as a 368px column in the right margin
+the answer as the indexed passages retrieval saw, set in the display face as
+quotations; it is the audit trail for the citation, and links to the library
+for the document whole. It docks as a 368px column in the right margin
 whenever the page is wide enough to hold gutter, column, and pane without
 narrowing the column (1160px of main area), and slides over the thread
 otherwise. Escape closes it. Switching conversations closes it.
@@ -52,10 +53,12 @@ and see what is indexed.
 
 **Library.** Master-detail from 1024px up: a 400px list column (search,
 category filter with an All chip, rows) beside a reading pane, both under a
-shared 60px header band. The first result opens on its own when the URL
-names no document. Below 1024px the list and the reader take turns, with a
-back link. The URL carries `q`, `category`, and `source`, so a citation can
-deep-link to an open document.
+shared 60px header band. The reading pane renders the document's markdown
+in full, in the display face at reading size, under its title and metadata.
+The first result opens on its own when the URL names no document. Below
+1024px the list and the reader take turns, with a back link. The URL carries
+`q`, `category`, and `source`, so a citation can deep-link to an open
+document.
 
 **Sign-in.** Two pages side by side on desktop: the left states what the
 tool promises, the right is the form. They stack on phones.

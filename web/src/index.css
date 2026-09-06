@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+/* remark-gfm labels its footnotes section with this class at runtime, so no
+   source file mentions it; declare it here or the "Footnotes" heading shows. */
+@source inline("sr-only");
 
 /*
  * Design tokens. The values here are the single source of truth for the UI;

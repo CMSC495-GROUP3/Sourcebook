@@ -15,6 +15,7 @@ from pymongo import ASCENDING, DESCENDING
 # rag/ holds the pipeline, its config, and the shared Mongo client.
 from policy_assistant.rag.config import (
     ANSWER_CACHE_TTL_SECONDS,
+    DOCUMENT_BODIES_COLLECTION,
     EMBEDDING_CACHE_TTL_SECONDS,
     PASSAGES_COLLECTION,
     QUERY_LOG_TTL_SECONDS,
@@ -28,6 +29,10 @@ projects_col = get_collection("projects")
 
 # One record per passage: text, metadata, and embedding together.
 passages_col = get_collection(PASSAGES_COLLECTION)
+
+# One record per source document with its full body, written by ingestion.
+# What the Policy Library shows when a document is opened to read.
+document_bodies_col = get_collection(DOCUMENT_BODIES_COLLECTION)
 
 # Denormalized one-record-per-document view, built from passages_col. Kept
 # separate so browsing and searching the corpus never scans the passage
@@ -68,6 +73,9 @@ def ensure_indexes() -> None:
 
     # passages — fetch one document's passages in order
     passages_col.create_index([("source", ASCENDING), ("chunk_index", ASCENDING)])
+
+    # document_bodies — point lookup by source when a document is opened
+    document_bodies_col.create_index("source", unique=True)
 
     # documents — unique key, plus sorted browse and category filtering
     documents_col.create_index("source", unique=True)

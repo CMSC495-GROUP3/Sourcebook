@@ -139,6 +139,21 @@ def test_fetches_all_s3_pages_and_skips_directory_placeholders(monkeypatch):
     ]
 
 
+def test_fetch_drops_a_byte_order_mark_so_the_header_still_parses(monkeypatch):
+    """Files saved by some Windows editors start with a BOM. Left in place it
+    would make the Title line fail to parse and land the whole header block
+    in the rendered document."""
+    s3 = _S3(
+        pages=[{"Contents": [{"Key": "documents/pto.md"}]}],
+        objects={"documents/pto.md": "\ufeffTitle: PTO\n\nPTO body."},
+    )
+    ingestion = _load_ingestion(monkeypatch, s3)
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-policies")
+
+    [(_, raw)] = ingestion.fetch_documents_from_s3()
+    assert raw == "Title: PTO\n\nPTO body."
+
+
 def test_missing_bucket_stops_with_actionable_message(monkeypatch):
     ingestion = _load_ingestion(monkeypatch, _S3([], {}))
     monkeypatch.delenv("S3_BUCKET_NAME", raising=False)
@@ -170,12 +185,18 @@ def test_reingestion_replaces_stale_passages_and_invalidates_cache(monkeypatch):
     monkeypatch.setattr(ingestion, "get_provider", Provider)
 
     FAKE_DB["passages"].insert_one({"source": "documents/stale.md", "text": "stale"})
+    FAKE_DB["document_bodies"].insert_one({"source": "documents/stale.md", "body": "stale"})
     initial_version = get_corpus_version()
 
     ingestion.embed_and_store()
 
     first_version = get_corpus_version()
     first_passages = list(FAKE_DB["passages"].find({}))
+    bodies = list(FAKE_DB["document_bodies"].find({}, {"_id": 0}))
+    assert [body["source"] for body in bodies] == ["documents/pto.md", "documents/conduct.md"]
+    assert bodies[0]["title"] == "Paid Time Off"
+    assert bodies[0]["body"] == "Employees accrue 15 PTO days."
+    assert "embedding" not in bodies[0]
     assert first_version != initial_version
     assert len(first_passages) == 2
     assert [passage["source"] for passage in first_passages] == [
@@ -195,6 +216,8 @@ def test_reingestion_replaces_stale_passages_and_invalidates_cache(monkeypatch):
     assert get_corpus_version() != first_version
     assert FAKE_DB["passages"].count_documents({}) == 2
     assert FAKE_DB["passages"].count_documents({"source": "documents/stale.md"}) == 0
+    assert FAKE_DB["document_bodies"].count_documents({}) == 2
+    assert FAKE_DB["document_bodies"].count_documents({"source": "documents/stale.md"}) == 0
 
 
 def test_reingestion_keeps_existing_corpus_available_while_embedding(monkeypatch):
@@ -288,6 +311,8 @@ def test_failed_embedding_leaves_corpus_and_version_untouched(monkeypatch):
         {"source": "documents/gone.md", "chunk_index": 0, "text": "old gone", "embedding": [0.2]},
     ]
     FAKE_DB["passages"].insert_many([dict(record) for record in seeded])
+    seeded_bodies = [{"source": "documents/pto.md", "body": "old pto whole"}]
+    FAKE_DB["document_bodies"].insert_many([dict(record) for record in seeded_bodies])
     version_before = get_corpus_version()
 
     class Provider:
@@ -311,6 +336,7 @@ def test_failed_embedding_leaves_corpus_and_version_untouched(monkeypatch):
         for passage in FAKE_DB["passages"].find({})
     ]
     assert remaining == seeded
+    assert list(FAKE_DB["document_bodies"].find({}, {"_id": 0})) == seeded_bodies
     assert get_corpus_version() == version_before
 
 
@@ -344,3 +370,68 @@ def test_document_that_shrinks_loses_its_obsolete_chunks(monkeypatch):
     assert [passage["chunk_index"] for passage in passages] == [0]
     assert passages[0]["text"] == "One short paragraph now."
     assert passages[0]["embedding"] == [0.25, 0.75]
+
+
+def test_document_with_no_passages_keeps_no_reading_copy(monkeypatch):
+    """A header-only file parses to an empty body and yields no chunks, so it
+    is absent from the library. Its reading copy must go the same way, or the
+    body endpoint would serve a document the library does not list."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        ("documents/empty.md", "Title: Placeholder\n"),
+        ("documents/pto.md", "Title: Paid Time Off\n\nEmployees accrue 15 PTO days."),
+    ]
+    FAKE_DB["document_bodies"].insert_one({"source": "documents/empty.md", "body": "old"})
+
+    class Provider:
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    assert FAKE_DB["passages"].count_documents({"source": "documents/empty.md"}) == 0
+    assert [b["source"] for b in FAKE_DB["document_bodies"].find({})] == ["documents/pto.md"]
+
+
+def test_each_body_is_written_right_after_its_own_passages(monkeypatch):
+    """A body must not trail the whole corpus: while passages are upserted a
+    document's reading copy may be one version behind, but only until its own
+    passages are in, never until every document's are."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        ("documents/pto.md", "Title: Paid Time Off\n\nEmployees accrue 15 PTO days."),
+        ("documents/conduct.md", "Title: Code of Conduct\n\nEmployees act professionally."),
+    ]
+    writes: list[tuple[str, str]] = []
+
+    def recording(name: str):
+        collection = FAKE_DB[name]
+        original = collection.update_one
+
+        def update_one(query, update, upsert=False):
+            writes.append((name, query["source"]))
+            return original(query, update, upsert=upsert)
+
+        monkeypatch.setattr(collection, "update_one", update_one)
+        return collection
+
+    class Provider:
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", recording)
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    assert writes == [
+        ("passages", "documents/pto.md"),
+        ("document_bodies", "documents/pto.md"),
+        ("passages", "documents/conduct.md"),
+        ("document_bodies", "documents/conduct.md"),
+    ]

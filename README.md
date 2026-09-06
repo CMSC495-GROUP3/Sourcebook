@@ -111,7 +111,9 @@ of a vector store paired with a separate document store. Pan et al. (2024) name
 hybrid queries, filtering on metadata and searching by vector in one operation,
 as a central problem in the field, and count more than twenty commercial vector
 databases appearing in five years. Keeping everything in one collection is the
-consolidated approach that survey describes, not a shortcut.
+consolidated approach that survey describes, not a shortcut. The one thing
+stored beside it is a reading copy of each document, whole, for the Policy
+Library to render; retrieval never queries it.
 
 ## Architecture
 
@@ -120,7 +122,7 @@ flowchart LR
     DOCS["Policy documents"] --> S3["Amazon S3"]
     S3 --> INGEST["Chunk + parse metadata"]
     INGEST --> EMBED["Embeddings"]
-    EMBED --> MONGO[("MongoDB Atlas<br/>passages + metadata + vectors")]
+    EMBED --> MONGO[("MongoDB Atlas<br/>passages + metadata + vectors<br/>+ one reading copy per document")]
 
     USER["Employee"] --> REACT["React + TypeScript"]
     REACT -->|"https://sourcebook.duckdns.org"| CADDY["Caddy (TLS)"]
@@ -235,7 +237,9 @@ those scores come from.
 
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
-"that policy isn't loaded yet."
+"that policy isn't loaded yet." The library shows each document as its
+rendered markdown; the source pane beside an answer shows the indexed passages
+instead, since that is what the citation is evidence of.
 
 ### Refusals lead somewhere: escalation
 
@@ -402,8 +406,9 @@ near the same passage.
 
 **Abstraction.** `policy_assistant/rag/documents.py` reduces every source
 format to one shape, `{doc_id, title, category, owner, effective_date, body}`,
-which becomes one passage-and-metadata record per chunk. Supporting PDF or
-Confluence means converting to that shape. Nothing downstream changes.
+which becomes one passage-and-metadata record per chunk, plus one record per
+document holding the body whole for the Policy Library to render. Supporting
+PDF or Confluence means converting to that shape. Nothing downstream changes.
 
 **Algorithmic thinking.** Chunk size and overlap (900 and 150 characters) trade
 retrieval precision against context preservation, and approximate
@@ -485,7 +490,14 @@ collection and its Vector Search index are never renamed or recreated. The
 one caveat: while the upsert loop runs, a document whose chunk boundaries
 moved can briefly have an old chunk and its overlapping replacement side by
 side, so retrieval for a few seconds may surface both. That is consistent
-enough to answer from, which is what #89 asked for.
+enough to answer from, which is what #89 asked for. The reading copy of each
+document in `document_bodies` follows the same discipline: upserted by source
+after the passages, stale sources removed only at the end.
+
+After upgrading to a version that stores reading copies, run the embed command
+once more. Until then the library shows a document as its passages with a
+notice: `POST /api/documents/reindex` only rebuilds the index from passages
+and cannot recover a body, because chunks overlap.
 
 In Atlas, create a Vector Search index named `vector_index` on the `passages`
 collection:
@@ -573,6 +585,22 @@ locally, plus one variable in `.env`.
    `df -h /` ever shows under about 1 GB free again, run
    `docker builder prune -f` by hand before a deploy that rebuilds both
    images, and see [Root disk](#root-disk) below.
+
+7. Load the corpus. Ingestion runs from a shell on the host, not from a
+   container: it needs the ingest dependencies and reads the same `.env`.
+
+   ```bash
+   python3 -m venv .venv
+   .venv/bin/pip install -r requirements/ingest.lock.txt
+   .venv/bin/python -m policy_assistant.rag.seed_documents    # first time: upload data/sample-policies/ to S3
+   .venv/bin/python -m policy_assistant.rag.embed_documents
+   ```
+
+   Run the embed command again whenever the documents in S3 change, and once
+   after deploying a version that stores document bodies; until then the
+   library shows each document as its passages with a notice. `.venv/` is
+   ignored by git, so it does not disturb the auto-deploy's clean-checkout
+   check.
 
 ### Root disk
 
@@ -872,7 +900,10 @@ The product name lives in three places: `APP_NAME` in
 - **Re-ingestion is not atomic.** Passages are upserted one at a time, so for a
   few seconds a document whose chunk boundaries moved can be retrieved with an
   old chunk and its replacement side by side. Acceptable for a pilot; a staged
-  collection swap would close the window.
+  collection swap would close the window. The reading copy of
+  a document is written right after its passages, so for the same moment its
+  body can be one version behind them, and an ingestion killed mid-run leaves
+  the documents it had not reached on the previous version until it is rerun.
 - **Hosting is one instance with no redundancy**, on a free DuckDNS subdomain.
   A real deployment would sit on a company domain behind a load balancer. The
   Compose file would move unchanged; only `SITE_ADDRESS` would differ.

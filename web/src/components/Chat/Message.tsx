@@ -7,6 +7,7 @@ import SourcesList from './SourcesList'
 import FollowUpButtons from './FollowUpButtons'
 import EscalateButton from './EscalateButton'
 import type { ChatMessage } from '../../hooks/useChat'
+import { ANSWER_PROSE } from '../../lib/prose'
 
 interface Props {
   /** Attached to the block so the list can scroll a question into view. */
@@ -24,21 +25,6 @@ interface Props {
   onFollowUp: (q: string) => void
   onEscalated: (index: number, escalationId: string) => void
 }
-
-// Markdown inside an answer, kept close to the surrounding UI type.
-const PROSE = [
-  'prose max-w-none text-[15px] leading-[1.65] text-ink',
-  'prose-p:my-2.5 prose-p:text-ink',
-  'prose-headings:font-display prose-headings:font-medium prose-headings:tracking-tight prose-headings:text-ink',
-  'prose-h1:text-[22px] prose-h1:mt-4 prose-h1:mb-1.5 prose-h2:text-[19px] prose-h2:mt-4 prose-h2:mb-1.5 prose-h3:text-[16px] prose-h3:mt-3 prose-h3:mb-1',
-  'prose-ul:my-2 prose-ul:pl-5 prose-ol:my-2 prose-ol:pl-5 prose-li:my-1 prose-li:marker:text-ink-3',
-  'prose-strong:font-semibold prose-strong:text-ink prose-em:text-ink-2',
-  'prose-a:text-accent prose-a:underline-offset-3 hover:prose-a:text-accent-ink',
-  'prose-code:rounded prose-code:bg-paper-2 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[13px] prose-code:font-normal prose-code:text-ink prose-code:before:content-none prose-code:after:content-none',
-  'prose-pre:rounded-lg prose-pre:border prose-pre:border-rule prose-pre:bg-paper-2 prose-pre:text-[13px] prose-pre:text-ink',
-  'prose-blockquote:border-l-rule-strong prose-blockquote:text-ink-2 prose-blockquote:not-italic prose-blockquote:font-normal',
-  'prose-hr:border-rule prose-table:text-[14px] prose-th:text-ink prose-td:text-ink',
-].join(' ')
 
 function Question({ text, first, ref }: { text: string; first: boolean; ref?: Ref<HTMLDivElement> }) {
   return (
@@ -97,7 +83,7 @@ export default function Message({
 
   return (
     <div ref={ref} className="flex flex-col gap-5">
-      <div className={`${PROSE} ${isStreaming ? 'caret' : ''}`}>
+      <div className={`${ANSWER_PROSE} ${isStreaming ? 'caret' : ''}`}>
         <ReactMarkdown>{message.content}</ReactMarkdown>
       </div>
       {!isStreaming && (

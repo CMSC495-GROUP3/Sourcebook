@@ -1,6 +1,11 @@
 """Source-format abstraction: header parsing and passage records."""
 
-from policy_assistant.rag.documents import doc_id_from_key, parse_document, passage_records
+from policy_assistant.rag.documents import (
+    doc_id_from_key,
+    document_record,
+    parse_document,
+    passage_records,
+)
 
 RAW = """Title: Paid Time Off (PTO) Policy
 Category: Time Off & Leave
@@ -58,3 +63,16 @@ def test_passage_records_carry_metadata_on_every_chunk():
         assert record["title"] == "Paid Time Off (PTO) Policy"
         assert record["category"] == "Time Off & Leave"
         assert "body" not in record
+
+
+def test_document_record_keeps_the_body_whole_with_its_metadata():
+    doc = parse_document("documents/pto-policy.md", RAW)
+    assert document_record(doc, "documents/pto-policy.md") == {
+        "source": "documents/pto-policy.md",
+        "doc_id": "pto-policy",
+        "title": "Paid Time Off (PTO) Policy",
+        "category": "Time Off & Leave",
+        "owner": "People Operations",
+        "effective_date": "2026-01-01",
+        "body": "## Overview\nFull-time employees accrue...",
+    }
