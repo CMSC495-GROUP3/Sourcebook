@@ -296,6 +296,8 @@ def test_failed_embedding_leaves_corpus_and_version_untouched(monkeypatch):
         {"source": "documents/gone.md", "chunk_index": 0, "text": "old gone", "embedding": [0.2]},
     ]
     FAKE_DB["passages"].insert_many([dict(record) for record in seeded])
+    seeded_bodies = [{"source": "documents/pto.md", "body": "old pto whole"}]
+    FAKE_DB["document_bodies"].insert_many([dict(record) for record in seeded_bodies])
     version_before = get_corpus_version()
 
     class Provider:
@@ -319,6 +321,7 @@ def test_failed_embedding_leaves_corpus_and_version_untouched(monkeypatch):
         for passage in FAKE_DB["passages"].find({})
     ]
     assert remaining == seeded
+    assert list(FAKE_DB["document_bodies"].find({}, {"_id": 0})) == seeded_bodies
     assert get_corpus_version() == version_before
 
 
@@ -352,3 +355,28 @@ def test_document_that_shrinks_loses_its_obsolete_chunks(monkeypatch):
     assert [passage["chunk_index"] for passage in passages] == [0]
     assert passages[0]["text"] == "One short paragraph now."
     assert passages[0]["embedding"] == [0.25, 0.75]
+
+
+def test_document_with_no_passages_keeps_no_reading_copy(monkeypatch):
+    """A header-only file parses to an empty body and yields no chunks, so it
+    is absent from the library. Its reading copy must go the same way, or the
+    body endpoint would serve a document the library does not list."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        ("documents/empty.md", "Title: Placeholder\n"),
+        ("documents/pto.md", "Title: Paid Time Off\n\nEmployees accrue 15 PTO days."),
+    ]
+    FAKE_DB["document_bodies"].insert_one({"source": "documents/empty.md", "body": "old"})
+
+    class Provider:
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    assert FAKE_DB["passages"].count_documents({"source": "documents/empty.md"}) == 0
+    assert [b["source"] for b in FAKE_DB["document_bodies"].find({})] == ["documents/pto.md"]

@@ -9,7 +9,7 @@
  * indexed before bodies were stored falls back to passages until ingestion is
  * re-run.
  */
-import type { ReactNode } from 'react'
+import type { AnchorHTMLAttributes, ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useDocumentBody } from '../../hooks/useDocumentBody'
 import { usePassages } from '../../hooks/usePassages'
@@ -21,22 +21,37 @@ interface Props {
   /** Rendered under the metadata line: a link back to the library, for instance. */
   actions?: ReactNode
   /** `document` renders the full markdown; `passages` lists what retrieval indexed. */
-  mode?: 'document' | 'passages'
+  mode?: Mode
 }
 
 const NBSP = '\u00a0'
 
-/** Metadata line; spaces inside each item are non-breaking so items wrap whole. */
-function documentMeta(document: PolicyDocument): string {
+type Mode = 'document' | 'passages'
+
+/**
+ * Metadata line; spaces inside each item are non-breaking so items wrap whole.
+ * The passage count is retrieval detail, so it appears only beside passages.
+ */
+function documentMeta(document: PolicyDocument, mode: Mode): string {
   return [
     document.category,
     document.effective_date && `effective${NBSP}${document.effective_date}`,
     document.owner,
-    `${document.passage_count}${NBSP}passage${document.passage_count !== 1 ? 's' : ''}`,
+    mode === 'passages' &&
+      `${document.passage_count}${NBSP}passage${document.passage_count !== 1 ? 's' : ''}`,
   ]
     .filter((item): item is string => Boolean(item))
     .map((item) => item.replace(/ /g, NBSP))
     .join(' · ')
+}
+
+/** Links in a document open in a new tab; the app itself is not a place to navigate away from. */
+function DocumentLink({ href, children }: AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  )
 }
 
 function PassageList({ passages }: { passages: string[] }) {
@@ -71,7 +86,7 @@ export default function DocumentReader({ document, actions, mode = 'document' }:
         <h2 className="font-display text-[24px] leading-[1.2] font-medium tracking-tight text-ink">
           {document.title}
         </h2>
-        <p className="tnum text-[12.5px] text-ink-2">{documentMeta(document)}</p>
+        <p className="tnum text-[12.5px] text-ink-2">{documentMeta(document, mode)}</p>
         {actions && <div className="flex flex-wrap items-center gap-3 pt-1">{actions}</div>}
       </header>
 
@@ -80,7 +95,15 @@ export default function DocumentReader({ document, actions, mode = 'document' }:
 
       {!loading && !error && body.body !== null && (
         <div className={DOCUMENT_PROSE}>
-          <ReactMarkdown>{body.body}</ReactMarkdown>
+          {/*
+            This renders uploaded content. react-markdown emits raw HTML as
+            text and drops javascript: URLs by default; do not add rehype-raw
+            here. Images are dropped too, so a document cannot make every
+            reader's browser fetch from a third-party host.
+          */}
+          <ReactMarkdown disallowedElements={['img']} components={{ a: DocumentLink }}>
+            {body.body}
+          </ReactMarkdown>
         </div>
       )}
 

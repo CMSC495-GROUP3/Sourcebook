@@ -87,6 +87,18 @@ def parse_document(key: str, raw: str) -> dict:
     }
 
 
+def _metadata(document: dict, key: str) -> dict:
+    """The fields every stored record carries, passage and reading copy alike."""
+    return {
+        "source": key,
+        "doc_id": document["doc_id"],
+        "title": document["title"],
+        "category": document["category"],
+        "owner": document["owner"],
+        "effective_date": document["effective_date"],
+    }
+
+
 def passage_records(document: dict, key: str, chunks: list[str]) -> list[dict]:
     """Build the MongoDB records for one document's passages.
 
@@ -95,16 +107,7 @@ def passage_records(document: dict, key: str, chunks: list[str]) -> list[dict]:
     category and searching by vector therefore hit the same collection.
     """
     return [
-        {
-            "source": key,
-            "doc_id": document["doc_id"],
-            "title": document["title"],
-            "category": document["category"],
-            "owner": document["owner"],
-            "effective_date": document["effective_date"],
-            "chunk_index": index,
-            "text": chunk,
-        }
+        {**_metadata(document, key), "chunk_index": index, "text": chunk}
         for index, chunk in enumerate(chunks)
     ]
 
@@ -116,12 +119,4 @@ def document_record(document: dict, key: str) -> dict:
     own chunk of text, and because chunks overlap they cannot be joined back
     into the original, so the body is kept whole here.
     """
-    return {
-        "source": key,
-        "doc_id": document["doc_id"],
-        "title": document["title"],
-        "category": document["category"],
-        "owner": document["owner"],
-        "effective_date": document["effective_date"],
-        "body": document["body"],
-    }
+    return {**_metadata(document, key), "body": document["body"]}

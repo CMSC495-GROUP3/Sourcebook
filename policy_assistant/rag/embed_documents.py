@@ -97,7 +97,10 @@ def embed_and_store() -> None:
             record["embedding"] = embedding
 
         prepared_records.extend(records)
-        prepared_bodies.append(document_record(document, key))
+        # A document with no passages is absent from the library, so it keeps
+        # no reading copy either.
+        if records:
+            prepared_bodies.append(document_record(document, key))
         active_chunks[key] = {record["chunk_index"] for record in records}
 
         print(f"  {document['title'][:45]:45} {len(records):>3} passages")
@@ -120,7 +123,7 @@ def embed_and_store() -> None:
     # Remove documents that no longer exist in S3.
     active_sources = list(active_chunks)
     stale_count = collection.delete_many({"source": {"$nin": active_sources}}).deleted_count
-    bodies.delete_many({"source": {"$nin": active_sources}})
+    bodies.delete_many({"source": {"$nin": [body["source"] for body in prepared_bodies]}})
 
     # Remove obsolete chunks when an existing document now produces fewer passages.
     for source, chunk_indexes in active_chunks.items():

@@ -54,10 +54,11 @@ and see what is indexed.
 **Library.** Master-detail from 1024px up: a 400px list column (search,
 category filter with an All chip, rows) beside a reading pane, both under a
 shared 60px header band. The reading pane renders the document's markdown
-in full, in the display face at reading size, under its title and metadata. The first result opens on its own when the URL
-names no document. Below 1024px the list and the reader take turns, with a
-back link. The URL carries `q`, `category`, and `source`, so a citation can
-deep-link to an open document.
+in full, in the display face at reading size, under its title and metadata.
+The first result opens on its own when the URL names no document. Below
+1024px the list and the reader take turns, with a back link. The URL carries
+`q`, `category`, and `source`, so a citation can deep-link to an open
+document.
 
 **Sign-in.** Two pages side by side on desktop: the left states what the
 tool promises, the right is the form. They stack on phones.

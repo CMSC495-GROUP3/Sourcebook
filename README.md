@@ -111,7 +111,9 @@ of a vector store paired with a separate document store. Pan et al. (2024) name
 hybrid queries, filtering on metadata and searching by vector in one operation,
 as a central problem in the field, and count more than twenty commercial vector
 databases appearing in five years. Keeping everything in one collection is the
-consolidated approach that survey describes, not a shortcut.
+consolidated approach that survey describes, not a shortcut. The one thing
+stored beside it is a reading copy of each document, whole, for the Policy
+Library to render; retrieval never queries it.
 
 ## Architecture
 
@@ -120,7 +122,7 @@ flowchart LR
     DOCS["Policy documents"] --> S3["Amazon S3"]
     S3 --> INGEST["Chunk + parse metadata"]
     INGEST --> EMBED["Embeddings"]
-    EMBED --> MONGO[("MongoDB Atlas<br/>passages + metadata + vectors")]
+    EMBED --> MONGO[("MongoDB Atlas<br/>passages + metadata + vectors<br/>+ one reading copy per document")]
 
     USER["Employee"] --> REACT["React + TypeScript"]
     REACT -->|"https://sourcebook.duckdns.org"| CADDY["Caddy (TLS)"]
@@ -488,7 +490,14 @@ collection and its Vector Search index are never renamed or recreated. The
 one caveat: while the upsert loop runs, a document whose chunk boundaries
 moved can briefly have an old chunk and its overlapping replacement side by
 side, so retrieval for a few seconds may surface both. That is consistent
-enough to answer from, which is what #89 asked for.
+enough to answer from, which is what #89 asked for. The reading copy of each
+document in `document_bodies` follows the same discipline: upserted by source
+after the passages, stale sources removed only at the end.
+
+After upgrading to a version that stores reading copies, run the embed command
+once more. Until then the library shows a document as its passages with a
+notice: `POST /api/documents/reindex` only rebuilds the index from passages
+and cannot recover a body, because chunks overlap.
 
 In Atlas, create a Vector Search index named `vector_index` on the `passages`
 collection:
