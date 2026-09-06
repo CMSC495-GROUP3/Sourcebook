@@ -32,10 +32,14 @@ def _request_with(authorization: str | None) -> Request:
 
 
 def _tampered(token: str) -> str:
-    # Flip the last character of the signature. Base64url, so the swap stays
-    # in-alphabet and the token still parses; only the signature check fails.
-    last = "A" if token[-1] != "A" else "B"
-    return token[:-1] + last
+    # Flip the first character of the signature segment. Base64url, so the swap
+    # stays in-alphabet and the token still parses; only the signature check
+    # fails. The first character is the one to change: every one of its six
+    # bits lands in the decoded bytes, whereas the last character carries
+    # padding bits, so flipping it can decode to the very same signature.
+    header, payload, signature = token.split(".")
+    first = "A" if signature[0] != "A" else "B"
+    return f"{header}.{payload}.{first}{signature[1:]}"
 
 
 @pytest.mark.parametrize(
