@@ -12,6 +12,7 @@
  */
 import { Component, type ComponentProps, type ReactNode, useState } from 'react'
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
+import rehypeSlug from 'rehype-slug'
 import remarkGfm from 'remark-gfm'
 import { useDocumentBody } from '../../hooks/useDocumentBody'
 import { usePassages } from '../../hooks/usePassages'
@@ -49,25 +50,35 @@ function documentMeta(document: PolicyDocument, withPassageCount: boolean): stri
 
 /**
  * Links in a document. An absolute link opens in a new tab, since the app is
- * not a place to navigate away from. A fragment link (a footnote, or a link to
- * one of the document's own headings) stays in the page. Anything else, such
- * as a relative path to another file, would resolve against the app and 404,
- * so it renders as plain text.
+ * not a place to navigate away from. A mail link and a fragment link (a
+ * footnote, or a link to one of the document's own headings, which rehype-slug
+ * gives ids) stay in the page. Anything else, such as a relative path to
+ * another file, would resolve against the app and 404, so it renders as text
+ * with the target beside it: the information survives even if the link cannot.
  */
 function DocumentLink({ node, href, ...props }: ComponentProps<'a'> & ExtraProps) {
   void node // react-markdown's syntax-tree node, not a DOM attribute
   if (href && /^https?:/i.test(href)) {
     return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />
   }
-  if (href?.startsWith('#')) return <a {...props} href={href} />
-  return <span>{props.children}</span>
+  if (href && /^(mailto:|#)/i.test(href)) return <a {...props} href={href} />
+  return (
+    <span>
+      {props.children}
+      {href && <span className="text-ink-2"> ({href})</span>}
+    </span>
+  )
 }
 
-/** A wide table scrolls inside its own box rather than widening the reading pane. */
+/**
+ * A wide table scrolls inside its own box rather than widening the reading
+ * pane. The box is focusable so keyboard users can scroll it in every browser,
+ * not only the ones that focus overflowing scrollers on their own.
+ */
 function DocumentTable({ node, ...props }: ComponentProps<'table'> & ExtraProps) {
   void node
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Table">
       <table {...props} />
     </div>
   )
@@ -96,6 +107,8 @@ const MARKDOWN_COMPONENTS: Components = {
 }
 
 const REMARK_PLUGINS = [remarkGfm]
+// Heading ids, so a document's links to its own sections work.
+const REHYPE_PLUGINS = [rehypeSlug]
 
 interface BoundaryProps {
   children: ReactNode
@@ -167,11 +180,18 @@ export default function DocumentReader({ document, actions, mode = 'document' }:
         <RenderBoundary key={document.source} onError={() => setFailedSource(document.source)}>
           <div className={DOCUMENT_PROSE}>
             {/*
-              This renders uploaded content. react-markdown emits raw HTML as
-              text and drops javascript: URLs by default; do not add rehype-raw
-              here. Images are replaced by their alt text (see DocumentImage).
+              This renders uploaded content. react-markdown never turns raw
+              HTML into elements and drops javascript: URLs; do not add
+              rehype-raw here. skipHtml drops raw HTML and comments entirely
+              rather than showing them as text, so an author's hidden note
+              stays hidden. Images are replaced by their alt text.
             */}
-            <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>
+            <ReactMarkdown
+              remarkPlugins={REMARK_PLUGINS}
+              rehypePlugins={REHYPE_PLUGINS}
+              components={MARKDOWN_COMPONENTS}
+              skipHtml
+            >
               {body.body}
             </ReactMarkdown>
           </div>

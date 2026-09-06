@@ -139,6 +139,21 @@ def test_fetches_all_s3_pages_and_skips_directory_placeholders(monkeypatch):
     ]
 
 
+def test_fetch_drops_a_byte_order_mark_so_the_header_still_parses(monkeypatch):
+    """Files saved by some Windows editors start with a BOM. Left in place it
+    would make the Title line fail to parse and land the whole header block
+    in the rendered document."""
+    s3 = _S3(
+        pages=[{"Contents": [{"Key": "documents/pto.md"}]}],
+        objects={"documents/pto.md": "\ufeffTitle: PTO\n\nPTO body."},
+    )
+    ingestion = _load_ingestion(monkeypatch, s3)
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-policies")
+
+    [(_, raw)] = ingestion.fetch_documents_from_s3()
+    assert raw == "Title: PTO\n\nPTO body."
+
+
 def test_missing_bucket_stops_with_actionable_message(monkeypatch):
     ingestion = _load_ingestion(monkeypatch, _S3([], {}))
     monkeypatch.delenv("S3_BUCKET_NAME", raising=False)

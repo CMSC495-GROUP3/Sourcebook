@@ -58,7 +58,9 @@ def fetch_documents_from_s3() -> list[tuple[str, str]]:
             key = obj["Key"]
             if key.endswith("/"):
                 continue  # directory placeholder
-            body = s3.get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8")
+            # utf-8-sig drops a byte-order mark, which would otherwise hide the
+            # header block from the parser and put it in the document body.
+            body = s3.get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8-sig")
             documents.append((key, body))
 
     return documents
