@@ -10,8 +10,9 @@ record short-term sick leave and safe leave against Meridian's combined PTO
 bank. It does not create a separate paid-leave bank or a universal statutory
 entitlement. Local sick-leave ordinances may impose different floors or
 process rules; ask People Operations when your work location has a local
-mandate. People Operations—not this document—decides how any jurisdiction-
-specific requirement interacts with the Paid Time Off (PTO) Policy.
+mandate. People Operations—not this document—decides how any
+jurisdiction-specific requirement interacts with the Paid Time Off (PTO)
+Policy.
 
 ## Combined bank
 
@@ -46,5 +47,5 @@ Exhausting available PTO does not automatically approve longer medical leave—
 submit a Medical and Family Leave request when the absence will exceed what
 short-term PTO covers. Statutory FMLA or state leave rights, when they apply,
 are distinct from this company PTO usage process; see the Medical and Family
-Leave Policy. Jurisdiction-only questions (local ordinances, protected safe-
-leave floors) go to People Operations.
+Leave Policy. Jurisdiction-only questions (local ordinances, protected
+safe-leave floors) go to People Operations.
