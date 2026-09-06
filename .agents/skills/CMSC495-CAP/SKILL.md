@@ -24,7 +24,7 @@ Fix this file in the same PR.
 | Storage | MongoDB Atlas (passages, document bodies, conversations, escalations, caches, query logs), S3 for raw documents | `policy_assistant/rag/mongo.py`, `policy_assistant/api/db.py` |
 | Web app | React 19, TypeScript (strict, no unused locals), Vite, Tailwind 4, react-router, axios | `web/` |
 | Serving | Docker Compose, Nginx in front of the API, EC2 | `docker-compose.yml`, `Dockerfile`, `web/nginx.conf`, `scripts/` |
-| Tests | pytest with everything external stubbed; ~100 tests, about a second | `tests/` |
+| Tests | pytest with everything external stubbed; ~240 tests, a few seconds | `tests/` |
 | Lint | ruff (Python), ESLint flat config + tsc (web) | `pyproject.toml`, `web/eslint.config.js` |
 
 Python target is 3.11 (what the Dockerfile shipped when the rules were set);

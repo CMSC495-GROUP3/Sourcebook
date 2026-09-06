@@ -38,6 +38,7 @@ export const DOCUMENT_PROSE = [
   'prose max-w-none font-display text-[16.5px] leading-[1.6] text-ink break-words',
   'prose-p:my-3.5 prose-p:text-ink prose-ul:my-3 prose-ol:my-3',
   'prose-h2:text-[21px] prose-h2:mt-8 prose-h2:mb-2 prose-h3:text-[19px] prose-h3:mt-8 prose-h3:mb-2 prose-h4:text-[17px] prose-h4:mt-6 prose-h4:mb-1.5',
+  'prose-h5:text-[16.5px] prose-h5:mt-5 prose-h5:mb-1 prose-h6:text-[16.5px] prose-h6:mt-5 prose-h6:mb-1 prose-h6:text-ink-2',
   'prose-headings:first:mt-0',
   ...ELEMENTS,
 ].join(' ')

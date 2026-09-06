@@ -127,7 +127,7 @@ def embed_and_store() -> None:
     # Remove documents that no longer exist in S3.
     active_sources = list(active_chunks)
     stale_count = collection.delete_many({"source": {"$nin": active_sources}}).deleted_count
-    bodies.delete_many({"source": {"$nin": body_sources}})
+    stale_bodies = bodies.delete_many({"source": {"$nin": body_sources}}).deleted_count
 
     # Remove obsolete chunks when an existing document now produces fewer passages.
     for source, chunk_indexes in active_chunks.items():
@@ -145,7 +145,7 @@ def embed_and_store() -> None:
     version = bump_corpus_version()
 
     print(f"\nDone. {len(documents)} documents → {passage_count} passages in MongoDB.")
-    print(f"Removed {stale_count} stale passages.")
+    print(f"Removed {stale_count} stale passages and {stale_bodies} stale document bodies.")
     print(f"Corpus version now {version[:8]} — cached answers invalidated.")
     print(
         "\nIf you have not created it yet, add an Atlas Vector Search index named "

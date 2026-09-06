@@ -47,10 +47,30 @@ function documentMeta(document: PolicyDocument, withPassageCount: boolean): stri
     .join(' · ')
 }
 
-/** Links in a document open in a new tab; the app itself is not a place to navigate away from. */
-function DocumentLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
+/**
+ * Links in a document. An absolute link opens in a new tab, since the app is
+ * not a place to navigate away from. A fragment link (a footnote, or a link to
+ * one of the document's own headings) stays in the page. Anything else, such
+ * as a relative path to another file, would resolve against the app and 404,
+ * so it renders as plain text.
+ */
+function DocumentLink({ node, href, ...props }: ComponentProps<'a'> & ExtraProps) {
   void node // react-markdown's syntax-tree node, not a DOM attribute
-  return <a {...props} target="_blank" rel="noopener noreferrer" />
+  if (href && /^https?:/i.test(href)) {
+    return <a {...props} href={href} target="_blank" rel="noopener noreferrer" />
+  }
+  if (href?.startsWith('#')) return <a {...props} href={href} />
+  return <span>{props.children}</span>
+}
+
+/** A wide table scrolls inside its own box rather than widening the reading pane. */
+function DocumentTable({ node, ...props }: ComponentProps<'table'> & ExtraProps) {
+  void node
+  return (
+    <div className="overflow-x-auto">
+      <table {...props} />
+    </div>
+  )
 }
 
 /** Images are not shown, so a document cannot make every reader's browser fetch from a third-party host. The alt text stays. */
@@ -66,6 +86,7 @@ function DocumentImage({ alt }: ComponentProps<'img'> & ExtraProps) {
 const MARKDOWN_COMPONENTS: Components = {
   a: DocumentLink,
   img: DocumentImage,
+  table: DocumentTable,
   h1: 'h2',
   h2: 'h3',
   h3: 'h4',
