@@ -60,7 +60,9 @@ def _tampered(token: str) -> str:
         (lambda: "not.a.jwt", None, 401),
         (lambda: _token(cred=["APP_PASSWORD_HASH"]), None, 401),
         (lambda: tokens.encode_token(_claims()), None, 401),
+        (lambda: tokens.encode_token(_claims(exp=None)), None, 401),
         (lambda: _token(cred="APP_PASSWORD_HASH\nWARNING forged line"), None, 401),
+        (lambda: _token(cred="APP_PASSWORD_HASH\n"), None, 401),
         (lambda: _token(cred="app_password_hash"), None, 401),
     ],
     ids=[
@@ -70,7 +72,9 @@ def _tampered(token: str) -> str:
         "garbage",
         "cred-not-a-string",
         "no-exp-claim",
+        "exp-null",
         "cred-with-newline",
+        "cred-trailing-newline",
         "cred-not-a-variable-name",
     ],
 )

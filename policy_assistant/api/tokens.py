@@ -25,7 +25,7 @@ _ALGORITHM = "HS256"
 # not shaped like a variable name is not a cred, whatever signed it: the auth
 # dependency would reject it against its allowlist, and the 429 log line must
 # never receive a value that can carry a newline (issue #153).
-_CRED_SHAPE = re.compile(r"[A-Z][A-Z0-9_]{0,63}\Z")
+_CRED_SHAPE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
 
 
 def _secret_key() -> str | None:
@@ -44,7 +44,8 @@ def decode_claims(token: str) -> dict | None:
     """Return the verified claims of a token, or None.
 
     None covers every way a token can fail: no secret configured, wrong
-    signature, expired, missing its ``exp`` claim, or not a JWT at all.
+    signature, expired, missing or malformed ``exp`` claim, or not a JWT
+    at all.
     Callers decide what None means: require_auth answers 401, the 429 log
     line writes "unknown".
 
@@ -57,17 +58,23 @@ def decode_claims(token: str) -> dict | None:
         return None
     try:
         return jwt.decode(token, secret, algorithms=[_ALGORITHM], options={"require_exp": True})
-    except JWTError:
+    except (JWTError, TypeError):
+        # TypeError: jose casts ``exp`` and ``nbf`` with int() and only catches
+        # ValueError, so a signed ``exp: null`` (or a list, or a dict) escapes
+        # as TypeError rather than a claims error. Same answer: not a token.
         return None
 
 
 def cred_claim(claims: dict | None) -> str | None:
-    """The ``cred`` claim, or None when absent, not a string, or not shaped
-    like an environment-variable name (see ``_CRED_SHAPE``)."""
+    """The ``cred`` claim, or None.
+
+    None when the claim is absent, not a string, or not shaped like an
+    environment-variable name (see ``_CRED_SHAPE``).
+    """
     if not claims:
         return None
     cred = claims.get("cred")
-    if not isinstance(cred, str) or not _CRED_SHAPE.match(cred):
+    if not isinstance(cred, str) or not _CRED_SHAPE.fullmatch(cred):
         return None
     return cred
 
