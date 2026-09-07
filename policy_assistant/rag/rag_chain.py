@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 from policy_assistant.rag.cache import embed_cached
 from policy_assistant.rag.config import (
     CONDENSE_TURNS,
-    ESCALATION_CONTACT,
     HISTORY_TURNS,
     NUM_CANDIDATES,
     PASSAGES_COLLECTION,
