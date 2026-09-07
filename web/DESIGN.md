@@ -58,7 +58,7 @@ otherwise. Escape closes it. Switching conversations closes it.
 
 **Refusal.** A notice, not an answer. Ochre panel with a header row (label
 and match meter), the refusal text, one line explaining that nothing indexed
-came close enough, and two actions inside the panel: ask People Operations,
+came close enough, and two actions inside the panel: ask Human Resources,
 and see what is indexed.
 
 **Library.** Master-detail from 1024px up: a 400px list column (search,

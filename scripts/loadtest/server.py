@@ -141,7 +141,7 @@ from policy_assistant.rag.config import (  # noqa: E402
 )
 
 _FAKE_DB[PASSAGES_COLLECTION].insert_many(
-    [{**p, "owner": "People Operations"} for p in CANNED_PASSAGES]
+    [{**p, "owner": "Human Resources"} for p in CANNED_PASSAGES]
 )
 # The same document whole, so opening it in the library renders real markdown.
 _FAKE_DB[DOCUMENT_BODIES_COLLECTION].insert_one(
@@ -149,7 +149,7 @@ _FAKE_DB[DOCUMENT_BODIES_COLLECTION].insert_one(
         **{
             k: v for k, v in CANNED_PASSAGES[0].items() if k not in ("chunk_index", "score", "text")
         },
-        "owner": "People Operations",
+        "owner": "Human Resources",
         "body": (
             "## Accrual\n\n"
             "Full-time employees accrue paid time off each pay period based on length "

@@ -1,6 +1,6 @@
 Title: Disability and Workplace Accommodation Policy
 Category: Benefits
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Policy statement
@@ -12,12 +12,12 @@ hardship on the business.
 
 ## Requesting an accommodation
 
-Start a request with People Operations, your manager, or by emailing
+Start a request with Human Resources, your manager, or by emailing
 accommodations@meridian.io. You do not need to use the word "accommodation"
 or disclose a diagnosis; describing the workplace barrier is enough to start
 the process.
 
-People Operations acknowledges a request within 3 business days and begins
+Human Resources acknowledges a request within 3 business days and begins
 an interactive dialogue with you to identify options. A request generally
 does not require a doctor's note for straightforward accommodations, such as
 a keyboard tray or a schedule shift; documentation may be requested for more
@@ -56,7 +56,7 @@ Operations before the leave begins so it is classified correctly.
 Meridian may decline a specific requested accommodation if it would impose
 a significant difficulty or expense, but will work with you to identify an
 alternative that meets the underlying need. A denial is documented in
-writing with the reason and reviewed by People Operations leadership before
+writing with the reason and reviewed by Human Resources leadership before
 being finalized.
 
 ## Retaliation

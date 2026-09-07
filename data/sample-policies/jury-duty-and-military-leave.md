@@ -1,6 +1,6 @@
 Title: Jury Duty and Military Leave Policy
 Category: Time Off & Leave
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Jury duty
@@ -14,9 +14,9 @@ use PTO to cover the gap or accept the court's standard juror fee.
 
 ### Notice and documentation
 
-Notify your manager and People Operations as soon as you receive a jury
+Notify your manager and Human Resources as soon as you receive a jury
 summons, and provide the summons or a copy of it. When service concludes,
-submit the court's certificate of service to People Operations so the leave
+submit the court's certificate of service to Human Resources so the leave
 is recorded correctly.
 
 ### Returning to work

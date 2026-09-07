@@ -252,7 +252,7 @@
   {
     "id": "full_answerable_26",
     "category": "answerable",
-    "question": "How soon does People Operations open an investigation after a harassment complaint?",
+    "question": "How soon does Human Resources open an investigation after a harassment complaint?",
     "expected_sources": [
       "Anti-Harassment and Discrimination Policy"
     ],
@@ -272,7 +272,7 @@
   {
     "id": "full_answerable_28",
     "category": "answerable",
-    "question": "Within how many business days does People Operations acknowledge an accommodation request?",
+    "question": "Within how many business days does Human Resources acknowledge an accommodation request?",
     "expected_sources": [
       "Disability and Workplace Accommodation Policy"
     ],
@@ -398,7 +398,7 @@
       "Workplace Injury and Workers' Compensation Policy"
     ],
     "expected_outcome": "answer",
-    "expected_behavior": "Say get medical attention first, follow the Workplace Health and Safety Policy incident workflow, then notify manager/People Operations and file the injury report."
+    "expected_behavior": "Say get medical attention first, follow the Workplace Health and Safety Policy incident workflow, then notify manager/Human Resources and file the injury report."
   },
   {
     "id": "full_answerable_41",
@@ -429,7 +429,7 @@
       "Paid Time Off (PTO) Policy"
     ],
     "expected_outcome": "answer",
-    "expected_behavior": "Answer yes; Meridian uses one combined PTO bank for vacation, personal days, and short-term illness/safe leave, with jurisdiction questions handled by People Operations."
+    "expected_behavior": "Answer yes; Meridian uses one combined PTO bank for vacation, personal days, and short-term illness/safe leave, with jurisdiction questions handled by Human Resources."
   },
   {
     "id": "full_answerable_44",
@@ -450,7 +450,7 @@
       "Medical and Family Leave Policy"
     ],
     "expected_outcome": "answer",
-    "expected_behavior": "Answer no; company medical and family leave is distinct from statutory FMLA, which People Operations evaluates separately."
+    "expected_behavior": "Answer no; company medical and family leave is distinct from statutory FMLA, which Human Resources evaluates separately."
   },
   {
     "id": "full_answerable_46",
@@ -461,7 +461,7 @@
       "Medical and Family Leave Policy"
     ],
     "expected_outcome": "answer",
-    "expected_behavior": "Answer no; Parental Leave controls Meridian bonding leave and pay, Medical and Family Leave does not stack additional company bonding weeks, and FMLA or state leave may run concurrently only when People Operations says so."
+    "expected_behavior": "Answer no; Parental Leave controls Meridian bonding leave and pay, Medical and Family Leave does not stack additional company bonding weeks, and FMLA or state leave may run concurrently only when Human Resources says so."
   },
   {
     "id": "full_unanswerable_01",

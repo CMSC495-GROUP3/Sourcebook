@@ -9,7 +9,7 @@ from policy_assistant.rag.documents import (
 
 RAW = """Title: Paid Time Off (PTO) Policy
 Category: Time Off & Leave
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Overview
@@ -28,7 +28,7 @@ def test_parses_headers_and_body():
         "doc_id": "pto-policy",
         "title": "Paid Time Off (PTO) Policy",
         "category": "Time Off & Leave",
-        "owner": "People Operations",
+        "owner": "Human Resources",
         "effective_date": "2026-01-01",
         "body": "## Overview\nFull-time employees accrue...",
     }
@@ -72,7 +72,7 @@ def test_document_record_keeps_the_body_whole_with_its_metadata():
         "doc_id": "pto-policy",
         "title": "Paid Time Off (PTO) Policy",
         "category": "Time Off & Leave",
-        "owner": "People Operations",
+        "owner": "Human Resources",
         "effective_date": "2026-01-01",
         "body": "## Overview\nFull-time employees accrue...",
     }

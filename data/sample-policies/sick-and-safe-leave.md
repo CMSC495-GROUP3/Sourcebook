@@ -1,6 +1,6 @@
 Title: Sick and Safe Leave Policy
 Category: Time Off & Leave
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Purpose
@@ -9,8 +9,8 @@ This fictional Meridian Systems policy explains how employees request and
 record short-term sick leave and safe leave against Meridian's combined PTO
 bank. It does not create a separate paid-leave bank or a universal statutory
 entitlement. Local sick-leave ordinances may impose different floors or
-process rules; ask People Operations when your work location has a local
-mandate. People Operations—not this document—decides how any
+process rules; ask Human Resources when your work location has a local
+mandate. Human Resources—not this document—decides how any
 jurisdiction-specific requirement interacts with the Paid Time Off (PTO)
 Policy.
 
@@ -48,4 +48,4 @@ submit a Medical and Family Leave request when the absence will exceed what
 short-term PTO covers. Statutory FMLA or state leave rights, when they apply,
 are distinct from this company PTO usage process; see the Medical and Family
 Leave Policy. Jurisdiction-only questions (local ordinances, protected
-safe-leave floors) go to People Operations.
+safe-leave floors) go to Human Resources.

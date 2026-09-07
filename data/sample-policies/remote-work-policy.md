@@ -1,6 +1,6 @@
 Title: Remote and Hybrid Work Policy
 Category: Workplace
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-02-15
 
 ## Eligibility
@@ -10,7 +10,7 @@ physical presence — facilities, hardware lab, and front desk — are designate
 on-site and are marked as such in the job description.
 
 Eligibility is determined by role, not by individual negotiation. If you believe
-your role is misclassified, raise it with your manager and People Operations.
+your role is misclassified, raise it with your manager and Human Resources.
 
 ## Default schedule
 
@@ -38,7 +38,7 @@ You may work from a location other than your registered home or office for up to
 20 business days per calendar year with manager notification. No approval is
 needed.
 
-Working from outside your country of employment requires People Operations
+Working from outside your country of employment requires Human Resources
 approval regardless of duration, because it creates tax and employment law
 obligations for the company. Submit these requests at least 30 days ahead.
 
@@ -63,6 +63,6 @@ synchronous meetings rather than expand core hours for anyone.
 
 ## Changing your registered location
 
-Notify People Operations at least 30 days before moving. Compensation is tied to
-geographic pay zone, so a move may change your salary band. People Operations
+Notify Human Resources at least 30 days before moving. Compensation is tied to
+geographic pay zone, so a move may change your salary band. Human Resources
 will confirm any adjustment in writing before the move takes effect.

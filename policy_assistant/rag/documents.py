@@ -13,7 +13,7 @@ Documents are plain UTF-8 text with a short header block, blank line, then body:
 
     Title: Paid Time Off (PTO) Policy
     Category: Time Off & Leave
-    Owner: People Operations
+    Owner: Human Resources
     Effective: 2026-01-01
 
     Full-time employees accrue...

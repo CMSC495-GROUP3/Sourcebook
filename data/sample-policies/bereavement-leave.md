@@ -1,6 +1,6 @@
 Title: Bereavement Leave Policy
 Category: Time Off & Leave
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Who is eligible
@@ -27,14 +27,14 @@ within 60 days of the loss.
 
 Notify your manager as soon as practical; a specific reason does not need
 to be provided in advance if you're not ready to share it. Enter the leave
-in Workday under "Bereavement" when you're able to; People Operations will
+in Workday under "Bereavement" when you're able to; Human Resources will
 backdate the entry if needed.
 
 ## Extending beyond the paid allotment
 
 Additional unpaid leave, or use of PTO, is available on request for
 circumstances requiring more time, such as settling an estate or travel to
-another country. Talk to your manager or People Operations; these requests
+another country. Talk to your manager or Human Resources; these requests
 are approved except where there is a genuine, documented coverage problem.
 
 ## Pay and benefits

@@ -49,7 +49,7 @@ additional equipment such as a monitor arm or footrest, provided at no cost.
 
 Threats, intimidation, and physical violence are prohibited without
 exception. If you feel unsafe, leave the area and contact building security
-or 911 immediately, then notify People Operations. See the Workplace
+or 911 immediately, then notify Human Resources. See the Workplace
 Violence Prevention Policy for the full threat assessment and response
 process.
 

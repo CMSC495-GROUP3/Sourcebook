@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from typing import Literal
 
 from policy_assistant.rag.config import (
+    ESCALATION_CONTACT,
     OPENAI_CAPACITY_WAIT_SECONDS,
     OPENAI_MAX_CONCURRENT_REQUESTS,
     OPENAI_MAX_RETRIES,
@@ -264,7 +265,7 @@ class FakeProvider(LLMProvider):
         "maximum of 10 unused days into the following calendar year; anything above "
         "that is forfeited on December 31. This is drawn from the Paid Time Off (PTO) "
         "Policy, effective 2026-01-01. For absences longer than five consecutive "
-        "business days you will also need approval from People Operations."
+        f"business days you will also need approval from {ESCALATION_CONTACT}."
     )
 
     def __init__(self) -> None:

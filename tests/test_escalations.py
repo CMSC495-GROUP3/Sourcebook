@@ -14,6 +14,7 @@ from pymongo.errors import DuplicateKeyError
 from policy_assistant.api import notify
 from policy_assistant.api.limiter import limiter
 from policy_assistant.api.routes import escalations as escalations
+from policy_assistant.rag.config import ESCALATION_CONTACT
 
 
 @pytest.fixture
@@ -84,7 +85,7 @@ class TestCreate:
         assert record["question"] == "Can I bring my dog?"
         assert record["note"] == "It's for an assistance animal."
         assert record["sources"] == [] and record["confidence"] == 30
-        assert record["contact"] == "People Operations"
+        assert record["contact"] == ESCALATION_CONTACT
         assert record["resolution"] is None and record["resolved_at"] is None
         assert "_id" not in record
 
