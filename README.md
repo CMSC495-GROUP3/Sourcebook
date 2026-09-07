@@ -55,7 +55,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
   threshold, no model call is made and the UI says the corpus does not cover
   the question.
 - **Hands off to a person.** A refusal, or an answer that did not help, can be
-  escalated to People Operations from the same screen with the question and its
+  escalated to Human Resources from the same screen with the question and its
   sources attached.
 - **Learns from its own log.** Every request records what was asked, what was
   retrieved, and whether it was refused. Refusals grouped by question are the
@@ -135,7 +135,7 @@ flowchart LR
     GATE -->|"yes"| LLM["Model provider"]
     LLM -->|"SSE: answer, sources, match %"| REACT
     REFUSE --> REACT
-    REACT -->|"Ask People Operations"| ESC["Escalation record<br/>+ optional webhook"]
+    REACT -->|"Ask Human Resources"| ESC["Escalation record<br/>+ optional webhook"]
 ```
 
 Docker Compose runs three services on one EC2 instance. OpenAI, MongoDB Atlas,
@@ -243,8 +243,8 @@ instead, since that is what the citation is evidence of.
 
 ### Refusals lead somewhere: escalation
 
-A refusal that ends with "check with People Operations" is only honest if
-checking is easy. The refusal card has an Ask People Operations button, and
+A refusal that ends with "check with Human Resources" is only honest if
+checking is easy. The refusal card has an Ask Human Resources button, and
 every answer has a quieter "not what you needed?" link. Both file an escalation
 with the question, the assistant's reply, the retrieval score, the cited
 documents, and an optional note from the employee.
@@ -819,7 +819,7 @@ Plain UTF-8 text with a short header block, a blank line, then the body:
 ```text
 Title: Paid Time Off (PTO) Policy
 Category: Time Off & Leave
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Overview
@@ -886,7 +886,7 @@ The product name lives in three places: `APP_NAME` in
 - **The similarity threshold is untuned** against a real corpus. See
   [above](#hallucination-refuse-rather-than-guess).
 - **Escalations have no handler UI.** The open-queue and resolve endpoints
-  exist; a page for People Operations to work through them does not.
+  exist; a page for Human Resources to work through them does not.
 - **The React components have no unit tests.** The backend suite is the safety
   net; `tsc` and ESLint check the web app.
 - **Document search uses `$regex`**, which does not use an index. Fine at this

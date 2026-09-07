@@ -59,5 +59,5 @@ may be treated as taxable income.
 ## Questions and claims
 
 Contact the plan administrator directly for claims and card issues; contact
-People Operations for enrollment or contribution changes. Details and
+Human Resources for enrollment or contribution changes. Details and
 current-year limits are on the benefits portal under "FSA/HSA."

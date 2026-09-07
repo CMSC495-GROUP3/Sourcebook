@@ -1,6 +1,6 @@
 Title: Employee Recognition Program
 Category: Career
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Peer-to-peer recognition
@@ -22,7 +22,7 @@ Managers can award a spot bonus of $100 to $500 for a specific
 contribution, without needing to wait for a formal review cycle. Spot
 bonuses are approved by the manager's own manager and paid in the next
 payroll cycle. There's no annual limit on how many spot bonuses a manager
-can award, though repeated use is reviewed by People Operations to keep
+can award, though repeated use is reviewed by Human Resources to keep
 recognition meaningful and fairly distributed across a team.
 
 ## Milestone recognition
@@ -35,7 +35,7 @@ app settings.
 
 ## Quarterly and annual awards
 
-Each quarter, People Operations runs a nomination process for a small
+Each quarter, Human Resources runs a nomination process for a small
 number of company-wide awards (such as "Above and Beyond" and "Best
 Collaborator"), nominated by peers and selected by a rotating panel of
 employees, not by management alone. Winners receive a $500 bonus and are
@@ -43,7 +43,7 @@ announced at the quarterly all-hands.
 
 ## Program administration
 
-People Operations reviews recognition program usage twice a year to check
+Human Resources reviews recognition program usage twice a year to check
 that recognition is distributed broadly across teams and levels, not
 concentrated among a small group, and adjusts the point allowance or spot
 bonus range if warranted.

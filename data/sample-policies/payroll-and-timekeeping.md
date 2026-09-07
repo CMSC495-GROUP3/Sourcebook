@@ -74,6 +74,6 @@ the Paid Time Off policy.
 
 ## Employment and income verification
 
-Direct verification requests to People Operations. Meridian confirms dates of
+Direct verification requests to Human Resources. Meridian confirms dates of
 employment and job title to any requester, and confirms salary only with your
 written authorization.

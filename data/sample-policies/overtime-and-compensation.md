@@ -37,9 +37,9 @@ manager about workload.
 ## Salary bands and structure
 
 Every role and level maps to a published salary band, reviewed annually by
-People Operations and Finance against market data. Managers do not have
+Human Resources and Finance against market data. Managers do not have
 discretion to offer or pay outside the band for a role and level without a
-documented exception approved by a VP and People Operations.
+documented exception approved by a VP and Human Resources.
 
 ## Merit increases and market adjustments
 

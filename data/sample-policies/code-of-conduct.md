@@ -48,7 +48,7 @@ Failing to disclose is the problem.
 ## Relationships at work
 
 Romantic relationships between employees are not prohibited, but a relationship
-within a direct or indirect reporting line must be disclosed to People Operations
+within a direct or indirect reporting line must be disclosed to Human Resources
 so the reporting line can be changed. The more senior person is responsible for
 disclosing.
 
@@ -72,7 +72,7 @@ been approved — see the IT Acceptable Use Policy for the approved list.
 
 ## Raising a concern
 
-Report concerns to your manager, any other manager you trust, People Operations,
+Report concerns to your manager, any other manager you trust, Human Resources,
 or Legal. An anonymous ethics line is available at meridian.ethicspoint.com and
 is operated by an outside provider.
 

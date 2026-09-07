@@ -1,6 +1,6 @@
 Title: Separation and Severance Policy
 Category: Employment Lifecycle
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Purpose
@@ -13,13 +13,13 @@ entitlement to severance for every departure.
 ## Voluntary resignation
 
 Employees should give at least two weeks' written notice to their manager and
-People Operations. Unused PTO payout on separation follows the Paid Time Off
+Human Resources. Unused PTO payout on separation follows the Paid Time Off
 (PTO) Policy; this Separation and Severance Policy does not redefine PTO
 payout rules.
 
 ## Involuntary separation
 
-Managers must partner with People Operations before communicating an involuntary
+Managers must partner with Human Resources before communicating an involuntary
 separation. Final pay timing follows applicable wage law for the work location.
 Unused PTO payout again defers to the PTO Policy.
 
@@ -37,5 +37,5 @@ states a different PTO term.
 ## Return of property and access
 
 On or before the last day, return badges, devices, and confidential materials.
-System access is revoked at separation unless People Operations schedules a short
+System access is revoked at separation unless Human Resources schedules a short
 transition exception in writing.

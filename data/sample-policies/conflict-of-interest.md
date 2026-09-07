@@ -41,7 +41,7 @@ even if there is nothing new to report.
 ## Reporting relationships
 
 A relationship within a direct or indirect reporting line, romantic or
-close personal, must be disclosed to People Operations so the reporting
+close personal, must be disclosed to Human Resources so the reporting
 line can be adjusted. See the Code of Conduct for the process; the more
 senior person in the relationship is responsible for raising it.
 

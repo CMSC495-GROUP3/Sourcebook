@@ -1,6 +1,6 @@
 Title: Paid Time Off (PTO) Policy
 Category: Time Off & Leave
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Overview
@@ -56,9 +56,9 @@ request is declined, your manager must offer alternative dates.
 ## Absences of more than five consecutive days
 
 Any absence longer than five consecutive business days requires approval from
-both your manager and People Operations. If the absence is medical, it may be
+both your manager and Human Resources. If the absence is medical, it may be
 covered under short-term disability, company medical and family leave, or
-statutory FMLA rather than PTO — contact People Operations before your leave
+statutory FMLA rather than PTO — contact Human Resources before your leave
 begins so it is classified correctly. Company medical leave and FMLA are
 distinct; see the Medical and Family Leave Policy. Bonding leave and pay for
 new parents are governed by the Parental Leave Policy, not by stacking

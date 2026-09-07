@@ -25,7 +25,7 @@ running their first interview loop and annually thereafter.
 
 ## Compensation equity
 
-People Operations runs a pay equity analysis every year, comparing
+Human Resources runs a pay equity analysis every year, comparing
 compensation across protected groups for employees in the same role and
 level. Unexplained gaps above 3% are corrected in the next compensation
 cycle regardless of individual performance ratings.
@@ -42,9 +42,9 @@ for the request process.
 
 ## Reporting a concern
 
-Report a concern about discrimination to your manager, People Operations,
+Report a concern about discrimination to your manager, Human Resources,
 Legal, or the anonymous ethics line at meridian.ethicspoint.com. Reports are
-investigated by People Operations or Legal, not by the manager involved.
+investigated by Human Resources or Legal, not by the manager involved.
 
 Retaliation against anyone who raises a concern in good faith is prohibited
 and is itself grounds for discipline, independent of whether the underlying

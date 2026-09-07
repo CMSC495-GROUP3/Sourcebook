@@ -1,6 +1,6 @@
 Title: Introductory Period Policy
 Category: Onboarding
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Purpose
@@ -38,7 +38,7 @@ Either the employee or Meridian may end the employment relationship at any
 time during the introductory period, consistent with Meridian's general
 at-will policy. A separation during this period does not require the
 progressive discipline steps described in the Disciplinary Action and
-Termination Policy, though People Operations sign-off is still required
+Termination Policy, though Human Resources sign-off is still required
 before an involuntary separation.
 
 ## Completing the introductory period

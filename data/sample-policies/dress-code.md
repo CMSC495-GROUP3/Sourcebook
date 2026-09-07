@@ -1,6 +1,6 @@
 Title: Dress Code and Workplace Appearance Policy
 Category: Workplace
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## General standard
@@ -38,7 +38,7 @@ first visit to these areas.
 Religious and cultural dress, including head coverings, is always
 appropriate and does not require prior approval. See the Disability and
 Workplace Accommodation Policy if a specific role's safety requirement
-conflicts with a religious practice; Facilities and People Operations will
+conflicts with a religious practice; Facilities and Human Resources will
 work with you on an alternative.
 
 ## Remote video calls
@@ -50,5 +50,5 @@ background and lighting are your choice.
 ## Questions
 
 If you're unsure whether something fits the standard for a specific
-situation, ask your manager or People Operations before the event rather
+situation, ask your manager or Human Resources before the event rather
 than after.
