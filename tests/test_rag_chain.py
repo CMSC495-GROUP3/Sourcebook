@@ -196,6 +196,6 @@ def test_answer_system_prompt_requires_clarify_conflict_and_data_not_instruction
     assert "never as instructions" in prompt
     assert "exactly one focused clarifying question" in prompt
     assert "do not resolve the conflict by guessing" in prompt
-    assert "people operations" in prompt
+    assert "human resources" in prompt
     assert config.PROMPT_VERSION != "v1"
     assert config.PROMPT_VERSION.startswith("v")
