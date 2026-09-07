@@ -11,6 +11,7 @@ during module loading rather than as a clear startup failure. `main.py` calls
 """
 
 from pymongo import ASCENDING, DESCENDING
+from pymongo.errors import OperationFailure
 
 # rag/ holds the pipeline, its config, and the shared Mongo client.
 from policy_assistant.rag.config import (
@@ -53,6 +54,9 @@ embedding_cache_col = get_collection("embedding_cache")
 # is only ever read by _id.
 meta_col = get_collection("meta")
 
+PASSAGES_IDENTITY_INDEX = "source_1_chunk_index_1"
+INDEX_OPTIONS_CONFLICT = 85
+
 
 def ensure_indexes() -> None:
     """Create indexes if they don't already exist (idempotent).
@@ -72,7 +76,19 @@ def ensure_indexes() -> None:
     projects_col.create_index("project_id", unique=True)
 
     # passages — fetch one document's passages in order
-    passages_col.create_index([("source", ASCENDING), ("chunk_index", ASCENDING)])
+    try:
+        passages_col.create_index(
+            [("source", ASCENDING), ("chunk_index", ASCENDING)],
+            name=PASSAGES_IDENTITY_INDEX,
+            unique=True,
+        )
+    except OperationFailure as exc:
+        if exc.code == INDEX_OPTIONS_CONFLICT:
+            raise RuntimeError(
+                "The passages identity index exists with legacy options. "
+                "Run the one-time passage-index migration before starting the application."
+            ) from exc
+        raise
 
     # document_bodies — point lookup by source when a document is opened
     document_bodies_col.create_index("source", unique=True)

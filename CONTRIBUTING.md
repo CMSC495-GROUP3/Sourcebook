@@ -223,6 +223,75 @@ covers `.env`; the rest is on you.
 - **The fake provider's embeddings are meaningless.** Never use `make stub` to
   judge retrieval quality or to tune `SIMILARITY_THRESHOLD`.
 
+## Passage identity index migration
+
+The `passages` collection requires a unique compound index on
+`(source, chunk_index)`. Older databases may still have the same index as
+non-unique and may also contain duplicate passage identities.
+
+Do not run this migration against production without an explicit operations
+decision and a current database backup/snapshot.
+
+Before migration:
+
+1. Stop or otherwise prevent passage ingestion/writers from changing the
+   collection during the migration.
+2. Confirm a current MongoDB Atlas backup/snapshot exists.
+3. Check for duplicate passage identities:
+
+   ```javascript
+   db.passages.aggregate([
+     {
+       $group: {
+         _id: { source: "$source", chunk_index: "$chunk_index" },
+         count: { $sum: 1 }
+       }
+     },
+     { $match: { count: { $gt: 1 } } }
+   ])
+   ```
+
+4. Inspect the current indexes:
+
+   ```javascript
+   db.passages.getIndexes()
+   ```
+
+Run the one-time migration from the repository root:
+
+```bash
+.venv/bin/python -m scripts.migrate_passage_index
+```
+
+The migration:
+
+- reconciles duplicate `(source, chunk_index)` records deterministically;
+- drops the legacy non-unique compound index when present;
+- creates `source_1_chunk_index_1` with `unique: true`;
+- is safe to rerun after a successful migration.
+
+The local FakeMongo used by the test suite does not enforce MongoDB index
+uniqueness. Tests therefore verify the unique index declaration, migration
+behavior, duplicate reconciliation, and failure handling without pretending
+that FakeMongo can reproduce MongoDB's duplicate-key enforcement.
+
+After migration:
+
+1. Confirm no duplicate identities remain.
+2. Confirm `db.passages.getIndexes()` reports
+   `source_1_chunk_index_1` with `unique: true`.
+3. Start the application and confirm normal startup succeeds.
+4. Smoke-test document retrieval and the Policy Library before returning the
+   deployment to normal service.
+
+If migration fails, do not repeatedly modify the production collection by hand.
+Keep passage writers stopped, inspect the reported error and current indexes,
+and restore from the approved backup/snapshot if rollback is required.
+
+Prefer a forward-only recovery. Recreate the legacy non-unique index only if an
+explicit operations decision requires it; otherwise restore from the approved
+backup and investigate before retrying.
+
 ## Debugging
 
 - The OpenAPI console at `/docs` lets you call any endpoint with a token. Log in
