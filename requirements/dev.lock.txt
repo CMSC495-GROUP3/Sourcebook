@@ -208,7 +208,7 @@ rich==15.0.0
     # via pip-audit
 rsa==4.9.1
     # via python-jose
-ruff==0.16.5
+ruff==0.16.6
     # via -r requirements/lint.txt
 s3transfer==0.19.2
     # via boto3
