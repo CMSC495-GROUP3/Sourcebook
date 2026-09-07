@@ -1,6 +1,6 @@
 """Escalation endpoints — hand a question to a person.
 
-The refusal message tells the employee to check with People Operations. This
+The refusal message tells the employee to check with Human Resources. This
 is the path that does it. An escalation is tied to one assistant turn in a
 stored conversation, and the question is copied from that record rather than
 taken from the request. The server already holds what was asked and answered,

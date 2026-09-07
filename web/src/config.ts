@@ -21,4 +21,4 @@ export const TOKEN_KEY = 'policy_assistant_token'
  * Who a refused or unhelpful answer is handed to. Mirrors ESCALATION_CONTACT
  * in policy_assistant/rag/config.py; change both together.
  */
-export const ESCALATION_CONTACT = 'People Operations'
+export const ESCALATION_CONTACT = 'Human Resources'

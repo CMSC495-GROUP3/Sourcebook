@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from policy_assistant.rag.cache import embed_cached
 from policy_assistant.rag.config import (
     CONDENSE_TURNS,
+    ESCALATION_CONTACT,
     HISTORY_TURNS,
     NUM_CANDIDATES,
     PASSAGES_COLLECTION,
@@ -42,7 +43,7 @@ ANSWER_SYSTEM_PROMPT = (
     "- Quote specific numbers, dates, and deadlines exactly as they appear.\n"
     "- Name the policy document you are drawing from in your answer.\n"
     "- If the context is ambiguous or the policies appear to conflict, say that "
-    "and recommend confirming with People Operations.\n"
+    f"and recommend confirming with {ESCALATION_CONTACT}.\n"
     "- Be concise. Employees are looking something up, not reading an essay."
 )
 
