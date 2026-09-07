@@ -234,7 +234,11 @@ covers `.env`; the rest is on you.
   yet.
 - Query analytics are in the `query_logs` collection: refused questions grouped
   by `question_hash` are the content gaps, and `best_score` on answered versus
-  refused rows is what the threshold should be tuned against.
+  refused rows is what the threshold should be tuned against. Run a read-only
+  offline report over a time window (requires `MONGODB_URI`):
+  `python -m policy_assistant.rag.query_log_reports --since 2026-08-01 --until 2026-09-01`.
+  Optional `--top` and `--min-repeat` bound the ranked lists. Sample text comes
+  from already-logged truncated `question_raw` / `question_condensed` when present.
 - API logs go to stdout. In Compose: `docker compose logs -f api`.
 
 ## Load testing and deployment
