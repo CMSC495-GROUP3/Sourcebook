@@ -1,6 +1,6 @@
 Title: Performance Reviews and Promotion
 Category: Career
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Cycle
@@ -74,5 +74,5 @@ normal standing with no lasting record beyond the cycle.
 ## Disagreeing with a review
 
 Raise it with your manager first. If unresolved, request a review by your
-manager's manager with People Operations present. Requests must be made within 30
+manager's manager with Human Resources present. Requests must be made within 30
 days of receiving the rating.

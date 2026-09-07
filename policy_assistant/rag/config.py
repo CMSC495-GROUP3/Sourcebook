@@ -25,6 +25,12 @@ S3_DOCUMENT_PREFIX = os.getenv("S3_DOCUMENT_PREFIX", "documents/")
 # proposal — it avoids pairing a vector store with a separate document store.
 PASSAGES_COLLECTION = os.getenv("PASSAGES_COLLECTION", "passages")
 
+# MongoDB collection holding one record per source document: its metadata and
+# the full parsed body. Passages are what retrieval sees; this is what a person
+# reads in the Policy Library. Chunks overlap, so the body cannot be rebuilt
+# from them, which is why it is stored on its own.
+DOCUMENT_BODIES_COLLECTION = os.getenv("DOCUMENT_BODIES_COLLECTION", "document_bodies")
+
 # Connections held per process. Total load on the cluster is
 # (uvicorn workers x this), which must stay under the Atlas connection cap —
 # see the arithmetic in policy_assistant/rag/mongo.py before raising either number.
@@ -46,6 +52,15 @@ NUM_CANDIDATES = int(os.getenv("NUM_CANDIDATES", "100"))
 # the driver cannot create search indexes on a free-tier cluster.
 VECTOR_INDEX_NAME = os.getenv("VECTOR_INDEX_NAME", "vector_index")
 
+# ── Escalation ────────────────────────────────────────────────────────────────
+# When the assistant refuses, or an answer does not help, the employee can hand
+# the question to a person. The record lands in the `escalations` collection
+# and, if a webhook is configured, is posted there too so it reaches an inbox
+# or a chat channel without anyone polling the database.
+#
+# Who the request goes to. Shown on the button in the UI and in the webhook text.
+ESCALATION_CONTACT = os.getenv("ESCALATION_CONTACT", "Human Resources")
+
 # ── Grounding threshold ───────────────────────────────────────────────────────
 # Hallucination mitigation. Atlas returns a cosine similarity mapped into [0, 1]
 # as (1 + cosine) / 2, so 0.5 means "unrelated" and 1.0 means "identical". If the
@@ -65,7 +80,7 @@ SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.62"))
 # at a human rather than guessing.
 REFUSAL_MESSAGE = (
     "I don't have a policy document that covers that question, so I can't answer "
-    "it without guessing. Please check with People Operations directly — and if "
+    f"it without guessing. Please check with {ESCALATION_CONTACT} directly — and if "
     "this is something the handbook should cover, it's worth flagging to them."
 )
 
@@ -151,15 +166,6 @@ QUERY_LOG_TTL_SECONDS = int(os.getenv("QUERY_LOG_TTL_SECONDS", str(90 * 86400)))
 # into a standalone retrieval query.
 HISTORY_TURNS = int(os.getenv("HISTORY_TURNS", "20"))
 CONDENSE_TURNS = int(os.getenv("CONDENSE_TURNS", "6"))
-
-# ── Escalation ────────────────────────────────────────────────────────────────
-# When the assistant refuses, or an answer does not help, the employee can hand
-# the question to a person. The record lands in the `escalations` collection
-# and, if a webhook is configured, is posted there too so it reaches an inbox
-# or a chat channel without anyone polling the database.
-#
-# Who the request goes to. Shown on the button in the UI and in the webhook text.
-ESCALATION_CONTACT = os.getenv("ESCALATION_CONTACT", "People Operations")
 
 # Optional. Any URL that accepts a JSON POST. The payload carries a top-level
 # `text` field, so a Slack or Teams incoming webhook renders it without an

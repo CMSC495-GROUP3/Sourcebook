@@ -1,6 +1,6 @@
 Title: Diversity, Equity, and Inclusion Policy
 Category: Conduct & Compliance
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Purpose
@@ -27,7 +27,7 @@ dropping out of the process.
 Meridian supports employee resource groups (ERGs), each with an executive
 sponsor and a small annual budget for events and speakers. Current ERGs are
 listed on the intranet under "Community"; any group of 5 or more employees
-may propose a new ERG to People Operations.
+may propose a new ERG to Human Resources.
 
 ERG participation is voluntary and unpaid, though meetings during work
 hours up to one hour per month are treated as work time, not personal time.
@@ -43,7 +43,7 @@ meetings.
 
 See the Equal Employment Opportunity Policy for the annual pay equity
 analysis. Promotion rates by demographic group are reviewed annually by
-People Operations leadership; a material gap triggers a review of the
+Human Resources leadership; a material gap triggers a review of the
 promotion criteria and calibration process for the following cycle.
 
 ## Accessibility
@@ -55,7 +55,7 @@ will be logged and prioritized against a 90-day remediation target.
 
 ## Measuring progress
 
-People Operations publishes an internal annual diversity report each
+Human Resources publishes an internal annual diversity report each
 January, summarizing workforce composition, hiring, and retention trends in
 aggregate. Individual data is never shared at a level that could identify a
 specific employee.

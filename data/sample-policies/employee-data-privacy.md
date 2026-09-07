@@ -17,11 +17,11 @@ once you're hired and is retained under the same rules.
 Data is used for the purpose it was collected for: payroll data for pay and
 tax reporting, performance data for review cycles, badge data for building
 security and safety. Data is not used for a new purpose without a
-documented business reason reviewed by Legal and People Operations.
+documented business reason reviewed by Legal and Human Resources.
 
 ## Who can access your data
 
-- **People Operations** has broad access to personnel records to administer
+- **Human Resources** has broad access to personnel records to administer
   employment.
 - **Your manager** sees performance, compensation, and attendance data for
   people who report to them, directly or indirectly.
@@ -31,7 +31,7 @@ documented business reason reviewed by Legal and People Operations.
   process pay and administer benefits, under a data processing agreement
   that limits their use of it.
 
-Access is logged. People Operations periodically audits access to
+Access is logged. Human Resources periodically audits access to
 sensitive records such as medical or accommodation files.
 
 ## Monitoring
@@ -55,7 +55,7 @@ for 1 year unless relevant to an open investigation.
 
 ## Your rights
 
-You may request a copy of your own personnel file from People Operations;
+You may request a copy of your own personnel file from Human Resources;
 requests are fulfilled within 15 business days. You may request correction
 of inaccurate data. Where applicable state law (such as the California
 Consumer Privacy Act) provides additional rights, Meridian honors them

@@ -1,6 +1,6 @@
 Title: Drug and Alcohol Policy
 Category: Conduct & Compliance
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Policy statement
@@ -36,7 +36,7 @@ monitored.
 Prescription medication taken as directed is not a policy violation, even
 if it causes side effects such as drowsiness. If a medication affects your
 ability to safely perform your job, such as operating machinery or driving
-for work, talk to your manager or People Operations about a temporary
+for work, talk to your manager or Human Resources about a temporary
 accommodation rather than working through the impairment.
 
 ## Testing

@@ -6,12 +6,13 @@ from datetime import UTC, datetime
 
 from policy_assistant.api import notify
 from policy_assistant.api.notify import deliver_escalation, format_summary
+from policy_assistant.rag.config import ESCALATION_CONTACT
 
 RECORD = {
     "escalation_id": "abcdef0123456789",
     "status": "open",
     "reason": "refused",
-    "contact": "People Operations",
+    "contact": ESCALATION_CONTACT,
     "session_id": "s",
     "message_index": 1,
     "question": "Can I bring my dog?",
@@ -38,7 +39,7 @@ class _Response:
 def test_summary_for_a_refusal():
     text = format_summary(RECORD)
     assert text.splitlines() == [
-        "Policy question escalated to People Operations (ref abcdef01)",
+        f"Policy question escalated to {ESCALATION_CONTACT} (ref abcdef01)",
         "Assistant declined to answer.",
         "Question: Can I bring my dog?",
         "Employee note: Assistance animal.",

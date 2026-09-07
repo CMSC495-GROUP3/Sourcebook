@@ -39,14 +39,14 @@ who witnesses harassment of a colleague may also report it.
 
 ## How to report
 
-Report to your manager, any manager you trust, People Operations, Legal, or
+Report to your manager, any manager you trust, Human Resources, Legal, or
 the anonymous ethics line at meridian.ethicspoint.com. You do not have to
 report to your direct manager, and reporting to HR directly is always an
 option, including when the manager is the subject of the report.
 
 ## Investigation process
 
-People Operations or Legal opens an investigation within 3 business days of
+Human Resources or Legal opens an investigation within 3 business days of
 a report. Both parties are interviewed, along with relevant witnesses.
 Investigations typically conclude within 30 days; complex cases are
 communicated on status every two weeks.

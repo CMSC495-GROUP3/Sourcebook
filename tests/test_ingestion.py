@@ -139,6 +139,21 @@ def test_fetches_all_s3_pages_and_skips_directory_placeholders(monkeypatch):
     ]
 
 
+def test_fetch_drops_a_byte_order_mark_so_the_header_still_parses(monkeypatch):
+    """Files saved by some Windows editors start with a BOM. Left in place it
+    would make the Title line fail to parse and land the whole header block
+    in the rendered document."""
+    s3 = _S3(
+        pages=[{"Contents": [{"Key": "documents/pto.md"}]}],
+        objects={"documents/pto.md": "\ufeffTitle: PTO\n\nPTO body."},
+    )
+    ingestion = _load_ingestion(monkeypatch, s3)
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-policies")
+
+    [(_, raw)] = ingestion.fetch_documents_from_s3()
+    assert raw == "Title: PTO\n\nPTO body."
+
+
 def test_missing_bucket_stops_with_actionable_message(monkeypatch):
     ingestion = _load_ingestion(monkeypatch, _S3([], {}))
     monkeypatch.delenv("S3_BUCKET_NAME", raising=False)
@@ -162,20 +177,26 @@ def test_reingestion_replaces_stale_passages_and_invalidates_cache(monkeypatch):
     ]
 
     class Provider:
-        def embed(self, _text: str) -> list[float]:
-            return [0.25, 0.75]
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
 
     monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
     monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
     monkeypatch.setattr(ingestion, "get_provider", Provider)
 
     FAKE_DB["passages"].insert_one({"source": "documents/stale.md", "text": "stale"})
+    FAKE_DB["document_bodies"].insert_one({"source": "documents/stale.md", "body": "stale"})
     initial_version = get_corpus_version()
 
     ingestion.embed_and_store()
 
     first_version = get_corpus_version()
     first_passages = list(FAKE_DB["passages"].find({}))
+    bodies = list(FAKE_DB["document_bodies"].find({}, {"_id": 0}))
+    assert [body["source"] for body in bodies] == ["documents/pto.md", "documents/conduct.md"]
+    assert bodies[0]["title"] == "Paid Time Off"
+    assert bodies[0]["body"] == "Employees accrue 15 PTO days."
+    assert "embedding" not in bodies[0]
     assert first_version != initial_version
     assert len(first_passages) == 2
     assert [passage["source"] for passage in first_passages] == [
@@ -195,3 +216,222 @@ def test_reingestion_replaces_stale_passages_and_invalidates_cache(monkeypatch):
     assert get_corpus_version() != first_version
     assert FAKE_DB["passages"].count_documents({}) == 2
     assert FAKE_DB["passages"].count_documents({"source": "documents/stale.md"}) == 0
+    assert FAKE_DB["document_bodies"].count_documents({}) == 2
+    assert FAKE_DB["document_bodies"].count_documents({"source": "documents/stale.md"}) == 0
+
+
+def test_reingestion_keeps_existing_corpus_available_while_embedding(monkeypatch):
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        (
+            "documents/pto.md",
+            "Title: Paid Time Off\n\nEmployees accrue 15 PTO days.",
+        )
+    ]
+
+    FAKE_DB["passages"].insert_one(
+        {
+            "source": "documents/pto.md",
+            "chunk_index": 0,
+            "text": "Old live passage",
+            "embedding": [0.1, 0.2],
+        }
+    )
+
+    collection = FAKE_DB["passages"]
+    original_update_one = collection.update_one
+    update_calls = 0
+
+    def checked_update_one(*args, **kwargs):
+        nonlocal update_calls
+        assert collection.count_documents({}) > 0
+        result = original_update_one(*args, **kwargs)
+        assert collection.count_documents({}) > 0
+        update_calls += 1
+        return result
+
+    monkeypatch.setattr(collection, "update_one", checked_update_one)
+
+    class Provider:
+        def embed_many(self, texts):
+            assert FAKE_DB["passages"].count_documents({}) > 0
+            assert FAKE_DB["passages"].count_documents({"source": "documents/pto.md"}) > 0
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    assert FAKE_DB["passages"].count_documents({}) > 0
+    assert update_calls > 0
+
+
+def test_ingestion_batches_embeddings_per_document(monkeypatch):
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        (
+            "documents/large.md",
+            "Title: Large Policy\n\n" + ("Policy text. " * 300),
+        )
+    ]
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def embed_many(self, texts):
+            self.calls.append(list(texts))
+            return [[0.25, 0.75] for _ in texts]
+
+    provider = Provider()
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", lambda: provider)
+
+    ingestion.embed_and_store()
+
+    assert len(provider.calls) == 1
+    assert len(provider.calls[0]) > 1
+
+
+def test_failed_embedding_leaves_corpus_and_version_untouched(monkeypatch):
+    """The property #89 cares about most: a rebuild that dies part-way changes
+    nothing. Two documents; the provider embeds the first and raises on the
+    second, so the failure lands after some work has been done."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        ("documents/pto.md", "Title: Paid Time Off\n\nEmployees accrue 15 PTO days."),
+        ("documents/conduct.md", "Title: Code of Conduct\n\nEmployees act professionally."),
+    ]
+    seeded = [
+        {"source": "documents/pto.md", "chunk_index": 0, "text": "old pto", "embedding": [0.1]},
+        {"source": "documents/gone.md", "chunk_index": 0, "text": "old gone", "embedding": [0.2]},
+    ]
+    FAKE_DB["passages"].insert_many([dict(record) for record in seeded])
+    seeded_bodies = [{"source": "documents/pto.md", "body": "old pto whole"}]
+    FAKE_DB["document_bodies"].insert_many([dict(record) for record in seeded_bodies])
+    version_before = get_corpus_version()
+
+    class Provider:
+        calls = 0
+
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            Provider.calls += 1
+            if Provider.calls == 2:
+                raise RuntimeError("embedding service unavailable")
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    with pytest.raises(RuntimeError, match="embedding service unavailable"):
+        ingestion.embed_and_store()
+
+    remaining = [
+        {key: value for key, value in passage.items() if key != "_id"}
+        for passage in FAKE_DB["passages"].find({})
+    ]
+    assert remaining == seeded
+    assert list(FAKE_DB["document_bodies"].find({}, {"_id": 0})) == seeded_bodies
+    assert get_corpus_version() == version_before
+
+
+def test_document_that_shrinks_loses_its_obsolete_chunks(monkeypatch):
+    """Three chunks on record for one source; the new version yields one. The
+    per-source delete must drop chunk 1 and 2 and keep the stale-source delete
+    from touching a source that is still present."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [("documents/pto.md", "Title: Paid Time Off\n\nOne short paragraph now.")]
+    for index in range(3):
+        FAKE_DB["passages"].insert_one(
+            {
+                "source": "documents/pto.md",
+                "chunk_index": index,
+                "text": f"old chunk {index}",
+                "embedding": [0.1 * index],
+            }
+        )
+
+    class Provider:
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    passages = list(FAKE_DB["passages"].find({"source": "documents/pto.md"}))
+    assert [passage["chunk_index"] for passage in passages] == [0]
+    assert passages[0]["text"] == "One short paragraph now."
+    assert passages[0]["embedding"] == [0.25, 0.75]
+
+
+def test_document_with_no_passages_keeps_no_reading_copy(monkeypatch):
+    """A header-only file parses to an empty body and yields no chunks, so it
+    is absent from the library. Its reading copy must go the same way, or the
+    body endpoint would serve a document the library does not list."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        ("documents/empty.md", "Title: Placeholder\n"),
+        ("documents/pto.md", "Title: Paid Time Off\n\nEmployees accrue 15 PTO days."),
+    ]
+    FAKE_DB["document_bodies"].insert_one({"source": "documents/empty.md", "body": "old"})
+
+    class Provider:
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", lambda name: FAKE_DB[name])
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    assert FAKE_DB["passages"].count_documents({"source": "documents/empty.md"}) == 0
+    assert [b["source"] for b in FAKE_DB["document_bodies"].find({})] == ["documents/pto.md"]
+
+
+def test_each_body_is_written_right_after_its_own_passages(monkeypatch):
+    """A body must not trail the whole corpus: while passages are upserted a
+    document's reading copy may be one version behind, but only until its own
+    passages are in, never until every document's are."""
+    ingestion = _load_ingestion(monkeypatch, _S3([], {}))
+    documents = [
+        ("documents/pto.md", "Title: Paid Time Off\n\nEmployees accrue 15 PTO days."),
+        ("documents/conduct.md", "Title: Code of Conduct\n\nEmployees act professionally."),
+    ]
+    writes: list[tuple[str, str]] = []
+
+    def recording(name: str):
+        collection = FAKE_DB[name]
+        original = collection.update_one
+
+        def update_one(query, update, upsert=False):
+            writes.append((name, query["source"]))
+            return original(query, update, upsert=upsert)
+
+        monkeypatch.setattr(collection, "update_one", update_one)
+        return collection
+
+    class Provider:
+        def embed_many(self, texts: list[str]) -> list[list[float]]:
+            return [[0.25, 0.75] for _ in texts]
+
+    monkeypatch.setattr(ingestion, "fetch_documents_from_s3", lambda: documents)
+    monkeypatch.setattr(ingestion, "get_collection", recording)
+    monkeypatch.setattr(ingestion, "get_provider", Provider)
+
+    ingestion.embed_and_store()
+
+    assert writes == [
+        ("passages", "documents/pto.md"),
+        ("document_bodies", "documents/pto.md"),
+        ("passages", "documents/conduct.md"),
+        ("document_bodies", "documents/conduct.md"),
+    ]

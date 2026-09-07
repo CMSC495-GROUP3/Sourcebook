@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from typing import Literal
 
 from policy_assistant.rag.config import (
+    ESCALATION_CONTACT,
     OPENAI_CAPACITY_WAIT_SECONDS,
     OPENAI_MAX_CONCURRENT_REQUESTS,
     OPENAI_MAX_RETRIES,
@@ -55,6 +56,10 @@ class LLMProvider(ABC):
         providers therefore means re-embedding the corpus and rebuilding the
         index — see the migration note in the README.
         """
+
+    def embed_many(self, texts: list[str]) -> list[list[float]]:
+        """Return embedding vectors for multiple texts in input order."""
+        return [self.embed(text) for text in texts]
 
     @abstractmethod
     def embedding_dimensions(self) -> int:
@@ -110,10 +115,11 @@ class OpenAIProvider(LLMProvider):
     EMBEDDING_DIMENSIONS = int(os.getenv("OPENAI_EMBEDDING_DIMENSIONS", "1536"))
 
     def __init__(self) -> None:
-        # Lazy: FakeProvider must import this module without openai/httpx installed
-        # (Docker smoke with LLM_PROVIDER=fake). Keep both imports here.
-        import httpx
-        from openai import OpenAI
+        # Lazy: FakeProvider must import this module without openai installed
+        # (Docker smoke with LLM_PROVIDER=fake). Timeout comes from the SDK, not
+        # from httpx directly: openai 3.x depends on httpx2, so the api image has
+        # no module named httpx and a bare import fails on the first chat.
+        from openai import OpenAI, Timeout
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -126,7 +132,7 @@ class OpenAIProvider(LLMProvider):
         # THREADPOOL_TOKENS slot for the full read timeout.
         self._client = OpenAI(
             api_key=api_key,
-            timeout=httpx.Timeout(
+            timeout=Timeout(
                 connect=5.0,
                 read=OPENAI_TIMEOUT_SECONDS,
                 write=OPENAI_TIMEOUT_SECONDS,
@@ -165,6 +171,23 @@ class OpenAIProvider(LLMProvider):
                 input=text,
             )
         return response.data[0].embedding
+
+    def embed_many(self, texts: list[str]) -> list[list[float]]:
+        """One request per document's chunks. A document is a few dozen chunks,
+        far below the API's 2048-input and per-request token limits; a whole
+        corpus in one call would not be, so keep batches per document."""
+        if not texts:
+            return []
+
+        with self._request_slot():
+            response = self._client.embeddings.create(
+                model=self.EMBEDDING_MODEL,
+                input=texts,
+            )
+
+        # Each item carries the index of its input. The docs say the list is
+        # already in input order; sorting makes the upsert independent of that.
+        return [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
 
     def embedding_dimensions(self) -> int:
         return self.EMBEDDING_DIMENSIONS
@@ -242,7 +265,7 @@ class FakeProvider(LLMProvider):
         "maximum of 10 unused days into the following calendar year; anything above "
         "that is forfeited on December 31. This is drawn from the Paid Time Off (PTO) "
         "Policy, effective 2026-01-01. For absences longer than five consecutive "
-        "business days you will also need approval from People Operations."
+        f"business days you will also need approval from {ESCALATION_CONTACT}."
     )
 
     def __init__(self) -> None:

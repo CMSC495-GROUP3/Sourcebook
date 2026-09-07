@@ -1,6 +1,6 @@
 Title: Parental Leave Policy
 Category: Time Off & Leave
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Who is eligible
@@ -34,7 +34,7 @@ during leave.
 
 ## Notice
 
-Give People Operations at least 30 days notice where the timing is
+Give Human Resources at least 30 days notice where the timing is
 foreseeable. For unforeseeable events — early delivery, an expedited placement —
 notify as soon as practical. Late notice does not reduce your entitlement.
 
@@ -44,17 +44,21 @@ Health, dental, and vision coverage continue unchanged. Your share of premiums
 continues to be deducted from pay; if your pay is fully replaced there is no
 disruption. 401(k) contributions and company match continue on paid leave.
 
-## Interaction with FMLA and state leave
+## Interaction with FMLA, state leave, and company medical leave
+
+The Parental Leave Policy controls Meridian's company bonding leave and pay for
+birth, adoption, and foster placement. The Medical and Family Leave Policy does
+not stack additional company bonding weeks or pay on top of this entitlement.
 
 Where FMLA or a state paid family leave program applies, Meridian's parental
-leave runs concurrently rather than in addition. Where a state program pays a
-partial wage, Meridian tops up to 100% of base salary. You will never receive
-less than this policy provides.
+leave runs concurrently rather than in addition when Human Resources says so.
+Where a state program pays a partial wage, Meridian tops up to 100% of base
+salary. You will never receive less than this policy provides.
 
 ## Returning to work
 
 You return to the same role, or one equivalent in scope, level, and pay. Your
-manager and People Operations will schedule a return conversation two weeks
+manager and Human Resources will schedule a return conversation two weeks
 before your return date to agree on ramp-up.
 
 For the first four weeks back, you may work a reduced schedule of no fewer than

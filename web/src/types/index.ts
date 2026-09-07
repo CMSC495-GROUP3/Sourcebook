@@ -48,6 +48,12 @@ export interface DocumentsResponse {
   total: number
 }
 
+/** One document's full markdown body, from GET /api/documents/body. */
+export interface DocumentBody {
+  source: string
+  body: string
+}
+
 export type EscalationReason = 'refused' | 'unhelpful'
 export type EscalationStatus = 'open' | 'resolved'
 

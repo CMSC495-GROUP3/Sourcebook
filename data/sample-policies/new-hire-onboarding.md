@@ -1,6 +1,6 @@
 Title: New Hire Onboarding Guide
 Category: Onboarding
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Before your first day
@@ -17,7 +17,7 @@ the IT Service Desk.
 ## Day one
 
 Orientation runs from 09:00 to 12:00 in your local time zone and is delivered
-over Zoom for all locations. The invitation comes from People Operations the week
+over Zoom for all locations. The invitation comes from Human Resources the week
 before you start.
 
 In the afternoon, complete account setup:
@@ -67,6 +67,6 @@ worked in that period.
 ## Who to ask
 
 - **IT Service Desk** — hardware, accounts, access, VPN.
-- **People Operations** — pay, leave, policy, employment verification.
+- **Human Resources** — pay, leave, policy, employment verification.
 - **Benefits Team** — enrollment, claims, dependents, HSA and FSA.
 - **Your buddy** — anything you would rather ask a peer first.

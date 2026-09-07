@@ -1,6 +1,6 @@
 Title: Disciplinary Action and Termination Policy
 Category: Conduct & Compliance
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Approach
@@ -25,7 +25,7 @@ in immediate termination on a first occurrence.
 4. **Termination.** Used when prior steps do not resolve the issue, or
    directly for severe misconduct.
 
-A manager may skip steps for a serious issue with People Operations
+A manager may skip steps for a serious issue with Human Resources
 approval; skipping a step always requires that approval and is documented.
 
 ## Severe misconduct
@@ -43,7 +43,7 @@ discipline:
 
 ## Manager responsibilities
 
-Consult People Operations before issuing a written warning or higher. People
+Consult Human Resources before issuing a written warning or higher. People
 Operations reviews the documentation for consistency with how similar
 issues have been handled elsewhere in the company, and for compliance with
 applicable law.
@@ -61,7 +61,7 @@ even if it does not change the outcome.
 
 ## Termination
 
-Involuntary termination requires People Operations sign-off regardless of
+Involuntary termination requires Human Resources sign-off regardless of
 level. Final pay, including accrued unused PTO, is issued according to
 state law timing requirements. Benefits continuation (COBRA) information is
 provided within 14 days of the termination date.

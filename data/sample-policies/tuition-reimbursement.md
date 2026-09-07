@@ -1,6 +1,6 @@
 Title: Tuition Reimbursement and Professional Development Policy
 Category: Career
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Who is eligible

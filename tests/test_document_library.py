@@ -76,6 +76,42 @@ def test_passages_are_returned_in_order(client, auth):
     )
 
 
+def test_body_is_served_whole_and_only_to_signed_in_users(client, auth):
+    _seed_passages(("documents/pto.md", "PTO", "Leave", 3))
+    FAKE_DB["document_bodies"].insert_one(
+        {
+            "source": "documents/pto.md",
+            "doc_id": "pto",
+            "title": "PTO",
+            "category": "Leave",
+            "owner": None,
+            "effective_date": None,
+            "body": "## Overview\n\nFull-time employees **accrue** 15 days.",
+        }
+    )
+
+    response = client.get(
+        "/api/documents/body", params={"source": "documents/pto.md"}, headers=auth
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "source": "documents/pto.md",
+        "body": "## Overview\n\nFull-time employees **accrue** 15 days.",
+    }
+
+    # Indexed before bodies were stored: passages exist, the reading copy does not.
+    FAKE_DB["document_bodies"].delete_many({})
+    missing = client.get("/api/documents/body", params={"source": "documents/pto.md"}, headers=auth)
+    assert missing.status_code == 404
+    assert "re-run ingestion" in missing.json()["detail"]
+    unknown = client.get("/api/documents/body", params={"source": "nope"}, headers=auth)
+    assert unknown.status_code == 404
+    assert unknown.json()["detail"] == "Document not found."
+    assert (
+        client.get("/api/documents/body", params={"source": "documents/pto.md"}).status_code == 401
+    )
+
+
 def test_reingestion_rebuilds_the_library_once(client, auth):
     _seed_passages(("documents/pto.md", "PTO", "Leave", 1))
     assert client.get("/api/documents", headers=auth).json()["total"] == 1

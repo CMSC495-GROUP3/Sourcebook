@@ -24,13 +24,13 @@ employees, contractors, vendors, and visitors.
 
 Leave the immediate area if you can safely do so, call 911, and then notify
 building security at the front desk or, if remote, notify your manager and
-People Operations immediately. Do not attempt to physically intervene in an
+Human Resources immediately. Do not attempt to physically intervene in an
 active threat.
 
 ## Reporting a concern
 
 Report a threat, or behavior that concerns you even if it doesn't rise to a
-clear threat, to your manager, People Operations, Facilities, or the
+clear threat, to your manager, Human Resources, Facilities, or the
 anonymous ethics line at meridian.ethicspoint.com. Report as soon as
 possible; a delayed report is still taken seriously, but faster reporting
 allows a faster response.
@@ -41,7 +41,7 @@ afraid, is worth reporting.
 
 ## Threat assessment
 
-People Operations and Facilities convene a threat assessment within 24
+Human Resources and Facilities convene a threat assessment within 24
 hours of a credible report, and sooner for an active or immediate concern.
 The assessment may involve Legal, building security, and outside law
 enforcement depending on severity, and can result in actions ranging from a
@@ -51,7 +51,7 @@ building access restriction, or a restraining order request.
 ## Domestic violence spillover
 
 If a personal situation, such as a restraining order against a former
-partner, could create a risk at work, tell People Operations. Meridian will
+partner, could create a risk at work, tell Human Resources. Meridian will
 work with you confidentially on options such as a photo alert to building
 security, a parking or entrance change, or a temporary remote work
 arrangement, without requiring you to disclose more than you're comfortable

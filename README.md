@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/brand/sourcebook-icon.svg" width="112" height="112" alt="Sourcebook">
+  <img src="docs/brand/sourcebook-icon.png" width="112" height="112" alt="Sourcebook">
 </p>
 
 <h1 align="center">Sourcebook</h1>
@@ -55,7 +55,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
   threshold, no model call is made and the UI says the corpus does not cover
   the question.
 - **Hands off to a person.** A refusal, or an answer that did not help, can be
-  escalated to People Operations from the same screen with the question and its
+  escalated to Human Resources from the same screen with the question and its
   sources attached.
 - **Learns from its own log.** Every request records what was asked, what was
   retrieved, and whether it was refused. Refusals grouped by question are the
@@ -111,7 +111,9 @@ of a vector store paired with a separate document store. Pan et al. (2024) name
 hybrid queries, filtering on metadata and searching by vector in one operation,
 as a central problem in the field, and count more than twenty commercial vector
 databases appearing in five years. Keeping everything in one collection is the
-consolidated approach that survey describes, not a shortcut.
+consolidated approach that survey describes, not a shortcut. The one thing
+stored beside it is a reading copy of each document, whole, for the Policy
+Library to render; retrieval never queries it.
 
 ## Architecture
 
@@ -120,7 +122,7 @@ flowchart LR
     DOCS["Policy documents"] --> S3["Amazon S3"]
     S3 --> INGEST["Chunk + parse metadata"]
     INGEST --> EMBED["Embeddings"]
-    EMBED --> MONGO[("MongoDB Atlas<br/>passages + metadata + vectors")]
+    EMBED --> MONGO[("MongoDB Atlas<br/>passages + metadata + vectors<br/>+ one reading copy per document")]
 
     USER["Employee"] --> REACT["React + TypeScript"]
     REACT -->|"https://sourcebook.duckdns.org"| CADDY["Caddy (TLS)"]
@@ -133,7 +135,7 @@ flowchart LR
     GATE -->|"yes"| LLM["Model provider"]
     LLM -->|"SSE: answer, sources, match %"| REACT
     REFUSE --> REACT
-    REACT -->|"Ask People Operations"| ESC["Escalation record<br/>+ optional webhook"]
+    REACT -->|"Ask Human Resources"| ESC["Escalation record<br/>+ optional webhook"]
 ```
 
 Docker Compose runs three services on one EC2 instance. OpenAI, MongoDB Atlas,
@@ -235,12 +237,14 @@ those scores come from.
 
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
-"that policy isn't loaded yet."
+"that policy isn't loaded yet." The library shows each document as its
+rendered markdown; the source pane beside an answer shows the indexed passages
+instead, since that is what the citation is evidence of.
 
 ### Refusals lead somewhere: escalation
 
-A refusal that ends with "check with People Operations" is only honest if
-checking is easy. The refusal card has an Ask People Operations button, and
+A refusal that ends with "check with Human Resources" is only honest if
+checking is easy. The refusal card has an Ask Human Resources button, and
 every answer has a quieter "not what you needed?" link. Both file an escalation
 with the question, the assistant's reply, the retrieval score, the cited
 documents, and an optional note from the employee.
@@ -300,8 +304,8 @@ ingestion script uses, at 1536 doubles per vector:
 
 |                |                                             |
 | -------------- | ------------------------------------------- |
-| Documents      | 37                                          |
-| Passages       | 142                                         |
+| Documents      | 42                                          |
+| Passages       | 157                                         |
 | Vector storage | about 1.7 MB, 0.33% of the 512 MB allowance |
 
 An earlier 11-document corpus measured 0.55 MB in Atlas against 0.58 MB by the
@@ -402,8 +406,9 @@ near the same passage.
 
 **Abstraction.** `policy_assistant/rag/documents.py` reduces every source
 format to one shape, `{doc_id, title, category, owner, effective_date, body}`,
-which becomes one passage-and-metadata record per chunk. Supporting PDF or
-Confluence means converting to that shape. Nothing downstream changes.
+which becomes one passage-and-metadata record per chunk, plus one record per
+document holding the body whole for the Policy Library to render. Supporting
+PDF or Confluence means converting to that shape. Nothing downstream changes.
 
 **Algorithmic thinking.** Chunk size and overlap (900 and 150 characters) trade
 retrieval precision against context preservation, and approximate
@@ -466,13 +471,33 @@ password's sessions; the other password's sessions keep working.
 
 ### 2. Load the corpus
 
-`data/sample-policies/` holds 37 fictional HR documents for demonstration.
+`data/sample-policies/` holds 42 fictional HR documents for demonstration.
 Replace them with real ones and the same commands apply.
 
 ```bash
 python -m policy_assistant.rag.seed_documents     # upload data/sample-policies/ to S3
 python -m policy_assistant.rag.embed_documents    # chunk, embed, store in Atlas
 ```
+
+Re-ingestion keeps the current corpus available while the replacement is
+prepared. Every document is parsed and embedded first, one batch per document;
+if any of that fails, the live collection and the corpus version are left as
+they were. Then the new passages are upserted in place by `(source,
+chunk_index)`, and only after they are all written does ingestion remove
+sources and chunks that are no longer present in S3 and bump the corpus
+version. The live `passages` collection is never emptied, and the Atlas
+collection and its Vector Search index are never renamed or recreated. The
+one caveat: while the upsert loop runs, a document whose chunk boundaries
+moved can briefly have an old chunk and its overlapping replacement side by
+side, so retrieval for a few seconds may surface both. That is consistent
+enough to answer from, which is what #89 asked for. The reading copy of each
+document in `document_bodies` follows the same discipline: upserted by source
+after the passages, stale sources removed only at the end.
+
+After upgrading to a version that stores reading copies, run the embed command
+once more. Until then the library shows a document as its passages with a
+notice: `POST /api/documents/reindex` only rebuilds the index from passages
+and cannot recover a body, because chunks overlap.
 
 In Atlas, create a Vector Search index named `vector_index` on the `passages`
 collection:
@@ -560,6 +585,22 @@ locally, plus one variable in `.env`.
    `df -h /` ever shows under about 1 GB free again, run
    `docker builder prune -f` by hand before a deploy that rebuilds both
    images, and see [Root disk](#root-disk) below.
+
+7. Load the corpus. Ingestion runs from a shell on the host, not from a
+   container: it needs the ingest dependencies and reads the same `.env`.
+
+   ```bash
+   python3 -m venv .venv
+   .venv/bin/pip install -r requirements/ingest.lock.txt
+   .venv/bin/python -m policy_assistant.rag.seed_documents    # first time: upload data/sample-policies/ to S3
+   .venv/bin/python -m policy_assistant.rag.embed_documents
+   ```
+
+   Run the embed command again whenever the documents in S3 change, and once
+   after deploying a version that stores document bodies; until then the
+   library shows each document as its passages with a notice. `.venv/` is
+   ignored by git, so it does not disturb the auto-deploy's clean-checkout
+   check.
 
 ### Root disk
 
@@ -778,7 +819,7 @@ Plain UTF-8 text with a short header block, a blank line, then the body:
 ```text
 Title: Paid Time Off (PTO) Policy
 Category: Time Off & Leave
-Owner: People Operations
+Owner: Human Resources
 Effective: 2026-01-01
 
 ## Overview
@@ -820,7 +861,7 @@ tests/              pytest suite; conftest.py stubs every external service
 scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, and the
                     load-test harness in loadtest/
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
-data/               37 fictional sample policies
+data/               42 fictional sample policies
 docs/brand/         the Sourcebook icon
 requirements/       base.txt shared; api.txt (the Docker image), ingest.txt, lint.txt, dev.txt (everything)
 pyproject.toml      ruff and pytest settings
@@ -845,7 +886,7 @@ The product name lives in three places: `APP_NAME` in
 - **The similarity threshold is untuned** against a real corpus. See
   [above](#hallucination-refuse-rather-than-guess).
 - **Escalations have no handler UI.** The open-queue and resolve endpoints
-  exist; a page for People Operations to work through them does not.
+  exist; a page for Human Resources to work through them does not.
 - **The React components have no unit tests.** The backend suite is the safety
   net; `tsc` and ESLint check the web app.
 - **Document search uses `$regex`**, which does not use an index. Fine at this
@@ -856,8 +897,13 @@ The product name lives in three places: `APP_NAME` in
   and the collection handles bind at import. `uvicorn --workers` is safe
   because each worker imports the app after forking. See
   `policy_assistant/rag/mongo.py`.
-- **Ingestion replaces the whole corpus** on each run rather than diffing.
-  Cheap and predictable at this size, wasteful at scale.
+- **Re-ingestion is not atomic.** Passages are upserted one at a time, so for a
+  few seconds a document whose chunk boundaries moved can be retrieved with an
+  old chunk and its replacement side by side. Acceptable for a pilot; a staged
+  collection swap would close the window. The reading copy of
+  a document is written right after its passages, so for the same moment its
+  body can be one version behind them, and an ingestion killed mid-run leaves
+  the documents it had not reached on the previous version until it is rerun.
 - **Hosting is one instance with no redundancy**, on a free DuckDNS subdomain.
   A real deployment would sit on a company domain behind a load balancer. The
   Compose file would move unchanged; only `SITE_ADDRESS` would differ.

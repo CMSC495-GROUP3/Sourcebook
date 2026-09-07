@@ -132,6 +132,43 @@ _FAKE_DB = FakeDB()
 mongo.get_db = lambda: _FAKE_DB
 mongo.get_collection = lambda name: LatentCollection(_FAKE_DB[name])
 
+# The canned passages also live in the passages collection, so the Policy
+# Library has one document to list under `make stub`. Retrieval never reads
+# them (it is replaced below); only /api/documents does.
+from policy_assistant.rag.config import (  # noqa: E402
+    DOCUMENT_BODIES_COLLECTION,
+    PASSAGES_COLLECTION,
+)
+
+_FAKE_DB[PASSAGES_COLLECTION].insert_many(
+    [{**p, "owner": "Human Resources"} for p in CANNED_PASSAGES]
+)
+# The same document whole, so opening it in the library renders real markdown.
+_FAKE_DB[DOCUMENT_BODIES_COLLECTION].insert_one(
+    {
+        **{
+            k: v for k, v in CANNED_PASSAGES[0].items() if k not in ("chunk_index", "score", "text")
+        },
+        "owner": "Human Resources",
+        "body": (
+            "## Accrual\n\n"
+            "Full-time employees accrue paid time off each pay period based on length "
+            "of service:\n\n"
+            "| Years of service | Annual accrual |\n"
+            "|------------------|----------------|\n"
+            "| 0 through 2      | 15 days        |\n"
+            "| 3 through 5      | 20 days        |\n"
+            "| 6 or more        | 25 days        |\n\n"
+            "Part-time employees accrue on a **prorated** basis.\n\n"
+            "Accrual begins on the first day of employment and there is no waiting "
+            "period before accrued time may be used.\n\n"
+            "## Requesting time off\n\n"
+            "Submit requests through the HR portal at least two weeks ahead for "
+            "absences of three days or more."
+        ),
+    }
+)
+
 from policy_assistant.rag import cache  # noqa: E402
 
 cache.get_collection = mongo.get_collection

@@ -10,3 +10,5 @@ pytest-cov
 httpx
 # Known-vulnerability scan of the Python dependency tree (scripts/audit.sh)
 pip-audit
+# pip-compile, which `make lock` runs to regenerate requirements/*.lock.txt
+pip-tools

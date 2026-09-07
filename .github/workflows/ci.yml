@@ -41,6 +41,16 @@ jobs:
       # Settings live in pyproject.toml. `make fmt` fixes everything this reports.
       - run: ruff check --output-format github .
       - run: ruff format --check --diff .
+      # Same invocation as `make lock`. pip-compile keeps the pins already in the
+      # output file, so this only changes a lock when its requirements/*.txt
+      # changed; upgrades are a deliberate `pip-compile --upgrade` in their own PR.
+      - name: Lock files match requirements
+        run: |
+          pip install pip-tools
+          pip-compile --quiet -o requirements/api.lock.txt requirements/api.txt
+          pip-compile --quiet -o requirements/dev.lock.txt requirements/dev.txt
+          pip-compile --quiet -o requirements/ingest.lock.txt requirements/ingest.txt
+          git diff --exit-code -- requirements/*.lock.txt
 
   python-tests:
     name: Python tests (Python ${{ matrix.python }})
@@ -58,8 +68,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: requirements/*.txt
-      - run: pip install -r requirements/dev.txt
+          cache-dependency-path: requirements/*.lock.txt
+      - run: pip install -r requirements/dev.lock.txt
       # Everything external is stubbed by tests/conftest.py: no database, no
       # model provider, no secrets needed.
       - name: Run the suite with coverage
@@ -191,6 +201,17 @@ jobs:
           -e LLM_PROVIDER=fake
           policy-assistant-api:ci
           python -c "import bcrypt, os; os.environ['APP_PASSWORD_HASH'] = bcrypt.hashpw(b'ci', bcrypt.gensalt(4)).decode(); import policy_assistant.api.main; print('API image imports cleanly')"
+      - name: API image can construct the OpenAI provider
+        # The import check above runs with LLM_PROVIDER=fake, so it never
+        # reaches OpenAIProvider.__init__, where the SDK imports live. This
+        # step does, with a placeholder key. get_provider() only builds the
+        # client; nothing is sent to OpenAI until embed or stream is called.
+        run: >
+          docker run --rm
+          -e LLM_PROVIDER=openai
+          -e OPENAI_API_KEY=sk-ci-placeholder
+          policy-assistant-api:ci
+          python -c "from policy_assistant.rag.llm import get_provider; p = get_provider(); print('provider', p.name, 'ready')"
       - name: Compose file is valid
         run: |
           cp .env.example .env
