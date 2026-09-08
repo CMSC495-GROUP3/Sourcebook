@@ -240,12 +240,23 @@ class SyntheticQueryLogs:
 
 
 class _Invertible:
-    """Negate comparable values for descending sorts while preserving None."""
+    """Negate comparable values for descending sorts while preserving None.
+
+    Defines a full rich-comparison set so CodeQL incomplete-ordering does not
+    flag this test fixture helper.
+    """
 
     def __init__(self, value: Any):
         self.value = value
 
-    def __lt__(self, other: _Invertible) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _Invertible):
+            return NotImplemented
+        return self.value == other.value
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, _Invertible):
+            return NotImplemented
         if self.value is None and other.value is None:
             return False
         if self.value is None:
@@ -253,6 +264,21 @@ class _Invertible:
         if other.value is None:
             return False
         return self.value > other.value
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, _Invertible):
+            return NotImplemented
+        return self == other or self < other
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, _Invertible):
+            return NotImplemented
+        return not self <= other
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, _Invertible):
+            return NotImplemented
+        return not self < other
 
 
 @pytest.fixture
