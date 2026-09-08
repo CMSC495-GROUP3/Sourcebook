@@ -160,7 +160,7 @@ assert_contains "missing env names MONGODB_DB" "MONGODB_DB" "$OUT"
 
 set +e
 OUT=$(
-  OPENAI_API_KEY=key MONGODB_URI=mongodb://example MONGODB_DB= \
+  OPENAI_API_KEY=key MONGODB_URI=mongodb://example MONGODB_DB='' \
     "$PYTHON" scripts/validate_live_evaluation.py --check-env 2>&1
 )
 STATUS=$?
