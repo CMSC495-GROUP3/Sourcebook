@@ -4,7 +4,12 @@
 version: 2
 updates:
   # One entry covers every file under requirements/. Separate entries per
-  # file produced duplicate PRs.
+  # file produced duplicate PRs. Dependabot only recompiles a lock with
+  # pip-compile when it finds a <name>.in beside <name>.txt. Without that it
+  # edits lock lines one at a time with no resolver, which is how #173 broke
+  # pydantic-core (see #177). requirements/.python-version tells Dependabot
+  # which interpreter to compile with; keep it equal to PYTHON_VERSION in
+  # ci.yml, which writes the lock headers.
   - package-ecosystem: pip
     directory: /requirements
     schedule:

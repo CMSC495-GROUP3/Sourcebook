@@ -39,6 +39,7 @@ infra:
 dependencies:
   - changed-files:
       - any-glob-to-any-file:
-          - "requirements/*.txt"
+          - "requirements/*"
+          - "requirements/.python-version"
           - "web/package.json"
           - "web/package-lock.json"
