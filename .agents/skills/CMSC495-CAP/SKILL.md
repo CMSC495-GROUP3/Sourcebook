@@ -53,7 +53,7 @@ scripts/loadtest/   fakemongo.py (partial in-memory Mongo), server.py (the stub 
 scripts/            auto_deploy.sh and its systemd/ units (the EC2 host runs it on a timer), deploy.sh, audit.sh
 evaluation/         smoke (20) and full-corpus labeled questions plus metric definitions
 data/               sample policy corpus
-requirements/       base.txt, api.txt (the Docker image), ingest.txt, lint.txt, dev.txt (everything)
+requirements/       *.in inputs (base shared; api = Docker image; ingest; lint; dev = all); api, dev, ingest compile to .txt locks
 pyproject.toml      ruff and pytest settings
 Dockerfile          the API image; web/Dockerfile is the Nginx image
 .github/            workflows (ci, security, pr-checks, evaluation), templates, Dependabot, CODEOWNERS
@@ -118,7 +118,7 @@ gitleaks. PR checks enforce the title format and a filled-in description.
   pyupgrade, simplify, ruff's own. Line length 100. E501 is off because the
   formatter wraps code. B008 is off because FastAPI's `Depends()` lives in
   default arguments.
-- ruff is pinned exactly in `requirements/lint.txt`. Do not run a different
+- ruff is pinned exactly in `requirements/lint.in`. Do not run a different
   version; the formatter's output changes between releases and CI diffs it.
 - Files that must set environment variables before importing the app
   (`tests/conftest.py`, `scripts/loadtest/server.py`) mark late imports with

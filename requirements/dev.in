@@ -1,0 +1,14 @@
+# Everything a contributor needs: both runtime roles plus test and lint tools.
+# Compiled into dev.txt, which `make setup` installs.
+-r api.in
+-r ingest.in
+-r lint.in
+
+pytest
+pytest-cov
+# FastAPI's TestClient is built on httpx
+httpx
+# Known-vulnerability scan of the Python dependency tree (scripts/audit.sh)
+pip-audit
+# pip-compile, which `make lock` runs to regenerate the compiled requirements/*.txt
+pip-tools

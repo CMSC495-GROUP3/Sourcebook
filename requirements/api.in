@@ -1,0 +1,11 @@
+# The API service. This is what the Dockerfile installs.
+-r base.in
+
+# FastAPI — web framework
+fastapi
+uvicorn[standard]>=0.52.4
+slowapi
+
+# Auth — JWT tokens + password hashing
+python-jose[cryptography]
+bcrypt

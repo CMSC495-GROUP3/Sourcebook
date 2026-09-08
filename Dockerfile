@@ -7,8 +7,8 @@ FROM python:3.14-slim
 WORKDIR /app
 
 # Dependencies first — cached layer, rebuilt only when requirements change
-COPY requirements/api.lock.txt requirements/
-RUN pip install --no-cache-dir -r requirements/api.lock.txt
+COPY requirements/api.txt requirements/
+RUN pip install --no-cache-dir -r requirements/api.txt
 
 COPY policy_assistant/ policy_assistant/
 

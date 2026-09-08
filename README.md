@@ -591,7 +591,7 @@ locally, plus one variable in `.env`.
 
    ```bash
    python3 -m venv .venv
-   .venv/bin/pip install -r requirements/ingest.lock.txt
+   .venv/bin/pip install -r requirements/ingest.txt
    .venv/bin/python -m policy_assistant.rag.seed_documents    # first time: upload data/sample-policies/ to S3
    .venv/bin/python -m policy_assistant.rag.embed_documents
    ```
@@ -863,7 +863,8 @@ scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, a
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
 data/               42 fictional sample policies
 docs/brand/         the Sourcebook icon
-requirements/       base.txt shared; api.txt (the Docker image), ingest.txt, lint.txt, dev.txt (everything)
+requirements/       *.in are pip-compile inputs (base is shared; api is the Docker image; ingest;
+                    lint; dev is everything); api, dev, and ingest compile to .txt locks
 pyproject.toml      ruff and pytest settings
 Makefile            setup, stub, web, test, lint, build, compose; `make` lists them
 Dockerfile          the API image; web/ has its own
