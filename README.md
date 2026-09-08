@@ -863,7 +863,8 @@ scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, a
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
 data/               42 fictional sample policies
 docs/brand/         the Sourcebook icon
-requirements/       *.in are the inputs (base shared; api is the Docker image; ingest; lint; dev is everything); *.txt are the compiled locks
+requirements/       *.in are pip-compile inputs (base is shared; api is the Docker image; ingest;
+                    lint; dev is everything); api, dev, and ingest compile to .txt locks
 pyproject.toml      ruff and pytest settings
 Makefile            setup, stub, web, test, lint, build, compose; `make` lists them
 Dockerfile          the API image; web/ has its own

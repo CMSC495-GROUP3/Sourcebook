@@ -40,5 +40,6 @@ dependencies:
   - changed-files:
       - any-glob-to-any-file:
           - "requirements/*"
+          - "requirements/.python-version"
           - "web/package.json"
           - "web/package-lock.json"

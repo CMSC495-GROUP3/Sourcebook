@@ -53,7 +53,7 @@ scripts/loadtest/   fakemongo.py (partial in-memory Mongo), server.py (the stub 
 scripts/            auto_deploy.sh and its systemd/ units (the EC2 host runs it on a timer), deploy.sh, audit.sh
 evaluation/         smoke (20) and full-corpus labeled questions plus metric definitions
 data/               sample policy corpus
-requirements/       *.in are the inputs (base shared; api is the Docker image; ingest; lint; dev is everything); *.txt are the compiled locks
+requirements/       *.in inputs (base shared; api = Docker image; ingest; lint; dev = all); api, dev, ingest compile to .txt locks
 pyproject.toml      ruff and pytest settings
 Dockerfile          the API image; web/Dockerfile is the Nginx image
 .github/            workflows (ci, security, pr-checks, evaluation), templates, Dependabot, CODEOWNERS

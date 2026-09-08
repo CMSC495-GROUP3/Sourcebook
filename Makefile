@@ -76,7 +76,7 @@ fmt: ## Fix lint findings and format the Python code
 audit: ## Known vulnerabilities in the Python and npm dependency trees
 	./scripts/audit.sh
 
-lock: ## Compile requirements/*.in into requirements/*.txt (same command CI checks with)
+lock: ## Compile api, dev, and ingest .in files into their .txt locks (same command CI checks with)
 	$(VENV_BIN)/pip-compile --quiet -o requirements/api.txt requirements/api.in
 	$(VENV_BIN)/pip-compile --quiet -o requirements/dev.txt requirements/dev.in
 	$(VENV_BIN)/pip-compile --quiet -o requirements/ingest.txt requirements/ingest.in

@@ -42,8 +42,9 @@ jobs:
       - run: ruff check --output-format github .
       - run: ruff format --check --diff .
       # Same invocation as `make lock`. pip-compile keeps the pins already in the
-      # output file, so this only changes a lock when its requirements/*.in
-      # changed; upgrades are a deliberate `pip-compile --upgrade` in their own PR.
+      # output file, so this only changes a lock when one of the .in files it
+      # includes changed; upgrades are a deliberate `pip-compile --upgrade` in
+      # their own PR.
       - name: Lock files match requirements
         run: |
           pip install pip-tools

@@ -100,7 +100,7 @@ so they run on fork PRs too.
 
 | Workflow | Job | What fails it |
 |---|---|---|
-| CI | Python lint and format | a `ruff check` finding or an unformatted file |
+| CI | Python lint and format | a `ruff check` finding, an unformatted file, or a lock that no longer matches its `.in` |
 | CI | Python tests (3.11 through 3.14) | a failing test, or coverage under 80% on any version |
 | CI | Evaluation dataset | `evaluation/questions.json` or `questions_full.json` that `load_cases` rejects |
 | CI | Web lint, types, build | ESLint, `tsc -b`, or `vite build` |
@@ -251,8 +251,8 @@ covers `.env`; the rest is on you.
 
 ## Adding a Python dependency
 
-Edit the relevant `requirements/*.in` file, never a compiled `.txt`, then regenerate
-the locks and commit both:
+Edit the relevant `requirements/*.in` file, never a compiled `.txt`, then
+regenerate the locks and commit both:
 
     make lock
 
