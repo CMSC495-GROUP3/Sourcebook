@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,116 @@ SMOKE_CATEGORY_MIX = {
     "ambiguous": 3,
     "prompt_injection": 3,
 }
+
+# Live Actions / paid CLI must refuse empty secrets before any provider call.
+REQUIRED_LIVE_ENV_VARS = ("OPENAI_API_KEY", "MONGODB_URI", "MONGODB_DB")
+# Keys ``score_results`` always emits; Actions postflight rejects anything else.
+REQUIRED_RESULT_METRIC_KEYS = (
+    "evaluated_cases",
+    "category_counts",
+    "recall_at_5",
+    "citation_correctness",
+    "grounded_answer_rate",
+    "unsupported_refusal_handling",
+    "prompt_injection_grounding_gate_refusal",
+    "prompt_injection_review",
+    "ambiguous_review",
+)
+_RATE_METRIC_KEYS = (
+    "recall_at_5",
+    "citation_correctness",
+    "grounded_answer_rate",
+    "unsupported_refusal_handling",
+    "prompt_injection_grounding_gate_refusal",
+)
+
+
+def require_live_env(environ: Mapping[str, str] | None = None) -> None:
+    """Fail closed when required live-evaluation env values are missing or blank.
+
+    Empty strings count as missing. GitHub environment secrets that exist but
+    hold no value therefore cannot reach PyMongo as ``InvalidName``.
+    """
+    env = os.environ if environ is None else environ
+    missing = [name for name in REQUIRED_LIVE_ENV_VARS if not str(env.get(name, "")).strip()]
+    if missing:
+        raise ValueError(
+            "Live evaluation requires non-empty environment values for: " + ", ".join(missing)
+        )
+
+
+def _validate_rate_metric(name: str, value: Any) -> None:
+    """Accept ``None`` (no eligible cases) or a finite percentage in ``[0, 100]``."""
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Evaluation metric {name} must be a number or null")
+    if value < 0 or value > 100:
+        raise ValueError(f"Evaluation metric {name} must be between 0 and 100")
+
+
+def validate_results_report(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Reject an evaluation report that is missing required metrics or cases."""
+    if not isinstance(report, Mapping):
+        raise ValueError("Evaluation results must be a JSON object")
+
+    metrics = report.get("metrics")
+    if not isinstance(metrics, Mapping):
+        raise ValueError("Evaluation results are missing a metrics object")
+
+    missing = [key for key in REQUIRED_RESULT_METRIC_KEYS if key not in metrics]
+    if missing:
+        raise ValueError("Evaluation metrics are missing required keys: " + ", ".join(missing))
+
+    evaluated_cases = metrics["evaluated_cases"]
+    if not isinstance(evaluated_cases, int) or isinstance(evaluated_cases, bool):
+        raise ValueError("evaluated_cases must be an integer")
+    if evaluated_cases < 1:
+        raise ValueError("evaluated_cases must be at least 1 for a live evaluation run")
+
+    category_counts = metrics["category_counts"]
+    if not isinstance(category_counts, Mapping):
+        raise ValueError("category_counts must be an object")
+    for category in sorted(ALLOWED_CATEGORIES):
+        if category not in category_counts:
+            raise ValueError(f"category_counts is missing {category}")
+        count = category_counts[category]
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise ValueError(f"category_counts[{category}] must be a non-negative integer")
+    if sum(int(category_counts[category]) for category in ALLOWED_CATEGORIES) != evaluated_cases:
+        raise ValueError("category_counts must sum to evaluated_cases")
+
+    for key in _RATE_METRIC_KEYS:
+        _validate_rate_metric(key, metrics[key])
+
+    for review_key in ("prompt_injection_review", "ambiguous_review"):
+        review = metrics[review_key]
+        if not isinstance(review, Mapping):
+            raise ValueError(f"{review_key} must be an object")
+        if "count" not in review or "case_ids" not in review:
+            raise ValueError(f"{review_key} must include count and case_ids")
+
+    results = report.get("results")
+    if not isinstance(results, list) or not results:
+        raise ValueError("Evaluation results must include a non-empty results list")
+    if len(results) != evaluated_cases:
+        raise ValueError(
+            f"results length ({len(results)}) does not match evaluated_cases ({evaluated_cases})"
+        )
+
+    return dict(report)
+
+
+def validate_results_file(path: str | Path) -> dict[str, Any]:
+    """Load ``evaluation/results.json`` and reject missing or malformed reports."""
+    results_path = Path(path)
+    if not results_path.is_file():
+        raise ValueError(f"Evaluation results file is missing: {results_path}")
+    try:
+        payload = json.loads(results_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Evaluation results file is not valid JSON: {results_path}") from exc
+    return validate_results_report(payload)
 
 
 def sample_policy_titles(corpus_dir: str | Path | None = None) -> set[str]:
@@ -421,6 +532,12 @@ def main(argv: list[str] | None = None) -> int:
         print("Aborted before paid execution.")
         return 1
 
+    try:
+        require_live_env()
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
     results = run_evaluation(cases)
     metrics = score_results(cases, results)
     report = {
@@ -429,6 +546,8 @@ def main(argv: list[str] | None = None) -> int:
         "metrics": metrics,
         "results": results,
     }
+    # Fail closed locally the same way Actions postflight does.
+    validate_results_report(report)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

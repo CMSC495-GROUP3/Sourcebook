@@ -39,7 +39,9 @@ any paid provider call (`--yes` skips the prompt for CI).
 ```
 
 The GitHub Actions workflow "Live evaluation" takes the same `tier` input and
-prints the selected case count in the job log before execution.
+prints the selected case count in the job log before execution. The workflow
+fail-closes when required secrets are empty, the evaluator exits nonzero, or
+`evaluation/results.json` is missing/malformed (see `scripts/validate_live_evaluation.py`).
 
 The command prints the summary metrics and writes detailed answers to
 `evaluation/results.json`. That output is intentionally excluded from Git
