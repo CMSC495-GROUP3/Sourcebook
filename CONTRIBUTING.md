@@ -91,7 +91,7 @@ make audit    # known vulnerabilities in both dependency trees (the Security wor
 
 Python formatting is enforced. `make fmt` before you commit and CI will not
 complain. The rules are in `pyproject.toml`; the version of ruff is pinned in
-`requirements/lint.txt` because the formatter's output changes between releases.
+`requirements/lint.in` because the formatter's output changes between releases.
 
 ### What CI runs
 
@@ -251,12 +251,12 @@ covers `.env`; the rest is on you.
 
 ## Adding a Python dependency
 
-Edit the relevant `requirements/*.txt` file, never a `.lock.txt`, then regenerate
+Edit the relevant `requirements/*.in` file, never a compiled `.txt`, then regenerate
 the locks and commit both:
 
     make lock
 
 `make setup` installs `pip-tools`, which provides `pip-compile`. CI runs the
-same command and fails if a committed lock no longer matches its `.txt`. To
+same command and fails if a committed lock no longer matches its `.in`. To
 upgrade pinned versions on purpose, run `pip-compile --upgrade` on the file you
 mean to move and commit that as its own change.

@@ -4,7 +4,10 @@
 version: 2
 updates:
   # One entry covers every file under requirements/. Separate entries per
-  # file produced duplicate PRs.
+  # file produced duplicate PRs. Inputs are *.in and the compiled locks are
+  # *.txt: Dependabot only recompiles a lock with pip-compile when it finds
+  # that pairing. With any other names it edits lock lines one at a time with
+  # no resolver, which is how #173 broke pydantic-core (see #177).
   - package-ecosystem: pip
     directory: /requirements
     schedule:

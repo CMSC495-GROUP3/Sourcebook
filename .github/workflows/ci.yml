@@ -36,21 +36,21 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: requirements/lint.txt
-      - run: pip install -r requirements/lint.txt
+          cache-dependency-path: requirements/lint.in
+      - run: pip install -r requirements/lint.in
       # Settings live in pyproject.toml. `make fmt` fixes everything this reports.
       - run: ruff check --output-format github .
       - run: ruff format --check --diff .
       # Same invocation as `make lock`. pip-compile keeps the pins already in the
-      # output file, so this only changes a lock when its requirements/*.txt
+      # output file, so this only changes a lock when its requirements/*.in
       # changed; upgrades are a deliberate `pip-compile --upgrade` in their own PR.
       - name: Lock files match requirements
         run: |
           pip install pip-tools
-          pip-compile --quiet -o requirements/api.lock.txt requirements/api.txt
-          pip-compile --quiet -o requirements/dev.lock.txt requirements/dev.txt
-          pip-compile --quiet -o requirements/ingest.lock.txt requirements/ingest.txt
-          git diff --exit-code -- requirements/*.lock.txt
+          pip-compile --quiet -o requirements/api.txt requirements/api.in
+          pip-compile --quiet -o requirements/dev.txt requirements/dev.in
+          pip-compile --quiet -o requirements/ingest.txt requirements/ingest.in
+          git diff --exit-code -- requirements/api.txt requirements/dev.txt requirements/ingest.txt
 
   python-tests:
     name: Python tests (Python ${{ matrix.python }})
@@ -68,8 +68,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: requirements/*.lock.txt
-      - run: pip install -r requirements/dev.lock.txt
+          cache-dependency-path: requirements/*.txt
+      - run: pip install -r requirements/dev.txt
       # Everything external is stubbed by tests/conftest.py: no database, no
       # model provider, no secrets needed.
       - name: Run the suite with coverage

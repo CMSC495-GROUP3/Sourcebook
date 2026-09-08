@@ -28,7 +28,7 @@ fi
 
 echo "== Python"
 "$pip_audit" \
-  -r requirements/dev.lock.txt \
+  -r requirements/dev.txt \
   --progress-spinner off "${ignore_flags[@]}"
 
 echo "== npm"

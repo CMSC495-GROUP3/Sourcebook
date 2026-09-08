@@ -42,7 +42,7 @@ setup: ## One-time: create .venv, install Python and Node dependencies
 ifeq ($(wildcard $(VENV)/.),)
 	$(PYTHON) -m venv $(VENV)
 endif
-	$(PIP) install -q -r requirements/dev.lock.txt
+	$(PIP) install -q -r requirements/dev.txt
 	cd $(WEB) && npm install
 
 stub: export APP_PASSWORD_HASH = $(shell $(PY) -c "import bcrypt; print(bcrypt.hashpw(b'$(DEV_PASSWORD)', bcrypt.gensalt()).decode())")
@@ -76,10 +76,10 @@ fmt: ## Fix lint findings and format the Python code
 audit: ## Known vulnerabilities in the Python and npm dependency trees
 	./scripts/audit.sh
 
-lock: ## Regenerate requirements/*.lock.txt from requirements/*.txt (same command CI checks with)
-	$(VENV_BIN)/pip-compile --quiet -o requirements/api.lock.txt requirements/api.txt
-	$(VENV_BIN)/pip-compile --quiet -o requirements/dev.lock.txt requirements/dev.txt
-	$(VENV_BIN)/pip-compile --quiet -o requirements/ingest.lock.txt requirements/ingest.txt
+lock: ## Compile requirements/*.in into requirements/*.txt (same command CI checks with)
+	$(VENV_BIN)/pip-compile --quiet -o requirements/api.txt requirements/api.in
+	$(VENV_BIN)/pip-compile --quiet -o requirements/dev.txt requirements/dev.in
+	$(VENV_BIN)/pip-compile --quiet -o requirements/ingest.txt requirements/ingest.in
 
 build: ## Production build of the web app
 	cd $(WEB) && npm run -s build
