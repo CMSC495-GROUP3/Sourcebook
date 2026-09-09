@@ -42,7 +42,7 @@ drop a promised feature by leaving it out of the table.
 | Learn from the query log (content gaps, FAQ ranking, threshold tuning) | Logging yes; reports in review | `policy_assistant/api/analytics.py`, `tests/test_analytics.py`; reports in PR #171 (draft) | #160: PR #171 needs review and a live check. Decision needed: alpha scope or documented gap |
 | Policy Library renders whole documents | Yes | PR #167, `web/src/components/Documents` | none known |
 | Conversation history, projects, reload | Yes | `tests/test_conversations.py`, PRs #126, #133 | #142: project assignment and deletion are not transactional |
-| Shared-password sign-in with a second reviewer password | Yes | PRs #74, #110, #154; `tests/test_auth.py`, `tests/test_tokens.py` | Shared credential by design for the pilot (README known limitations) |
+| Shared-password sign-in with a second reviewer password | Yes | PRs #75 (for #74), #110, #154; `tests/test_auth.py`, `tests/test_tokens.py` | Shared credential by design for the pilot (README known limitations) |
 | Rate limits and provider bounds so a stalled provider cannot take the site down | Yes | PRs #112, #144; `tests/test_provider_timeout.py`, `tests/test_proxy_headers.py` | #118: saturation reports as a generic error rather than a retryable one |
 | Serve 10,000 concurrent users | Synthetic evidence only | `scripts/loadtest/RESULTS.md`: 98.7 req/s with the model faked | Real-service run in [live-benchmark.md](live-benchmark.md) is bounded and cannot verify this claim; say so in the release notes |
 | Deployed pilot with TLS and automatic deploys | Yes | README "Deployment" and "Checking a deploy"; `scripts/auto_deploy.sh`, `tests/test_auto_deploy.py` | Single instance, no redundancy, free DuckDNS name |
@@ -56,7 +56,7 @@ confirmed. Tick a box only with a link beside it.
 ### 1. Build and checks on the candidate
 
 - [x] CI status: [run 34397213848](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34397213848) covers Python lint, tests on 3.11 to 3.14 with the 80% coverage floor, the evaluation dataset checks, web lint and types and build, both Docker images, Compose validation, and the proxy-chain acceptance script.
-- [x] Security: [run 34397213833](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34397213833) covers CodeQL, dependency audit and review, and the secrets scan.
+- [x] Security: [run 34397213833](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34397213833) covers CodeQL, the dependency audit, and the secrets scan. The dependency review job only runs on pull requests, so on a push to `main` it is skipped; it last ran on the PR that produced the candidate.
 - [ ] Rerun both after the final SHA is chosen and replace the links.
 
 ### 2. Live evaluation (#137, #180, PR #181)

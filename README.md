@@ -70,7 +70,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [SECURITY.md](SECURITY.md)                                                 | reporting a vulnerability and what the Security workflow scans               |
 | [evaluation/README.md](evaluation/README.md)                               | smoke and full-corpus labeled sets and how to score the live system          |
 | [scripts/loadtest/RESULTS.md](scripts/loadtest/RESULTS.md)                 | throughput measurements and the reasoning behind `THREADPOOL_TOKENS`         |
-| [docs/alpha/handoff.md](docs/alpha/handoff.md)                             | the Unit 5 alpha: candidate commit, scope map, gates, release notes, tag      |
+| [docs/alpha/handoff.md](docs/alpha/handoff.md)                             | the Unit 5 alpha: candidate commit, scope map, gates, release notes, tag     |
 | [.agents/skills/CMSC495-CAP/SKILL.md](.agents/skills/CMSC495-CAP/SKILL.md) | the condensed version of all this for coding agents                          |
 
 ## Contents
