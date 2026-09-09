@@ -26,10 +26,52 @@ def _record(observed, ttft=None, total=None, expected=None, error=None, status=2
     )
 
 
-def test_plan_orders_cache_and_follow_up_after_the_first_ask():
-    plan = bench.build_plan("abc", burst=2, max_requests=10)
+class FakeServer:
+    """Answers each step the way the deployed API would, from a scripted cache state."""
 
-    names = [s.name for s in plan]
+    def __init__(self, warm=(), fail=(), rate_limit=()):
+        self.warm = set(warm)
+        self.fail = set(fail)
+        self.rate_limit = set(rate_limit)
+        self.seen: list[bench.Step] = []
+        self.history: set[str] = set()
+
+    async def __call__(self, step: bench.Step) -> bench.Record:
+        self.seen.append(step)
+        record = bench.Record(step=step.name, expected=step.expected, session_id=step.session_id)
+        if step.question in self.rate_limit:
+            record.http_status, record.error = 429, "HTTP 429"
+        elif step.question in self.fail:
+            record.http_status, record.error = 200, "An error occurred"
+        elif step.question == bench.REFUSAL_QUESTION:
+            record.http_status, record.ttft_s, record.total_s = 200, 0.5, 0.6
+            record.observed = bench.PATH_REFUSED
+            return record
+        elif step.question in self.warm and step.session_id not in self.history:
+            record.http_status, record.ttft_s, record.total_s = 200, 0.2, 0.3
+            record.observed = bench.PATH_CACHED
+            return record
+        else:
+            record.http_status, record.ttft_s, record.total_s = 200, 2.0, 8.0
+            record.observed = bench.PATH_GENERATED
+            self.history.add(step.session_id)
+            self.warm.add(step.question)
+            return record
+        record.observed = bench.classify(None, record.http_status, record.error)
+        return record
+
+
+def _run(server, **kwargs):
+    defaults = {"burst": 2, "max_requests": 10, "max_errors": 2}
+    return asyncio.run(bench.run_plan(server, "abc", **(defaults | kwargs)))
+
+
+def test_plan_orders_cache_and_follow_up_after_the_first_ask():
+    server = FakeServer()
+
+    records = _run(server)
+
+    names = [r.step for r in records]
     assert names == [
         "uncached answer",
         "cached repeat",
@@ -38,26 +80,95 @@ def test_plan_orders_cache_and_follow_up_after_the_first_ask():
         "burst 1",
         "burst 2",
     ]
-    # The repeat must send identical text in a fresh session, and the follow-up
-    # must reuse the first session so it has history.
-    assert plan[1].question == plan[0].question
-    assert plan[1].session_id != plan[0].session_id
-    assert plan[2].session_id == plan[0].session_id
-    assert plan[3].expected == bench.PATH_REFUSED
+    first, repeat, follow_up = server.seen[0], server.seen[1], server.seen[2]
+    # The repeat sends identical text in a fresh session; the follow-up reuses
+    # the first session so it has history.
+    assert repeat.question == first.question
+    assert repeat.session_id != first.session_id
+    assert follow_up.session_id == first.session_id
+    assert [r.observed for r in records] == [
+        bench.PATH_GENERATED,
+        bench.PATH_CACHED,
+        bench.PATH_GENERATED,
+        bench.PATH_REFUSED,
+        bench.PATH_GENERATED,
+        bench.PATH_GENERATED,
+    ]
+    assert all(r.matched for r in records)
+    # The burst never reuses the question the first step spent.
+    burst_questions = {s.question for s in server.seen[4:]}
+    assert first.question not in burst_questions
+    assert len(burst_questions) == 2
 
 
-def test_plan_respects_the_request_cap():
-    assert len(bench.build_plan("abc", burst=5, max_requests=3)) == 3
-    assert len(bench.build_plan("abc", burst=0, max_requests=8)) == 4
+def test_plan_probes_past_warm_questions_without_changing_their_text():
+    warm = bench.QUESTION_POOL[:2]
+    server = FakeServer(warm=warm)
+
+    records = _run(server, burst=0)
+
+    assert [r.step for r in records] == [
+        "cache probe",
+        "cache probe",
+        "uncached answer",
+        "cached repeat",
+        "follow-up",
+        "refusal",
+    ]
+    assert [s.question for s in server.seen[:3]] == bench.QUESTION_POOL[:3]
+    # Probes are recorded as what they were, not as failed generations.
+    assert records[0].observed == bench.PATH_CACHED
+    assert records[0].matched
+    assert server.seen[3].question == bench.QUESTION_POOL[2]
+    assert server.seen[4].session_id == server.seen[2].session_id
 
 
-def test_plan_nonce_keeps_first_asks_distinct_between_runs():
-    a = bench.build_plan("run1", burst=1, max_requests=8)
-    b = bench.build_plan("run2", burst=1, max_requests=8)
-    assert a[0].question != b[0].question
-    assert a[4].question != b[4].question
-    # The refusal question is fixed text; a cached refusal is still a refusal.
-    assert a[3].question == b[3].question
+def test_plan_respects_the_request_cap_even_while_probing():
+    server = FakeServer(warm=bench.QUESTION_POOL)
+
+    records = _run(server, burst=5, max_requests=3)
+
+    assert len(records) == 3
+    assert {r.step for r in records} == {"cache probe"}
+
+
+def test_plan_skips_the_repeat_and_follow_up_when_nothing_generated():
+    server = FakeServer(warm=bench.QUESTION_POOL)
+
+    records = _run(server, burst=1, max_requests=20)
+
+    names = [r.step for r in records]
+    assert names.count("cache probe") == len(bench.QUESTION_POOL)
+    assert "cached repeat" not in names
+    assert "follow-up" not in names
+    assert names[-1] == "refusal"
+
+
+def test_plan_stops_on_the_error_limit_and_skips_the_burst():
+    server = FakeServer(fail={bench.QUESTION_POOL[0], bench.FOLLOW_UP_QUESTION})
+
+    records = _run(server, burst=3, max_errors=2)
+
+    # First ask fails (1), nothing generated so no repeat or follow-up, refusal
+    # succeeds; with max_errors=2 the burst still runs on one error.
+    assert [r.step for r in records][:2] == ["uncached answer", "refusal"]
+    assert len([r for r in records if r.step.startswith("burst")]) == 3
+
+    server = FakeServer(fail=set(bench.QUESTION_POOL[:1]))
+    records = _run(server, burst=3, max_errors=1)
+    assert [r.step for r in records] == ["uncached answer"]
+
+
+def test_plan_burst_size_is_limited_by_the_remaining_budget():
+    server = FakeServer()
+    records = _run(server, burst=5, max_requests=6)
+    assert len(records) == 6
+    assert len([r for r in records if r.step.startswith("burst")]) == 2
+
+
+def test_planned_requests_matches_the_cap_or_the_pool():
+    assert bench.planned_requests(burst=3, max_requests=8) == 8
+    assert bench.planned_requests(burst=0, max_requests=100) == len(bench.QUESTION_POOL) + 3
 
 
 @pytest.mark.parametrize(
@@ -205,3 +316,31 @@ def test_main_aborts_when_operator_declines(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda prompt: "n")
     assert bench.main([]) == 1
     assert "aborted" in capsys.readouterr().out
+
+
+def test_main_treats_a_closed_stdin_as_a_decline(monkeypatch, capsys):
+    monkeypatch.setenv("BENCH_PASSWORD", "x")
+
+    def closed(prompt):
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", closed)
+    assert bench.main([]) == 1
+    monkeypatch.delenv("BENCH_PASSWORD")
+    monkeypatch.setattr(bench.getpass, "getpass", closed)
+    assert bench.main(["--yes"]) == 2
+
+
+def test_main_reports_a_failed_login_without_a_traceback(monkeypatch, capsys):
+    monkeypatch.setenv("BENCH_PASSWORD", "wrong")
+
+    def refuse(url, password):
+        raise bench.httpx.HTTPStatusError(
+            "401", request=bench.httpx.Request("POST", url), response=bench.httpx.Response(401)
+        )
+
+    monkeypatch.setattr(bench, "fetch_token", refuse)
+    assert bench.main(["--yes", "--url", "https://example.invalid"]) == 2
+    err = capsys.readouterr().err
+    assert "login or connection failed" in err
+    assert "wrong" not in err

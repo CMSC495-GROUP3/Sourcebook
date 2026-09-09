@@ -30,21 +30,29 @@ import platform
 import sys
 import time
 import uuid
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-# Fictional Meridian Systems questions the sample corpus answers. The nonce
-# appended at run time keeps the first ask out of the answer cache; the
-# cached-repeat step sends the identical text so it hits.
-FIRST_QUESTIONS = [
-    "How many PTO days do I get in my first year?",
-    "How much parental leave do I get?",
-    "What is the 401(k) company match?",
-    "What is the meal limit when travelling?",
+# Fictional Meridian Systems questions from the answerable tier of
+# evaluation/questions.json, so each one is known to retrieve a policy. The
+# uncached step walks this pool until the server reports a generation: a
+# question someone asked in the last ANSWER_CACHE_TTL_SECONDS comes back from
+# the cache, which costs no model call, so the probe is free apart from the
+# request itself. Text is sent exactly as written; anything appended to it
+# would change the embedding and could move the grounding score.
+QUESTION_POOL = [
+    "How many PTO days do full time employees with two years of service receive each year?",
+    "Which days must hybrid employees normally work in the office?",
+    "What company match do I receive if I contribute five percent to my 401(k)?",
+    "How much paid parental leave does a non birthing parent receive?",
+    "At what expense amount is a receipt required?",
+    "How long does a new employee have to enroll in medical benefits?",
+    "How soon must company device security updates be installed?",
+    "What is the annual limit for accepting gifts from one source?",
 ]
 FOLLOW_UP_QUESTION = "Does that change after five years of service?"
 # Nothing in the sample corpus covers this, so the grounding gate should decline
@@ -121,25 +129,94 @@ def fetch_token(base_url: str, password: str) -> str:
     return response.json()["access_token"]
 
 
-def build_plan(run_id: str, burst: int, max_requests: int) -> list[Step]:
-    """The scripted workload, trimmed to the request cap.
+STEP_PROBE = "cache probe"
+STEP_UNCACHED = "uncached answer"
+STEP_REPEAT = "cached repeat"
+STEP_FOLLOW_UP = "follow-up"
+STEP_REFUSAL = "refusal"
+STEP_BURST = "burst"
 
-    Order matters: the cached repeat must follow the first ask of the same
-    text, and the follow-up must reuse the first ask's session so it has
-    history and therefore skips the cache.
+Sender = Callable[[Step], Awaitable[Record]]
+
+
+async def run_plan(
+    send: Sender,
+    run_id: str,
+    burst: int,
+    max_requests: int,
+    max_errors: int,
+    pause: float = 0.0,
+    log: Callable[[Record], None] = lambda record: None,
+) -> list[Record]:
+    """The scripted workload, bounded by the request cap and the error stop.
+
+    Order matters. The uncached step walks QUESTION_POOL until a question
+    comes back generated; a cached hit on the way is recorded as a probe and
+    counts against the cap. The repeat then sends that same text in a new
+    session, and the follow-up reuses the first session so it has history and
+    therefore skips the cache. The burst uses questions the probe did not.
     """
-    first = f"{FIRST_QUESTIONS[0]} [bench {run_id}]"
+    records: list[Record] = []
     first_session = f"bench-{run_id}-first"
-    steps = [
-        Step("uncached answer", first, first_session, PATH_GENERATED),
-        Step("cached repeat", first, f"bench-{run_id}-repeat", PATH_CACHED),
-        Step("follow-up", FOLLOW_UP_QUESTION, first_session, PATH_GENERATED),
-        Step("refusal", REFUSAL_QUESTION, f"bench-{run_id}-refusal", PATH_REFUSED),
+    pool = list(QUESTION_POOL)
+    generated_question: str | None = None
+
+    def budget_left() -> bool:
+        return len(records) < max_requests
+
+    def errors() -> int:
+        return sum(1 for r in records if r.observed == PATH_ERROR)
+
+    async def step(step_obj: Step) -> Record:
+        record = await send(step_obj)
+        records.append(record)
+        log(record)
+        await asyncio.sleep(pause)
+        return record
+
+    while pool and budget_left():
+        question = pool.pop(0)
+        record = await step(Step(STEP_UNCACHED, question, first_session, PATH_GENERATED))
+        if record.observed == PATH_CACHED:
+            # A warm cache is not a failure; rename the row and keep looking.
+            record.step = STEP_PROBE
+            record.expected = PATH_CACHED
+            first_session = f"bench-{run_id}-first-{len(records)}"
+            continue
+        if record.observed == PATH_GENERATED:
+            generated_question = question
+        break
+
+    sequential: list[Step] = []
+    if generated_question is not None:
+        sequential.append(
+            Step(STEP_REPEAT, generated_question, f"bench-{run_id}-repeat", PATH_CACHED)
+        )
+        sequential.append(Step(STEP_FOLLOW_UP, FOLLOW_UP_QUESTION, first_session, PATH_GENERATED))
+    sequential.append(Step(STEP_REFUSAL, REFUSAL_QUESTION, f"bench-{run_id}-refusal", PATH_REFUSED))
+
+    for step_obj in sequential:
+        if not budget_left() or errors() >= max_errors:
+            return records
+        await step(step_obj)
+
+    if errors() >= max_errors:
+        return records
+    burst_steps = [
+        Step(f"{STEP_BURST} {i + 1}", question, f"bench-{run_id}-burst-{i}", PATH_GENERATED)
+        for i, question in enumerate(pool[: max(0, min(burst, max_requests - len(records)))])
     ]
-    for i in range(burst):
-        question = f"{FIRST_QUESTIONS[(i + 1) % len(FIRST_QUESTIONS)]} [bench {run_id}-{i}]"
-        steps.append(Step(f"burst {i + 1}", question, f"bench-{run_id}-burst-{i}", PATH_GENERATED))
-    return steps[:max_requests]
+    if burst_steps:
+        burst_records = await asyncio.gather(*[send(step_obj) for step_obj in burst_steps])
+        for record in burst_records:
+            records.append(record)
+            log(record)
+    return records
+
+
+def planned_requests(burst: int, max_requests: int) -> int:
+    """Upper bound on paid requests for the confirmation prompt."""
+    return min(max_requests, len(QUESTION_POOL) + 3 + burst)
 
 
 def classify(payload_done: dict | None, http_status: int | None, error: str | None) -> str:
@@ -223,6 +300,7 @@ async def run_step(client: httpx.AsyncClient, url: str, token: str, step: Step) 
 
 
 def pct(values: Iterable[float], p: float) -> float | None:
+    """Nearest-rank percentile; no interpolation, so p50 of two values is the lower one."""
     ordered = sorted(values)
     if not ordered:
         return None
@@ -332,39 +410,30 @@ def render_markdown(records: list[Record], summary: dict) -> str:
 
 async def run(args: argparse.Namespace, password: str) -> dict:
     run_id = uuid.uuid4().hex[:8]
-    plan = build_plan(run_id, args.burst, args.max_requests)
     token = fetch_token(args.url, password)
     url = _stream_url(args.url)
-    records: list[Record] = []
-    print(f"\n  live benchmark -> {args.url}  (run id {run_id}, {len(plan)} requests)\n")
+    print(f"\n  live benchmark -> {args.url}  (run id {run_id})\n")
 
-    sequential = [s for s in plan if not s.name.startswith("burst")]
-    burst = [s for s in plan if s.name.startswith("burst")]
+    def show(record: Record) -> None:
+        print(
+            f"  {record.step:<16} {record.observed:<13} ttft {_fmt(record.ttft_s):>8} "
+            f"total {_fmt(record.total_s):>8} {record.error or ''}"
+        )
+
     async with httpx.AsyncClient() as client:
-        for step in sequential:
-            record = await run_step(client, url, token, step)
-            records.append(record)
-            print(
-                f"  {step.name:<16} {record.observed:<13} ttft {_fmt(record.ttft_s):>8} "
-                f"total {_fmt(record.total_s):>8} {record.error or ''}"
-            )
-            errors = sum(1 for r in records if r.observed == PATH_ERROR)
-            if errors >= args.max_errors:
-                print(f"\n  stopping: {errors} errors reached --max-errors {args.max_errors}")
-                burst = []
-                break
-            await asyncio.sleep(args.pause)
-        if burst:
-            print(f"\n  burst of {len(burst)} concurrent uncached questions")
-            burst_records = await asyncio.gather(
-                *[run_step(client, url, token, step) for step in burst]
-            )
-            for record in burst_records:
-                records.append(record)
-                print(
-                    f"  {record.step:<16} {record.observed:<13} ttft {_fmt(record.ttft_s):>8} "
-                    f"total {_fmt(record.total_s):>8} {record.error or ''}"
-                )
+
+        async def send(step: Step) -> Record:
+            return await run_step(client, url, token, step)
+
+        records = await run_plan(
+            send,
+            run_id,
+            burst=args.burst,
+            max_requests=args.max_requests,
+            max_errors=args.max_errors,
+            pause=args.pause,
+            log=show,
+        )
 
     if not args.keep_answers:
         for record in records:
@@ -405,7 +474,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--burst",
         type=int,
         default=3,
-        help="Concurrent uncached questions after the sequential steps (0 disables).",
+        help="Concurrent questions after the sequential steps, from the unused pool (0 disables).",
     )
     parser.add_argument(
         "--max-requests",
@@ -446,19 +515,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.max_requests < 1:
         print("--max-requests must be at least 1", file=sys.stderr)
         return 2
-    password = os.environ.get("BENCH_PASSWORD") or getpass.getpass("Pilot password: ")
+    try:
+        password = os.environ.get("BENCH_PASSWORD") or getpass.getpass("Pilot password: ")
+    except EOFError:
+        password = ""
     if not password:
         print("a password is required (BENCH_PASSWORD or the prompt)", file=sys.stderr)
         return 2
-    planned = len(build_plan("preview", args.burst, args.max_requests))
+    planned = planned_requests(args.burst, args.max_requests)
     if not args.yes:
-        answer = input(
-            f"This sends up to {planned} paid chat requests to {args.url}. Continue? [y/N] "
-        )
+        try:
+            answer = input(
+                f"This sends up to {planned} paid chat requests to {args.url}. Continue? [y/N] "
+            )
+        except EOFError:
+            answer = ""
         if answer.strip().lower() not in ("y", "yes"):
             print("aborted")
             return 1
-    report = asyncio.run(run(args, password))
+    try:
+        report = asyncio.run(run(args, password))
+    except httpx.HTTPError as exc:
+        # raise_for_status and transport errors name the method, URL, and status only.
+        print(f"login or connection failed before any chat request: {exc}", file=sys.stderr)
+        return 2
     if args.out:
         with open(args.out, "w", encoding="utf-8") as handle:
             json.dump(report, handle, indent=2)

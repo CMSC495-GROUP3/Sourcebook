@@ -24,16 +24,23 @@ results say which code path ran rather than assuming it.
 
 | Step | Question | Expected path | What it checks |
 | --- | --- | --- | --- |
-| uncached answer | a PTO question with a per-run tag in the text | generated | retrieval, grounding gate, model streaming, follow-up call |
+| cache probe | a pool question that turns out to be warm | cached | recorded as a probe, not a failure; the run moves to the next pool question |
+| uncached answer | the first pool question the cache does not hold | generated | retrieval, grounding gate, model streaming, follow-up call |
 | cached repeat | the identical text in a new session | cached | the answer cache serves a first-turn repeat without a model call |
 | follow-up | "Does that change after five years of service?" in the first session | generated | the history path, which pays an extra condense call and skips the cache |
 | refusal | a question no policy covers | refused | the grounding gate declines before any model call |
-| burst 1..N | N distinct tagged questions at once | generated | a small concurrent load with the limiter on; 429s are counted on their own |
+| burst 1..N | N distinct pool questions at once | generated | a small concurrent load with the limiter on; 429s are counted on their own |
 
-The per-run tag (`[bench <run id>]`) keeps the first ask out of the answer
-cache so the run measures a real generation even if someone asked that
-question yesterday. The cached repeat sends the same tagged text. The refusal
-question is fixed, so a cached refusal still counts as a refusal.
+The question pool is eight answerable cases from `evaluation/questions.json`,
+sent exactly as written. Nothing is appended to the text, because the server
+embeds the question as sent and a tag would move the grounding score. Instead
+the uncached step walks the pool until the server reports a generation; a
+question asked in the last `ANSWER_CACHE_TTL_SECONDS` (24 hours by default)
+comes back cached, which costs no model call and is recorded as a probe. If
+every pool question is warm, the run records that, skips the repeat and
+follow-up steps, and still runs the refusal and the burst; wait for the TTL
+or extend the pool. The burst draws from the questions the probe did not
+touch.
 
 The client holds every stream open through the follow-up event. Hanging up at
 `done` is a legitimate client behaviour, but it exercises the
@@ -47,13 +54,14 @@ them needs a reason recorded here.
 
 | Control | Default | Why |
 | --- | --- | --- |
-| `--max-requests` | 8 | hard cap on chat requests; the plan is trimmed to fit |
-| `--burst` | 3 | concurrent uncached questions after the sequential steps |
+| `--max-requests` | 8 | hard cap on chat requests, probes included; later steps are dropped to fit |
+| `--burst` | 3 | concurrent questions after the sequential steps, from the unused pool |
 | `--max-errors` | 2 | stop the sequential steps and skip the burst once this many errors occur |
 | `--pause` | 2.0s | gap between sequential requests, so one client stays under `CHAT_RATE_LIMIT` (30/minute) |
 | `--cost-per-generation` | $0.01 | the README's estimate; used only for the cost line |
 
-The default run is eight chat requests. Five of them generate, at roughly a
+A default run with a cold cache is seven chat requests, up to the cap of
+eight when a probe hits a warm question. Five of them generate, at roughly a
 cent each, so a full run is under ten cents. The login route's limit is
 10/minute and the script logs in once. Production settings are not changed
 for the run; if the burst trips the limiter, the 429s are the result.
@@ -92,8 +100,8 @@ BENCH_PASSWORD='the pilot password' ./.venv/bin/python scripts/loadtest/live_ben
   --out docs/alpha/live-benchmark-results.json
 ```
 
-Without `--yes` the script says how many paid requests it will send and asks
-before the first one. Without `BENCH_PASSWORD` it prompts, so the password
+Without `--yes` the script says how many chat requests it may send and asks
+before the first one, and before it logs in. Without `BENCH_PASSWORD` it prompts, so the password
 never lands in shell history. Answer text is not written to the JSON unless
 `--keep-answers` is given; the committed results must be the sanitized form.
 
