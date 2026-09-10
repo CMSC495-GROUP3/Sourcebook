@@ -6,7 +6,7 @@ scope to what shipped and what evidence backs it, lists what is still open,
 and holds the release notes and the tag procedure. Tracking issue:
 [#184](https://github.com/CMSC495-GROUP3/Sourcebook/issues/184).
 
-Status on 2026-09-09: **draft, candidate not yet verified.** No tag exists
+Status on 2026-09-10: **draft, candidate not yet verified.** No tag exists
 yet. Each gate below says what it needs before the tag is cut. Nothing here
 claims a check passed unless a link shows it.
 
@@ -28,25 +28,51 @@ the gates that depend on the build.
 
 ## Scope map
 
-The team's project plan from the earlier units is not in this repository, so
-this table starts from the product commitments the README records and the
-issues the team has been treating as MVP. Reconcile it against the plan
-document before the tag and note any difference in the last column; do not
-drop a promised feature by leaving it out of the table.
+This table is reconciled against the two planning documents from the earlier
+units, neither of which lives in this repository: the project pitch, which
+states the problem, the stack, and the risks the team promised to mitigate,
+and the Unit 3 design specification of 2026-08-30, which fixes the interface
+contracts and the architecture. Where the candidate departs from the
+specification, the departure is in the next section rather than missing from
+this one.
 
 | Requirement | Implemented | Evidence | Limitation or decision needed |
 | --- | --- | --- | --- |
 | Plain-language questions answered from the policy corpus with the source cited | Yes | README "How a question is answered"; `tests/test_chat.py`, `tests/test_rag_chain.py`; evaluation metric "citation correctness" | Live answer-quality numbers pending, see the evaluation gate |
 | Refuse when the corpus does not support an answer | Yes | grounding gate in `policy_assistant/rag/rag_chain.py`; evaluation "unsupported refusal handling" | `SIMILARITY_THRESHOLD` is untuned against a real corpus (README known limitations) |
-| Escalate a refusal or unhelpful answer to Human Resources | Employee side yes; handler side API only | `policy_assistant/api/routes/escalations.py`, `tests/test_escalations.py`, webhook delivery and retry from #99 / PR #113 | #159: no handler page. #84: escalation can target the wrong turn after a failed generation. Decision needed: is API-only queue handling within the agreed alpha scope? Record the answer here |
-| Learn from the query log (content gaps, FAQ ranking, threshold tuning) | Logging yes; reports in review | `policy_assistant/api/analytics.py`, `tests/test_analytics.py`; reports in PR #171 (draft) | #160: PR #171 needs review and a live check. Decision needed: alpha scope or documented gap |
+| Escalate a refusal or unhelpful answer to Human Resources | Employee side yes; handler side API only | `policy_assistant/api/routes/escalations.py`, `tests/test_escalations.py`, webhook delivery and retry from #99 / PR #113 | #84: escalation can target the wrong turn after a failed generation. #159 asks for a handler page; the design specification does not. Its Figure 3 has the human agent read the open queue through `GET /api/escalations?status=open` and `PATCH` it resolved, reached from a Slack or Teams webhook, so API-only handling is the designed path. Team to agree with that reading here |
+| Learn from the query log (content gaps, FAQ ranking, threshold tuning) | Logging yes; reports in review | `policy_assistant/api/analytics.py`, `tests/test_analytics.py`; reports in PR #171 (draft) | The specification's learning loop calls for a weekly, human-read knowledge-gap report over `query_logs`: refusals by hash, FAQ by frequency, score distribution. PR #171 is that report and is still a draft. Decision needed: merge it before the tag, or record #160 as a gap against the specification |
 | Policy Library renders whole documents | Yes | PR #167, `web/src/components/Documents` | none known |
 | Conversation history, projects, reload | Yes | `tests/test_conversations.py`, PRs #126, #133 | #142: project assignment and deletion are not transactional |
 | Shared-password sign-in with a second reviewer password | Yes | PRs #75 (for #74), #110, #154; `tests/test_auth.py`, `tests/test_tokens.py` | Shared credential by design for the pilot (README known limitations) |
 | Rate limits and provider bounds so a stalled provider cannot take the site down | Yes | PRs #112, #144; `tests/test_provider_timeout.py`, `tests/test_proxy_headers.py` | #118: saturation reports as a generic error rather than a retryable one |
-| Serve 10,000 concurrent users | Synthetic evidence only | `scripts/loadtest/RESULTS.md`: 98.7 req/s with the model faked | Real-service run in [live-benchmark.md](live-benchmark.md) is bounded and cannot verify this claim; say so in the release notes |
+| Serve 10,000 concurrent users | Synthetic evidence only | `scripts/loadtest/RESULTS.md`: 98.7 req/s with the model faked | Real-service run in [live-benchmark.md](live-benchmark.md) is bounded and cannot verify this claim; say so in the release notes. The specification and the README also read the requirement as two different numbers, see the next section |
+| Model call behind one interface, so a self-hosted model can replace the vendor (pitch risk: lock-in) | Yes | `LLMProvider` in `policy_assistant/rag/llm.py`, with `OpenAIProvider` and `FakeProvider` registered in `_PROVIDERS` and chosen by `LLM_PROVIDER`; `tests/test_provider_timeout.py` | One real vendor is implemented. The fake exists for tests and refuses to start in production, so the swap is unproven against a second real provider |
+| Passages, metadata, and embeddings in one database rather than a vector store beside a document store (pitch) | Yes | `policy_assistant/rag/mongo.py`, the index setup in `policy_assistant/api/db.py`, `tests/test_indexes.py`; Atlas Vector Search index `vector_index` | Atlas free tier caps the pilot corpus at 512 MB, which the pitch names as a risk and the README repeats as a limitation |
 | Deployed pilot with TLS and automatic deploys | Yes | README "Deployment" and "Checking a deploy"; `scripts/auto_deploy.sh`, `tests/test_auto_deploy.py` | Single instance, no redundancy, free DuckDNS name |
 | Redesigned web app, responsive, keyboard-usable | Redesign shipped in PR #161 and follow-ups | milestone "refactor: new UI/UX" | #51 responsive pass, #52 keyboard pass, #174 theme switch on a phone, #53 deployment verification, all open |
+
+## Where the candidate differs from the design specification
+
+The Unit 3 specification was written on 2026-08-30 and the candidate is nine
+days of work past it. Nothing below breaks a contract the React app or the
+tests rely on, but a grader reading the two side by side will see these, so
+they are named here rather than left to be found. The last column says what
+each one needs before the final report.
+
+| Item | Design specification | The candidate | What it needs |
+| --- | --- | --- | --- |
+| Edge | Figure 1 has one edge component: Nginx serves the app and proxies `/api` with buffering off | Caddy terminates TLS for `SITE_ADDRESS` and forwards to Nginx, which still serves the app and proxies `/api`. Only Caddy publishes ports | TLS with a Let's Encrypt certificate for the DuckDNS name arrived with the pilot host, after the specification. No contract changed. Redraw Figure 1 |
+| Endpoint contract | Section 2.1 lists login, chat, chat/stream, conversations (list, create, get), documents, and escalations (create, list, patch) | Also `GET /api/health` and `/api/config`, `PATCH` and `DELETE /api/conversations/{id}`, `GET /api/documents/categories`, `/body`, and `/passages`, `POST /api/documents/reindex`, `GET /api/escalations/{id}`, `POST /api/escalations/{id}/retry-delivery`, and the whole `/api/projects` resource | All additive, and Figure 1 already names projects among the route files. Add the rows to section 2.1 |
+| Rate limits | Login 10 a minute per IP, escalation 5 | The same two, plus `CHAT_RATE_LIMIT` at 30 a minute per address per worker and `REINDEX_RATE_LIMIT` at 2 a minute | The chat cap is the binding ceiling for interactive use and is missing from section 2. Record it there and in the release notes |
+| Throughput target | "the 10,000-user target, which we read as about 100 requests per second", cleared at 98.7 req/s with 320 threads | README and `scripts/loadtest/RESULTS.md` derive 83 req/s from 10,000 employees over a 120-second peak and use it as the pass mark, also cleared at 98.7 | Two readings of one requirement. Pick the figure the release notes state. Both rest on synthetic runs; gate 4 is the real-service check |
+| `CustomerDataProvider` | Planned interface, grey in Figure 1, `get_customer(id)` returning three fields and raising `PermissionError` for another owner's id | Not built. Nothing in `policy_assistant/` reads a customer database | The specification already marks it as not built. Say in the release notes whether it is post-alpha or comes out of the specification |
+| Module paths | `src/llm.py`, `src/rag_chain.py`, `src/mongo.py` | `policy_assistant/rag/llm.py`, `policy_assistant/rag/rag_chain.py`, `policy_assistant/rag/mongo.py`, `policy_assistant/api/db.py` | The layout refactor landed after the specification. The modules and their jobs are unchanged; only the paths moved. Relabel Figure 1 |
+
+Checked and unchanged: the grounding threshold at 0.62, retrieval at k=5, the
+20-turn history cap, the streaming event names and payloads, the escalation
+record shape with its unique `(session_id, message_index)` index, and the
+error and validation table in section 2.5.
 
 ## Gates before the tag
 
@@ -81,7 +107,7 @@ green that #180 documents.
 
 ### 5. Team roles (#182)
 
-- [ ] [team-roles.md](team-roles.md) moved from unconfirmed draft to confirmed, with names and the confirmation date.
+- [ ] [team-roles.md](team-roles.md) fully confirmed. The three roles come from the project pitch and Chris confirmed Integration Lead on 2026-09-10; Daniel's Interface Designer row and the pitch's own date are still open.
 
 ### 6. End-to-end browser check on the deployed candidate
 
