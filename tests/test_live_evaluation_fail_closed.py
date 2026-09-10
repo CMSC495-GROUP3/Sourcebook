@@ -7,6 +7,7 @@ import json
 import pytest
 
 from policy_assistant.rag.evaluation import (
+    _validate_rate_metric,
     require_live_env,
     validate_results_file,
     validate_results_report,
@@ -112,6 +113,42 @@ def test_validate_results_report_rejects_malformed_rates_and_length_mismatch():
     }
     with pytest.raises(ValueError, match="does not match evaluated_cases"):
         validate_results_report(mismatch)
+
+
+@pytest.mark.parametrize(
+    "bad_value",
+    [float("nan"), float("inf"), float("-inf")],
+)
+def test_validate_rate_metric_rejects_non_finite(bad_value):
+    """NaN / ±inf must fail closed (comparisons alone miss NaN)."""
+    with pytest.raises(ValueError, match="finite"):
+        _validate_rate_metric("citation_correctness", bad_value)
+
+
+@pytest.mark.parametrize(
+    "metric_key,bad_value",
+    [
+        ("citation_correctness", float("nan")),
+        ("recall_at_5", float("inf")),
+        ("grounded_answer_rate", float("-inf")),
+    ],
+)
+def test_validate_results_report_rejects_non_finite_rates(metric_key, bad_value):
+    bad = _valid_report()
+    bad["metrics"][metric_key] = bad_value
+    with pytest.raises(ValueError, match="finite"):
+        validate_results_report(bad)
+
+
+def test_validate_results_file_rejects_nan_metric(tmp_path):
+    """Synthetic results.json with NaN recall must fail closed (RoNUO repro)."""
+    report = _valid_report()
+    report["metrics"]["recall_at_5"] = float("nan")
+    path = tmp_path / "nan_results.json"
+    # Python json allows NaN literals; live Actions must not treat them as green.
+    path.write_text(json.dumps(report) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="finite"):
+        validate_results_file(path)
 
 
 def test_validate_results_file_and_cli(tmp_path, capsys, monkeypatch):

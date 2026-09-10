@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from collections import Counter
@@ -95,11 +96,17 @@ def require_live_env(environ: Mapping[str, str] | None = None) -> None:
 
 
 def _validate_rate_metric(name: str, value: Any) -> None:
-    """Accept ``None`` (no eligible cases) or a finite percentage in ``[0, 100]``."""
+    """Accept ``None`` (no eligible cases) or a finite percentage in ``[0, 100]``.
+
+    ``NaN`` and ``±inf`` must fail closed: comparisons against ``0``/``100`` are
+    false for ``NaN``, so a non-finite check is required before the range gate.
+    """
     if value is None:
         return
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"Evaluation metric {name} must be a number or null")
+    if not math.isfinite(value):
+        raise ValueError(f"Evaluation metric {name} must be a finite number")
     if value < 0 or value > 100:
         raise ValueError(f"Evaluation metric {name} must be between 0 and 100")
 
