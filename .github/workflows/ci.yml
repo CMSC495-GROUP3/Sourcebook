@@ -80,6 +80,10 @@ jobs:
           --cov-report=term --cov-report=xml
           --cov-fail-under=80
           --junitxml=junit.xml -o junit_family=legacy
+      - name: Live evaluation fail-closed synthetic checks
+        # Proves injected evaluator failure goes red (pipefail) and a valid
+        # results fixture passes the postflight gate without paid providers.
+        run: bash scripts/test_live_evaluation_fail_closed.sh
       - name: Coverage summary
         if: always()
         run: |
