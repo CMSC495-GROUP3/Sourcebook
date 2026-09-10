@@ -64,8 +64,9 @@ this one.
 | Conversation history, projects, reload | Yes | `tests/test_conversations.py`, PRs #126, #133 | #142: project assignment and deletion are not transactional |
 | Shared-password sign-in with a second reviewer password | Yes | PRs #75 (for #74), #110, #154; `tests/test_auth.py`, `tests/test_tokens.py` | A shared credential by design for the pilot, with no per-user accounts |
 | Rate limits and provider bounds so a stalled provider cannot take the site down | Yes | PRs #112, #144; `tests/test_provider_timeout.py`, `tests/test_proxy_headers.py` | #118: saturation reports as a generic error rather than a retryable one |
-| Serve 10,000 concurrent users | Synthetic evidence only | `scripts/loadtest/RESULTS.md`: 98.7 requests per second with the model faked | The real-service run described in [live-benchmark.md](live-benchmark.md) is deliberately small and cannot verify this claim |
+| Serve 10,000 concurrent users, which the design specification reads as about 100 requests per second | Synthetic evidence only | `scripts/loadtest/RESULTS.md`: 98.7 requests per second on one worker at `THREADPOOL_TOKENS=320`, zero failures, 0.17s time to first byte, with the model faked | The measurement is 1.3% under the 100 figure, not over it. Four workers at the shipped default project to about 124 requests per second, and that is arithmetic rather than a measurement. The real-service run described in [live-benchmark.md](live-benchmark.md) is deliberately small and cannot settle any of this |
 | Model call behind one interface, so a self-hosted model can replace the vendor (pitch risk: lock-in) | Yes | `LLMProvider` in `policy_assistant/rag/llm.py`, with `OpenAIProvider` and `FakeProvider` registered in `_PROVIDERS` and chosen by `LLM_PROVIDER`; `tests/test_provider_timeout.py` | One real vendor is implemented. The fake exists for tests and refuses to start in production, so the swap is unproven against a second real provider |
+| Customer record lookup behind one interface, shown to be workable rather than integrated | Not yet | `CustomerDataProvider` in section 2 of the design specification and grey in its Figure 1 | The requirement is a demonstration, so the alpha implements the contract with a simulated provider rather than reading a real customer system. Not written yet, and not tracked by an issue |
 | Passages, metadata, and embeddings in one database rather than a vector store beside a document store (pitch) | Yes | `policy_assistant/rag/mongo.py`, the index setup in `policy_assistant/api/db.py`, `tests/test_indexes.py`; Atlas Vector Search index `vector_index` | The Atlas free tier caps the pilot corpus at 512 MB, which the pitch names as a risk |
 | Deployed pilot with TLS and automatic deploys | Yes | README "Deployment" and "Checking a deploy"; `scripts/auto_deploy.sh`, `tests/test_auto_deploy.py` | One instance, no redundancy, a free DuckDNS name |
 | Redesigned web app, responsive, keyboard-usable | Redesign shipped in PR #161 and its follow-ups | milestone "refactor: new UI/UX" | #51 responsive pass, #52 keyboard pass, #174 theme switch on a phone, #53 deployment verification, all open |
@@ -82,8 +83,8 @@ them here.
 | Edge | Figure 1 has one edge component: Nginx serves the app and proxies `/api` with buffering off | Caddy terminates TLS for `SITE_ADDRESS` and forwards to Nginx, which still serves the app and proxies `/api`. Only Caddy publishes ports | TLS with a Let's Encrypt certificate for the DuckDNS name arrived with the pilot host, after the specification was written. No contract changed. Figure 1 is stale |
 | Endpoint contract | Section 2.1 lists login, chat, chat/stream, conversations (list, create, get), documents, and escalations (create, list, patch) | Also `GET /api/health` and `/api/config`, `PATCH` and `DELETE /api/conversations/{id}`, `GET /api/documents/categories`, `/body`, and `/passages`, `POST /api/documents/reindex`, `GET /api/escalations/{id}`, `POST /api/escalations/{id}/retry-delivery`, and the whole `/api/projects` resource | Every addition is additive, and Figure 1 already names projects among the route files. Section 2.1 needs the extra rows |
 | Rate limits | Login 10 a minute per IP, escalation 5 | The same two, plus `CHAT_RATE_LIMIT` at 30 a minute per address per worker and `REINDEX_RATE_LIMIT` at 2 a minute | The chat cap is the binding ceiling for interactive use and is missing from section 2 of the specification |
-| Throughput target | "the 10,000-user target, which we read as about 100 requests per second", cleared at 98.7 | README and `scripts/loadtest/RESULTS.md` derive 83 requests per second from 10,000 employees over a 120-second peak and use that as the pass mark, also cleared at 98.7 | Two readings of one requirement. The release notes state the 83 figure and its derivation. Both rest on synthetic runs with the model faked |
-| `CustomerDataProvider` | A planned interface, drawn grey in Figure 1, with `get_customer(id)` returning three fields and raising `PermissionError` for another owner's id | Not built. Nothing in `policy_assistant/` reads a customer database | The specification already marks it as not built. It is out of scope for the alpha and stays out unless a later unit needs it |
+| Throughput target | "the 10,000-user target, which we read as about 100 requests per second" | README and `scripts/loadtest/RESULTS.md` derive 83 requests per second from 10,000 employees each asking one question in a 120-second peak, and use that as their pass mark | Two readings of one requirement, from the same 10,000 employees. The team states the specification's figure of about 100 requests per second. `RESULTS.md` keeps 83 as its internal pass mark because that is what its own arithmetic gives, so the two documents differ on the target and agree on the measurement. Both rest on synthetic runs with the model faked |
+| `CustomerDataProvider` | A planned interface, drawn grey in Figure 1, with `get_customer(id)` returning three fields and raising `PermissionError` for another owner's id | Not built. Nothing in `policy_assistant/` reads a customer database | The specification draws it grey because the requirement is to show the interface is workable, not to integrate a real customer system. The alpha satisfies it with a simulated provider behind the contract, the way `FakeProvider` already stands behind `LLMProvider`. That code is not written yet |
 | Module paths | `src/llm.py`, `src/rag_chain.py`, `src/mongo.py` | `policy_assistant/rag/llm.py`, `policy_assistant/rag/rag_chain.py`, `policy_assistant/rag/mongo.py`, `policy_assistant/api/db.py` | The package layout refactor landed after the specification. The modules and their jobs are unchanged and only the paths moved. Figure 1 needs relabelling |
 
 Checked against the specification and unchanged: the grounding threshold at
@@ -207,13 +208,22 @@ CONTRIBUTING.md. Tracked as #158.
 
 The 10,000-user requirement rests on synthetic measurements taken on a
 development laptop with the model faked, the database in memory, and the chat
-limiter off. `scripts/loadtest/RESULTS.md` reports 98.7 requests per second
-against a pass mark of 83, and explains how both numbers were derived. That is
-a real measurement of the thread pool and the request path. It is not a
-measurement of the deployed system under load, and the bounded run in
+limiter off. Reading that requirement as about 100 requests per second, the
+best measured figure is 98.7 on a single worker, which is just under the
+target rather than over it. Four workers at the shipped `THREADPOOL_TOKENS`
+default project to about 124 requests per second, but that number is
+multiplication, not a run. `scripts/loadtest/RESULTS.md` gives the method and
+the raw tables, and lists what its own harness cannot capture: real model
+latency is slower and more variable, real Atlas is slower than a 15 ms
+dictionary, and a development laptop is not the t3.micro the pilot runs on.
+None of this measures the deployed system under load, and the bounded run in
 [live-benchmark.md](live-benchmark.md) is too small to become one.
 
 Answer quality is unmeasured on this commit, for the reasons above.
+
+`CustomerDataProvider` is designed and not written. When the simulated
+provider lands it will show that the contract holds, not that Sourcebook can
+read a real customer system.
 
 The corpus is fictional. Sourcebook has never been run against a real company's
 policies, so the retrieval threshold, the refusal rate, and the citation
