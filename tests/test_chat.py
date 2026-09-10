@@ -252,16 +252,39 @@ class TestStream:
         assert events.index(done) == len(chunks)  # done arrives before follow-ups
         assert len(events[-1]["follow_ups"]) == 3
 
+    def test_done_names_the_turn_it_persisted(self, client, auth, retrieval, conversation):
+        """The client needs the name before the stream ends; _finalize persists
+        under the same one afterwards. See #84."""
+        events = _ask(client, auth, "How much PTO?", conversation)
+        done = next(e for e in events if e.get("done"))
+        assert done["message_id"] == _messages(conversation)[1]["message_id"]
+
+    def test_a_cached_repeat_is_its_own_turn_with_its_own_name(self, client, auth, retrieval):
+        first = _ask(client, auth, "How much PTO?", None)
+        second = _ask(client, auth, "How much PTO?", None)
+        first_done = next(e for e in first if e.get("done"))
+        second_done = next(e for e in second if e.get("done"))
+        assert second_done.get("cached") is True
+        assert first_done["message_id"] != second_done["message_id"]
+
     def test_refusal_is_a_single_chunk_and_no_follow_ups(
         self, client, auth, retrieval, conversation
     ):
         retrieval.passages = make_passages(0.30)
         events = _ask(client, auth, "q", conversation)
-        assert events == [
-            {"chunk": REFUSAL_MESSAGE},
-            {"done": True, "sources": [], "confidence": 30, "refused": True},
-        ]
-        assert _messages(conversation)[-1]["refused"] is True
+        assert len(events) == 2
+        assert events[0] == {"chunk": REFUSAL_MESSAGE}
+        done = events[1]
+        assert {k: v for k, v in done.items() if k != "message_id"} == {
+            "done": True,
+            "sources": [],
+            "confidence": 30,
+            "refused": True,
+        }
+        stored = _messages(conversation)[-1]
+        assert stored["refused"] is True
+        # A refusal is escalated more often than an answer, so it must be nameable.
+        assert done["message_id"] == stored["message_id"]
 
     def test_first_turn_repeat_is_served_from_cache(self, client, auth, retrieval):
         first = _ask(client, auth, "How much PTO?", None)
@@ -292,6 +315,9 @@ class TestStream:
         events = _ask(client, auth, "q", conversation)
         assert events[-1] == {"error": "An error occurred while generating the response."}
         assert _messages(conversation) == []
+        # No done event, so the client has no id for its error bubble and cannot
+        # escalate a turn the server never stored. See #84.
+        assert not any(e.get("done") for e in events)
         assert FAKE_DB["answer_cache"].count_documents({}) == 0
 
 

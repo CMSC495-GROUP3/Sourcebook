@@ -22,6 +22,7 @@ truth for what was actually said.
 import json
 import logging
 import time
+import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
@@ -67,6 +68,9 @@ class ChatResponse(BaseModel):
     follow_ups: list[str]
     refused: bool
     session_id: str | None
+    # Stable name for the assistant turn, for escalation. None when the
+    # request carried no session, because nothing was stored to name.
+    message_id: str | None = None
 
 
 def load_history(session_id: str | None) -> list[dict]:
@@ -112,12 +116,19 @@ def _persist(
     confidence: int | None,
     refused: bool,
     follow_ups: list[str] | None = None,
+    message_id: str | None = None,
 ) -> None:
     """Append one exchange to the conversation record.
 
     Sources, confidence, and follow-ups are stored with the assistant message
     so that reopening a past conversation restores citations and suggestions,
     not just its text.
+
+    The assistant turn also carries `message_id`, a stable name the escalation
+    route resolves against. Position cannot serve that purpose: a failed
+    generation persists nothing while the client keeps its error bubble, so
+    from then on the two lists disagree on length and an index means different
+    turns on each side. See #84.
     """
     if not session_id:
         return
@@ -131,6 +142,7 @@ def _persist(
                         {"role": "user", "content": question},
                         {
                             "role": "assistant",
+                            "message_id": message_id or uuid.uuid4().hex,
                             "content": answer,
                             "sources": sources,
                             "confidence": confidence,
@@ -217,6 +229,7 @@ def chat(request: Request, body: ChatRequest):
             session_id=body.session_id,
         )
 
+    message_id = uuid.uuid4().hex
     _persist(
         body.session_id,
         body.question,
@@ -225,6 +238,7 @@ def chat(request: Request, body: ChatRequest):
         result["confidence"],
         result["refused"],
         result["follow_ups"],
+        message_id=message_id,
     )
 
     log_query(
@@ -245,6 +259,7 @@ def chat(request: Request, body: ChatRequest):
         follow_ups=result["follow_ups"],
         refused=result["refused"],
         session_id=body.session_id,
+        message_id=message_id if body.session_id else None,
     )
 
 
@@ -315,6 +330,7 @@ def _finalize(
         state["confidence"],
         state["refused"],
         follow_ups,
+        message_id=state["message_id"],
     )
 
     if state["complete"] and state["cache_hit"] is None and is_cacheable_turn(history):
@@ -369,6 +385,9 @@ def _stream(body: ChatRequest):
         "condensed": body.question,
         "finalized": False,
         "complete": False,
+        # Named before the first token so every `done` event can carry it and
+        # _finalize can persist the assistant turn under the same name.
+        "message_id": uuid.uuid4().hex,
     }
 
     try:
@@ -391,6 +410,7 @@ def _stream(body: ChatRequest):
                 yield _sse(
                     {
                         "done": True,
+                        "message_id": state["message_id"],
                         "sources": cached["sources"],
                         "confidence": cached["confidence"],
                         "refused": cached["refused"],
@@ -417,7 +437,13 @@ def _stream(body: ChatRequest):
             state.update(answer=REFUSAL_MESSAGE, refused=True, complete=True)
             yield _sse({"chunk": REFUSAL_MESSAGE})
             yield _sse(
-                {"done": True, "sources": [], "confidence": state["confidence"], "refused": True}
+                {
+                    "done": True,
+                    "message_id": state["message_id"],
+                    "sources": [],
+                    "confidence": state["confidence"],
+                    "refused": True,
+                }
             )
             return
 
@@ -443,6 +469,7 @@ def _stream(body: ChatRequest):
         yield _sse(
             {
                 "done": True,
+                "message_id": state["message_id"],
                 "sources": state["sources"],
                 "confidence": state["confidence"],
                 "refused": False,
