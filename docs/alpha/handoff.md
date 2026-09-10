@@ -100,7 +100,7 @@ message_index)` index, and the error and validation table in section 2.5.
 | Python lint, tests on 3.11 to 3.14 with an 80% coverage floor, web lint and types and build, both Docker images, Compose validation, the proxy-chain acceptance script | Passed | [CI run 34534962223](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962223) |
 | CodeQL, dependency audit, secret scan | Passed | [Security run 34534962098](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962098) |
 | Answer quality against the live system | Not measured | see below |
-| Real-service latency and error rate on the pilot | Not measured | see below |
+| Real-service latency and error rate on the pilot | Passed, on a sample of seven | [live-benchmark.md](live-benchmark.md): all five agreed targets met on `4352966`, 1.21s median time to first token, no errors, no rate limiting |
 | End-to-end pass through the deployed app by hand | Not recorded | see below |
 | Escalation after a failed generation | Known defect, open as #84 | see the defects table |
 
