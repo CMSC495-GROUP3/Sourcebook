@@ -144,13 +144,19 @@ workload over the public address, through Caddy and Nginx to the API, with
 real OpenAI and Atlas and the rate limits left on. It is capped at eight chat
 requests and stops after two errors, so a full run costs under ten cents.
 
-The run has not happened, and the targets in that page carry "Agreed on:
-_pending_" because the deployment operator has not signed off on them yet.
-Both belong to #183. When the run happens, its results and the sanitized JSON
-go beside the protocol.
+The operator agreed the targets unchanged and ran the workload on 2026-09-10
+against deployed commit `4352966`. Seven chat requests, five generated, one
+served from the cache, one refused. Every request took the path its step
+expected. Median time to first token on the generated path was 1.21s against a
+4.0s target, the slowest generation completed in 4.69s against 30.0s, the
+cache hit answered in 0.04s, the refusal in 0.31s, and there were no errors
+and no rate limiting. All five targets pass. Results, the settings in force,
+and the limitations are in [live-benchmark.md](live-benchmark.md), with the
+sanitized JSON in `live-benchmark-results.json`. This closes #183.
 
 This is a bounded check that the deployed path works for one user and a burst
-of three on a given day. It says nothing about 10,000 concurrent users.
+of three on a given day. It says nothing about 10,000 concurrent users, and a
+passing run does not narrow the gap in the table above.
 
 ### End-to-end pass by hand
 
