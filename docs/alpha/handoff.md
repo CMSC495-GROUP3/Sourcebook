@@ -25,9 +25,10 @@ called verified without a link that shows it.
   streaming. [CONTRIBUTING.md](../../CONTRIBUTING.md) covers the development
   setup.
 
-Unit 5 roles are recorded in [team-roles.md](team-roles.md): Taylor as Lead
-Architect, Daniel as Interface Designer, Chris as Integration Lead, with
-Gavin, George, and Dominick on the React components.
+Unit 5 roles are in the [README's Team section](../../README.md#team): Taylor
+as Lead Architect, Daniel as Interface Designer, Chris as Integration Lead,
+with Gavin, Dominick, George, and Robert on the React app, administration, and
+the corpus.
 
 ## The submitted version
 
