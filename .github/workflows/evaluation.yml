@@ -8,6 +8,10 @@
 #
 # The numbers this produces are measurements, not a gate. Read the "Metric
 # definitions" section of evaluation/README.md before acting on them.
+#
+# Fail-closed: empty secrets, a nonzero evaluator exit, a missing results
+# file, or malformed metrics must fail the job (see issue #180 / run
+# 34100074696). Summary and artifact upload still run for diagnostics.
 
 name: Live evaluation
 
@@ -45,6 +49,7 @@ jobs:
         env:
           EVAL_TIER: ${{ inputs.tier }}
         run: |
+          set -euo pipefail
           python - <<'PY' | tee selection.txt
           import os
           from policy_assistant.rag.evaluation import load_cases, resolve_dataset
@@ -62,8 +67,14 @@ jobs:
             cat selection.txt
             echo '```'
             echo
-            echo "Paid provider calls start in the next step."
+            echo "Paid provider calls start after the environment gate."
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Require live evaluation secrets
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DB: ${{ secrets.MONGODB_DB }}
+        run: python scripts/validate_live_evaluation.py --check-env
       - name: Run the evaluation
         env:
           LLM_PROVIDER: openai
@@ -72,10 +83,13 @@ jobs:
           MONGODB_DB: ${{ secrets.MONGODB_DB }}
           EVAL_TIER: ${{ inputs.tier }}
         run: |
+          set -euo pipefail
           python -m policy_assistant.rag.evaluation \
             --tier "$EVAL_TIER" \
             --yes \
             --output evaluation/results.json | tee evaluation-summary.txt
+      - name: Validate evaluation results
+        run: python scripts/validate_live_evaluation.py --results evaluation/results.json
       - name: Summary
         if: always()
         run: |
@@ -83,7 +97,11 @@ jobs:
             echo "## Live evaluation"
             echo
             echo '```'
-            cat evaluation-summary.txt
+            if [ -f evaluation-summary.txt ]; then
+              cat evaluation-summary.txt
+            else
+              echo "(no evaluation-summary.txt — evaluator likely failed before writing output)"
+            fi
             echo '```'
             echo
             echo "Detailed answers are in the \`evaluation-results\` artifact."
@@ -122,10 +140,14 @@ jobs:
           )
           PY
               echo
+            else
+              echo
+              echo "No \`evaluation/results.json\` was produced; treat this run as failed."
             fi
             echo
             echo "Review each cited passage by hand before reporting these numbers."
             echo "Ambiguous clarifications remain a manual review; they are not auto-scored."
+            echo "A green job requires the secrets gate, a zero evaluator exit, and validated metrics."
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
@@ -135,4 +157,5 @@ jobs:
             evaluation/results.json
             evaluation-summary.txt
             selection.txt
+          if-no-files-found: ignore
           retention-days: 90
