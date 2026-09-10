@@ -9,10 +9,11 @@ OpenAI, Atlas, Caddy, Nginx, rate limits, and provider bounds all on, on a
 sample small enough to stay within a few cents. Tracking issue:
 [#183](https://github.com/CMSC495-GROUP3/Sourcebook/issues/183).
 
-Status on 2026-09-09: **protocol and harness ready, run not yet performed.**
-The results section below is empty on purpose. Running the benchmark needs the
-pilot password and the operator's agreement on the cap; both are recorded on
-this page when the run happens.
+Status on 2026-09-10: **run performed, every target met.** The operator
+agreed the targets, then ran the workload against the deployed pilot. The
+numbers, the settings in force, and the limitations are in
+[Results](#results) below, and the sanitized JSON sits beside this page in
+`live-benchmark-results.json`.
 
 ## What the run does
 
@@ -68,10 +69,9 @@ for the run; if the burst trips the limiter, the 429s are the result.
 
 ## Targets
 
-Proposed targets, to agree with the deployment operator before the run and
-to record as agreed or amended here. They describe what a pilot user should
-find acceptable, not the 10,000-user requirement, which a run this size
-cannot address.
+The deployment operator agreed these before the run, unchanged from the set
+PR #186 proposed. They describe what a pilot user should find acceptable, not
+the 10,000-user requirement, which a run this size cannot address.
 
 | Target | Limit | Reasoning |
 | --- | --- | --- |
@@ -81,7 +81,8 @@ cannot address.
 | `refused_total_max_s` | 3.0s | a refusal is an embedding call and a vector search, nothing else |
 | `error_rate_max` | 0.0 | no failed answers in a run this small; rate limiting is excluded from this rate |
 
-Agreed on: _pending_. Agreed by: _pending_. Amendments: _none_.
+Agreed on: 2026-09-10, before the run. Agreed by: Taylor Shahan, deployment
+operator. Amendments: _none_; the table above is the agreed set.
 
 A sample of eight cannot support a p95, so the script reports p50 and max
 only, with the sample size beside each. Treat a single slow request as a
@@ -109,32 +110,108 @@ The script prints two markdown tables at the end. Paste them into the
 results section below, together with the fields listed there.
 
 To read the requests from the server side afterwards, the query log has one
-row per request. `docs/alpha/handoff.md` links the query-log report work in
-#160 / PR #171; until that merges, `docker logs cmsc495-cap-api-1` on the host
-shows the refusal and generation lines with their session ids, which all
-start with `bench-<run id>`.
+row per request, keyed by session ids that all start with `bench-<run id>`.
+`docs/alpha/handoff.md` links the query-log report work in #160 / PR #171.
+Container logs are thinner than this page first claimed: `docker logs
+cmsc495-cap-api-1` prints Uvicorn access lines only, so it confirms the
+request count, the status codes, and the client address, and it does not name
+the session or the path taken. Take the path from the `done` event the script
+records, and from the query log once #160 lands.
 
 ## Results
 
-_Not yet run._ When it is, replace this line with the following, in this
-order, and commit the sanitized JSON beside this page.
+Run on 2026-09-10 at 22:20 UTC, run id `e8aa8cde`, by Taylor Shahan as
+deployment operator. The client was a macOS 26.6.2 arm64 laptop on a home
+network in Maryland, Python 3.13.2, reaching the public address over the
+open internet. The sanitized report is
+[live-benchmark-results.json](live-benchmark-results.json) beside this page;
+it carries no answer text.
 
-- Date and time (UTC), operator, client location, client platform line from
-  the JSON.
-- Deployed commit SHA (full), and the non-secret settings in force:
-  `THREADPOOL_TOKENS`, `CHAT_RATE_LIMIT`, `OPENAI_TIMEOUT_SECONDS`,
-  `OPENAI_MAX_CONCURRENT_REQUESTS`, `SIMILARITY_THRESHOLD`, the chat and
-  embedding model names.
-- The per-step table from the script.
-- The target table from the script, with a sentence for each FAIL and a link
-  to the issue that tracks it. Provider-busy responses belong under
-  [#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118); open a new
-  defect only for a failure nothing tracks.
-- Rate-limited count and error count, each on its own line.
-- Estimated cost from the script, and the measured cost from the OpenAI usage
-  page for the run window if the operator can read it.
-- Limitations of the run, at minimum: sample size, one client, one network
-  location, one point in time.
+Deployed commit: `435296607ec1b95a4b989c3c421d0cb246c0ffaa`, the merge of
+[#181](https://github.com/CMSC495-GROUP3/Sourcebook/pull/181), read from
+`refs/deployed/main` on the host at run time. The API container had restarted
+14 minutes earlier, so the first pool question generated instead of probing a
+warm cache.
+
+Settings in force. Grepping the host `.env` for these keys returned nothing,
+so the `policy_assistant/rag/config.py` defaults applied. That is one read
+rather than a confirmed dump of the file, so treat the table as the defaults
+the deployment is not known to override.
+
+| Setting | Value |
+| --- | --- |
+| `THREADPOOL_TOKENS` | 100 |
+| `CHAT_RATE_LIMIT` | 30/minute |
+| `OPENAI_TIMEOUT_SECONDS` | 30 |
+| `OPENAI_MAX_CONCURRENT_REQUESTS` | 20 |
+| `OPENAI_STREAM_DEADLINE_SECONDS` | 90 |
+| `SIMILARITY_THRESHOLD` | 0.62 |
+| `ANSWER_CACHE_TTL_SECONDS` | 86400 |
+| answer model | `gpt-4o` |
+| utility model | `gpt-4o-mini` |
+| embedding model | `text-embedding-3-small` |
+
+### Per-step results
+
+| Step | Expected | Observed | HTTP | TTFT | Complete | Follow-ups | Sources | Confidence | Error |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| uncached answer | generated | generated | 200 | 4.17s | 4.69s | 5.61s | 2 | 75 |  |
+| cached repeat | cached | cached | 200 | 0.04s | 0.04s | 0.04s | 2 | 75 |  |
+| follow-up | generated | generated | 200 | 2.06s | 2.72s | 3.79s | 2 | 77 |  |
+| refusal | refused | refused | 200 | 0.31s | 0.31s | n/a | 0 | 59 |  |
+| burst 1 | generated | generated | 200 | 1.21s | 1.62s | 2.92s | 3 | 75 |  |
+| burst 2 | generated | generated | 200 | 1.07s | 1.55s | 2.35s | 2 | 74 |  |
+| burst 3 | generated | generated | 200 | 1.16s | 1.55s | 3.55s | 3 | 78 |  |
+
+Every request took the path its step expected, so there are no mismatches to
+explain. No cache probe was needed. The refusal question, "What is the boiling
+point of mercury at sea level?", was declined by the grounding gate at
+confidence 59 with no sources, which is the behaviour the step was written to
+check.
+
+Uvicorn access logs on the host show one `POST /api/auth/login` and seven
+`POST /api/chat/stream`, all 200, from a single client address, which matches
+the client's own count.
+
+### Against the agreed targets
+
+| Target | Limit | Observed | Sample | Result |
+| --- | --- | --- | --- | --- |
+| `generated_ttft_p50_s` | 4.0s | 1.21s | n=5 | pass |
+| `generated_total_max_s` | 30.0s | 4.69s | n=5 | pass |
+| `cached_ttft_max_s` | 1.5s | 0.04s | n=1 | pass |
+| `refused_total_max_s` | 3.0s | 0.31s | n=1 | pass |
+| `error_rate_max` | 0.0 | 0.00 | n=7 | pass |
+
+All five pass, so there is no failure to link and no new defect to open.
+[#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) stays open on
+its own merits; this run produced no provider-busy response, which is an
+absence of evidence at this size rather than evidence the message never fires.
+
+- Requests: 7 (5 generated, 1 cached, 1 refused).
+- Rate limited (HTTP 429): 0.
+- Errors, excluding rate limits: 0.
+
+Estimated cost: $0.05, from five generations at the README's $0.01 estimate.
+The measured cost from the provider's usage page is not recorded; the operator
+did not read it for the run window, and at this size the estimate and the
+measurement would differ by less than a cent.
+
+### Limitations
+
+- Seven requests. The p50 rests on five generations, and the cached and
+  refused figures each rest on one. These are single observations with a
+  label, not percentiles.
+- One client, one network location, one operating system, one point in time
+  on 2026-09-10.
+- The burst was three concurrent requests. It shows the limiter did not fire
+  at that level and says nothing about the level where it would.
+- The first generation was the slowest at 4.17s to first token, against 1.07s
+  to 1.21s for the burst that followed. A cold container, a cold embedding
+  cache, or provider variance would each explain that, and one run cannot
+  separate them.
+- Costs, latencies, and provider behaviour all move with OpenAI's load. A
+  rerun on another day will not reproduce these numbers exactly.
 
 ## What this does and does not establish
 

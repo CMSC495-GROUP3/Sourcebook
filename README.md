@@ -22,7 +22,8 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#deployment">Deployment</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="docs/alpha/handoff.md">Alpha handoff</a>
 </p>
 
 ---
@@ -69,6 +70,8 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [SECURITY.md](SECURITY.md)                                                 | reporting a vulnerability and what the Security workflow scans               |
 | [evaluation/README.md](evaluation/README.md)                               | smoke and full-corpus labeled sets and how to score the live system          |
 | [scripts/loadtest/RESULTS.md](scripts/loadtest/RESULTS.md)                 | throughput measurements and the reasoning behind `THREADPOOL_TOKENS`         |
+| [docs/alpha/handoff.md](docs/alpha/handoff.md)                             | the Unit 5 alpha: submitted commit, scope map, verification status, evidence |
+| [docs/alpha/live-benchmark.md](docs/alpha/live-benchmark.md)               | what the deployed pilot measured with real OpenAI and Atlas, and its limits  |
 | [.agents/skills/CMSC495-CAP/SKILL.md](.agents/skills/CMSC495-CAP/SKILL.md) | the condensed version of all this for coding agents                          |
 
 ## Contents
@@ -87,6 +90,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 - [Document format](#document-format)
 - [Repository layout](#repository-layout)
 - [Known limitations](#known-limitations)
+- [Team](#team)
 - [References](#references)
 - [License](#license)
 
@@ -910,6 +914,30 @@ The product name lives in three places: `APP_NAME` in
   Compose file would move unchanged; only `SITE_ADDRESS` would differ.
 - **The sample corpus is fictional.** "Meridian Systems" is invented, and the
   policies are written to read as realistic, not to be legally accurate.
+
+## Team
+
+CMSC 495 Group 3. The project pitch assigned the three Unit 5 roles.
+
+| Role | Member | What the role owns here |
+| --- | --- | --- |
+| Lead Architect | Taylor Shahan ([@t-shahan](https://github.com/t-shahan)) | module boundaries in `policy_assistant/`, the split between the API and `web/`, the deployment shape, and the architecture diagrams |
+| Interface Designer | Daniel Tsang ([@DanielTsang26](https://github.com/DanielTsang26)) | the endpoint shapes, the streaming events, the `LLMProvider` interface, and the stored record shapes |
+| Integration Lead | Chris ([@threshi-art](https://github.com/threshi-art)) | evaluation, verifying merged work as one system, and the evidence behind any release claim |
+
+The pitch's words for Interface Designer are "API and interfaces", so that
+role covers the contracts in section 2 of the design specification rather than
+the visual design. Chris and Daniel divide integration work in practice, Chris
+on day-to-day integration and evidence, Daniel on repository ownership and the
+CODEOWNERS boundary.
+
+The rest of the team: Gavin ([@gavinwathen](https://github.com/gavinwathen))
+and Dominick ([@fudgepop01](https://github.com/fudgepop01)) build the React
+components and own the design and styling; George Struder
+([@Lazzy-dev](https://github.com/Lazzy-dev)) handles administration,
+dependency locks, and the MongoDB deployment; Robert
+([@RoNUO](https://github.com/RoNUO)) works on corpus availability and the
+passage index.
 
 ## References
 
