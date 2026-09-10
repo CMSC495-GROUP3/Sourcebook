@@ -258,6 +258,10 @@ through the course channel.
 Known defects, limitations, and the checks the team has not run carry over
 from the tables above.
 
+The release body itself is [release-notes.md](release-notes.md), which repeats
+the defects with their impact and mitigation inline rather than pointing back
+here, because a release page is read on its own.
+
 ## The tag, and reproducing this version later
 
 The pilot host follows `main`, so it moves past the tag. The tag does not. To
@@ -282,14 +286,28 @@ release is marked prerelease so nobody mistakes it for production:
 
 ```bash
 git fetch upstream
-git checkout 435296607ec1b95a4b989c3c421d0cb246c0ffaa
+git checkout <the verified commit>
 git tag -a v0.1.0-alpha.1 -m "Unit 5 alpha: verified per docs/alpha/handoff.md"
 git push upstream v0.1.0-alpha.1
 gh release create v0.1.0-alpha.1 --repo CMSC495-GROUP3/Sourcebook --prerelease \
   --title "v0.1.0-alpha.1" --notes-file docs/alpha/release-notes.md
 ```
 
-At tag time the release notes section above is copied to
-`docs/alpha/release-notes.md` so the release body and the repository agree,
-and the release link is added to the table at the top of this page and to the
-README's Documentation table.
+`docs/alpha/release-notes.md` is written and is the release body, so the
+release page and the repository say the same thing. Two things are filled in
+at tag time and are deliberately not guessed now: the commit, and the
+`Tagged commit:` line at the top of that file.
+
+Before running the commands above, all of these must be true. The tag is the
+claim that the alpha was verified, so cutting it early is the one mistake this
+page exists to prevent.
+
+| Blocker | State |
+| --- | --- |
+| Answer quality measured against the live system, per the gate on [#137](https://github.com/CMSC495-GROUP3/Sourcebook/issues/137) | Not done. This is the only remaining item that needs work rather than a merge |
+| [PR #188](https://github.com/CMSC495-GROUP3/Sourcebook/pull/188) merged, or #84 accepted as a shipped defect | Open, CI green |
+| [PR #190](https://github.com/CMSC495-GROUP3/Sourcebook/pull/190) merged, so the browser pass is on `main` | Open |
+| A commit chosen on `main` after those merges, with its CI and Security runs green and linked in the table at the top of this page | Not chosen |
+
+Once the tag exists, its link goes in the table at the top of this page and in
+the README's Documentation table.
