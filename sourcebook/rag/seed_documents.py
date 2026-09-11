@@ -1,6 +1,6 @@
 """Upload the sample policy corpus to S3.
 
-    python -m policy_assistant.rag.seed_documents
+    python -m sourcebook.rag.seed_documents
 
 Reads every file in data/sample-policies/ and writes it to S3 under the
 configured prefix. Replace that directory with real HR documents and this same
@@ -17,11 +17,11 @@ from pathlib import Path
 import boto3
 from dotenv import load_dotenv
 
-from policy_assistant.rag.config import S3_DOCUMENT_PREFIX
+from sourcebook.rag.config import S3_DOCUMENT_PREFIX
 
 load_dotenv()
 
-# parents[2] is the repository root: rag/ -> policy_assistant/ -> root.
+# parents[2] is the repository root: rag/ -> sourcebook/ -> root.
 SAMPLE_DIR = Path(__file__).resolve().parents[2] / "data" / "sample-policies"
 
 s3 = boto3.client(
@@ -55,7 +55,7 @@ def upload_documents(source_dir: Path = SAMPLE_DIR) -> None:
         print(f"Uploaded {key}")
 
     print(f"\nDone. {len(files)} documents in s3://{bucket}/{S3_DOCUMENT_PREFIX}")
-    print("Next: python -m policy_assistant.rag.embed_documents")
+    print("Next: python -m sourcebook.rag.embed_documents")
 
 
 if __name__ == "__main__":

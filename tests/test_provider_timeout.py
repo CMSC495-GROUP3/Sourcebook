@@ -10,9 +10,9 @@ import openai
 import pytest
 from conftest import TEST_PASSWORD
 
-from policy_assistant.api.routes import auth as auth_routes
-from policy_assistant.rag import llm
-from policy_assistant.rag.config import (
+from sourcebook.api.routes import auth as auth_routes
+from sourcebook.rag import llm
+from sourcebook.rag.config import (
     LOGIN_THREADPOOL_TOKENS,
     OPENAI_CAPACITY_WAIT_SECONDS,
     OPENAI_MAX_CONCURRENT_REQUESTS,

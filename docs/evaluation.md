@@ -34,8 +34,8 @@ explicitly. The runner prints the case count and asks for confirmation before
 any paid provider call (`--yes` skips the prompt for CI).
 
 ```bash
-.venv/bin/python -m policy_assistant.rag.evaluation --tier smoke
-.venv/bin/python -m policy_assistant.rag.evaluation --tier full --yes
+.venv/bin/python -m sourcebook.rag.evaluation --tier smoke
+.venv/bin/python -m sourcebook.rag.evaluation --tier full --yes
 ```
 
 The GitHub Actions workflow "Live evaluation" takes the same `tier` input and

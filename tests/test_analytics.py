@@ -2,9 +2,9 @@
 
 from conftest import FAKE_DB, make_passages
 
-from policy_assistant.api import analytics
-from policy_assistant.api.analytics import MAX_QUESTION_LENGTH, log_query
-from policy_assistant.rag.cache import question_hash
+from sourcebook.api import analytics
+from sourcebook.api.analytics import MAX_QUESTION_LENGTH, log_query
+from sourcebook.rag.cache import question_hash
 
 
 def _log(**overrides):

@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from policy_assistant.api.db import conversations_col, projects_col
-from policy_assistant.api.routes.deps import require_auth
+from sourcebook.api.db import conversations_col, projects_col
+from sourcebook.api.routes.deps import require_auth
 
 router = APIRouter()
 

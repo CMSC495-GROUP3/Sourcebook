@@ -9,7 +9,7 @@ in-memory Mongo. Everything that would reach the network is replaced before
 - vector search-> `retrieval` fixture, which returns whatever a test hands it
 - indexes      -> skipped; they would try to reach a cluster
 
-No test-only branch exists in policy_assistant/. If something cannot be stubbed
+No test-only branch exists in sourcebook/. If something cannot be stubbed
 from here, that is a design problem to fix in the application, not in tests.
 """
 
@@ -35,26 +35,26 @@ TEST_PASSWORD = "correct-horse-battery-staple"
 # it for a real hash.
 os.environ["APP_PASSWORD_HASH"] = bcrypt.hashpw(TEST_PASSWORD.encode(), bcrypt.gensalt(4)).decode()
 
-from policy_assistant.rag import mongo  # noqa: E402
 from scripts.loadtest.fakemongo import FakeDB  # noqa: E402
+from sourcebook.rag import mongo  # noqa: E402
 
 FAKE_DB = FakeDB()
 mongo.get_db = lambda: FAKE_DB
 mongo.get_collection = lambda name: FAKE_DB[name]
 
-from policy_assistant.rag import cache  # noqa: E402
+from sourcebook.rag import cache  # noqa: E402
 
 cache.get_collection = mongo.get_collection
 
-from policy_assistant.api import main  # noqa: E402
+from sourcebook.api import main  # noqa: E402
 
 main.ensure_indexes = lambda: None
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from policy_assistant.api.limiter import limiter  # noqa: E402
-from policy_assistant.api.routes import chat as chat_routes  # noqa: E402
-from policy_assistant.api.routes.auth import (  # noqa: E402
+from sourcebook.api.limiter import limiter  # noqa: E402
+from sourcebook.api.routes import chat as chat_routes  # noqa: E402
+from sourcebook.api.routes.auth import (  # noqa: E402
     PRIMARY_PASSWORD_HASH_VAR,
     create_access_token,
     credential_fingerprint,

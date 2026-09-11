@@ -35,11 +35,11 @@ from pydantic import BaseModel, Field, model_validator
 from pymongo import DESCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from policy_assistant.api import notify
-from policy_assistant.api.db import conversations_col, escalations_col
-from policy_assistant.api.limiter import limiter
-from policy_assistant.api.routes.deps import require_auth
-from policy_assistant.rag.config import (
+from sourcebook.api import notify
+from sourcebook.api.db import conversations_col, escalations_col
+from sourcebook.api.limiter import limiter
+from sourcebook.api.routes.deps import require_auth
+from sourcebook.rag.config import (
     ESCALATION_CONTACT,
     ESCALATION_NOTE_MAX_LENGTH,
     ESCALATION_WEBHOOK_LEASE_SECONDS,
@@ -296,7 +296,7 @@ def create_escalation(request: Request, body: CreateEscalationRequest, backgroun
         {"$set": {f"messages.{position}.escalation_id": record["escalation_id"]}},
     )
 
-    # Runs after the response is sent. See policy_assistant/api/notify.py.
+    # Runs after the response is sent. See sourcebook/api/notify.py.
     background.add_task(_deliver_in_background, record)
     return record
 

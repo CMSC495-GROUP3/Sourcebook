@@ -35,15 +35,15 @@ import re
 import uuid
 from datetime import UTC, datetime
 
-from policy_assistant.rag.config import (
+from sourcebook.rag.config import (
     ANSWER_CACHE_TTL_SECONDS,
     CACHE_ENABLED,
     PROMPT_VERSION,
     RETRIEVAL_K,
     SIMILARITY_THRESHOLD,
 )
-from policy_assistant.rag.llm import get_provider
-from policy_assistant.rag.mongo import get_collection
+from sourcebook.rag.llm import get_provider
+from sourcebook.rag.mongo import get_collection
 
 _WHITESPACE = re.compile(r"\s+")
 

@@ -120,7 +120,7 @@ jobs:
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           from collections import Counter
 
-          from policy_assistant.rag.evaluation import EVALUATION_TIERS, load_cases
+          from sourcebook.rag.evaluation import EVALUATION_TIERS, load_cases
 
           print("## Evaluation datasets")
           print()
@@ -181,7 +181,7 @@ jobs:
           file: Dockerfile
           push: false
           load: true
-          tags: policy-assistant-api:ci
+          tags: sourcebook-api:ci
           cache-from: type=gha,scope=api
           cache-to: type=gha,scope=api,mode=max
       - name: Build web image
@@ -190,7 +190,7 @@ jobs:
           context: web
           file: web/Dockerfile
           push: false
-          tags: policy-assistant-web:ci
+          tags: sourcebook-web:ci
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
       - name: API image imports the application
@@ -204,8 +204,8 @@ jobs:
           -e MONGODB_URI=mongodb://127.0.0.1:1
           -e MONGODB_DB=ci
           -e LLM_PROVIDER=fake
-          policy-assistant-api:ci
-          python -c "import bcrypt, os; os.environ['APP_PASSWORD_HASH'] = bcrypt.hashpw(b'ci', bcrypt.gensalt(4)).decode(); import policy_assistant.api.main; print('API image imports cleanly')"
+          sourcebook-api:ci
+          python -c "import bcrypt, os; os.environ['APP_PASSWORD_HASH'] = bcrypt.hashpw(b'ci', bcrypt.gensalt(4)).decode(); import sourcebook.api.main; print('API image imports cleanly')"
       - name: API image can construct the OpenAI provider
         # The import check above runs with LLM_PROVIDER=fake, so it never
         # reaches OpenAIProvider.__init__, where the SDK imports live. This
@@ -215,8 +215,8 @@ jobs:
           docker run --rm
           -e LLM_PROVIDER=openai
           -e OPENAI_API_KEY=sk-ci-placeholder
-          policy-assistant-api:ci
-          python -c "from policy_assistant.rag.llm import get_provider; p = get_provider(); print('provider', p.name, 'ready')"
+          sourcebook-api:ci
+          python -c "from sourcebook.rag.llm import get_provider; p = get_provider(); print('provider', p.name, 'ready')"
       - name: Compose file is valid
         run: |
           cp .env.example .env

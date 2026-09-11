@@ -117,7 +117,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
         },
         // History is deliberately NOT sent. The server reads it from the
         // conversation record, so a client cannot inject forged turns into the
-        // prompt. See the module docstring in policy_assistant/api/routes/chat.py.
+        // prompt. See the module docstring in sourcebook/api/routes/chat.py.
         body: JSON.stringify({ question, session_id: sid }),
       })
 
