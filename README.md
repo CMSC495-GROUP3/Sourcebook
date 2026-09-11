@@ -32,7 +32,7 @@
 ## Quick start
 
 No cloud accounts, API keys, or `.env`. This runs the real application against
-a fake model and an in-memory database. You need Python 3.11+, Node 20+, and
+a fake model and an in-memory database. You need Python 3.11+, Node 22+, and
 `make`.
 
 ```bash
@@ -238,12 +238,13 @@ which matters against the free-tier ceilings below.
 Atlas maps cosine similarity into [0, 1] as (1 + cosine) / 2, so 0.5 means
 unrelated and 1.0 means identical. The default threshold is 0.62.
 
-That number is a starting point, not a measurement, and it needs tuning before
-the pilot. Log the top score for a set of known-answerable and
-known-unanswerable questions against the real corpus, then set the threshold
-between the two clusters. Too high refuses legitimate questions. Too low means
-the refusal never fires. The [query log](#learning-from-the-query-log) is where
-those scores come from.
+That number was set by judgement and has been measured once, on the sample
+corpus: the lowest answerable question in the smoke tier scores 70 and the
+uncovered ones score 62 to 73, so no threshold separates them (#192). Against a
+real corpus, log the top score for a set of known-answerable and
+known-unanswerable questions, then set the threshold between the two clusters.
+Too high refuses legitimate questions. Too low means the refusal never fires.
+The [query log](#learning-from-the-query-log) is where those scores come from.
 
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
@@ -259,9 +260,12 @@ every answer has a quieter "not what you needed?" link. Both file an escalation
 with the question, the assistant's reply, the retrieval score, the cited
 documents, and an optional note from the employee.
 
-The request names the message by its position in the stored conversation, and
-`policy_assistant/api/routes/escalations.py` copies the question from the
-server-side record rather than accepting text from the client. Same rule as the
+Every stored assistant turn carries a `message_id`, minted before the first
+token streams, and the request names the turn by that id. A position in the
+conversation is accepted only for conversations stored before ids existed.
+`policy_assistant/api/routes/escalations.py` resolves the id against the
+server-side record and copies the question from there rather than accepting
+text from the client. Same rule as the
 history handling, same reason: a client that could supply its own text could
 escalate an exchange that never happened. Escalating the same message twice
 returns the first record instead of filing a second.
@@ -337,7 +341,7 @@ reproduction steps are in [docs/load-testing.md](docs/load-testing.md).
 | Configuration                             | Throughput    |
 | ----------------------------------------- | ------------- |
 | anyio default (40 threads)                | 14.9 req/s    |
-| `THREADPOOL_TOKENS=100` (current default) | 33.5 req/s    |
+| `THREADPOOL_TOKENS=100` (current default) | ~31 req/s, projected from the curve |
 | `THREADPOOL_TOKENS=320`                   | 98.7 req/s    |
 | refusal path (no generation)              | ~700 req/s    |
 | answer served from cache                  | 210-522 req/s |
@@ -369,8 +373,8 @@ continuously trickling stream is bounded by `OPENAI_STREAM_DEADLINE_SECONDS`
 `OPENAI_CAPACITY_WAIT_SECONDS` (default 1) keep provider saturation from
 occupying every application worker. Login runs on its own
 `LOGIN_THREADPOOL_TOKENS` pool (default 10), so bcrypt still answers when every
-chat slot is occupied. Nginx `proxy_read_timeout` on `/api/` is 90s — above the
-provider timeout plus a follow-up call — so the reverse proxy does not cut a
+chat slot is occupied. Nginx `proxy_read_timeout` on `/api/` is 90s, above the
+provider timeout plus a follow-up call, so the reverse proxy does not cut a
 stream that is still legitimately waiting.
 
 The caveat: the harness stubs the model and the database, and real generation
@@ -785,7 +789,7 @@ serving and that client addresses reach the API the way the trust chain intends
 make check                          # tests, lint, types, and build; what CI runs
 .venv/bin/python -m pytest          # the Python suite, about a second
 .venv/bin/python -m pytest --cov    # with coverage; CI fails under 80%
-make acceptance                     # real container proxy/rate-limit chain
+make acceptance                     # real container proxy/rate-limit chain; CI's Docker job runs it too
 ```
 
 The suite runs the real application with its external services replaced, the
@@ -817,7 +821,8 @@ reuse: `policy-assistant-api:acceptance` and
 | --------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | CI              | every PR and push to `main`        | ruff, the suite on Python 3.11 through 3.14 with the coverage floor, a validity check on the evaluation set, ESLint, `tsc`, the Vite build, both Docker images, and shellcheck, hadolint, and actionlint |
 | Security        | every PR and push, and each Monday | CodeQL, dependency audits, and a secret scan                                                                                                                       |
-| PR checks       | every PR                           | title format, description filled in, labels by changed path                                                                                                        |
+| PR checks       | every PR                           | title format and description filled in                                                                                                                             |
+| PR path labels  | every PR                           | applies area labels from the changed paths                          
 | Live evaluation | by hand from the Actions tab       | scores the labeled question set against the real provider and index                                                                                                |
 
 CONTRIBUTING.md has the full table.
@@ -857,6 +862,7 @@ policy_assistant/   the Python application, one package, absolute imports only
       projects.py       folders that group conversations
       documents.py      browse and search the indexed corpus
       escalations.py    hand a question to a person; open queue; resolve; retry delivery
+      deps.py           the require_auth dependency every protected route uses
   rag/              the pipeline, imported by api/ and run offline for ingestion
     config.py         every tuning knob, env-overridable; defaults live here
     llm.py            LLMProvider interface, the only vendor-aware module
@@ -868,8 +874,9 @@ policy_assistant/   the Python application, one package, absolute imports only
     seed_documents.py, embed_documents.py   offline ingestion
 web/                React 19, TypeScript, Tailwind 4, Vite; served by Nginx
 tests/              pytest suite; conftest.py stubs every external service
-scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, and the
-                    load-test harness in loadtest/
+scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, the
+                    proxy-chain acceptance test, the live evaluation gate and its
+                    synthetic test, and the load-test harness in loadtest/
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
 data/               42 fictional sample policies
 docs/               design.md, evaluation.md, load-testing.md, and one folder per release
@@ -883,7 +890,7 @@ Dockerfile          the API image; web/ has its own
 docker-compose.yml  caddy, web, api
 Caddyfile           TLS termination and reverse proxy in front of Nginx
 .env.example        every setting, with a comment on each
-.github/            CI, Security, PR-check, and Live evaluation workflows; templates; Dependabot; CODEOWNERS
+.github/            CI, Security, PR checks, PR path labels, and Live evaluation workflows; templates; Dependabot; CODEOWNERS
 .agents/            a skill file describing this repo for coding agents
 ```
 
@@ -896,8 +903,12 @@ The product name lives in three places: `APP_NAME` in
 - **Authentication is a shared password** (or two), not per-employee accounts, and
   conversations are not scoped to a user. Fine for a pilot. It is the first
   thing to change before a real deployment.
-- **The similarity threshold is untuned** against a real corpus. See
-  [above](#hallucination-refuse-rather-than-guess).
+- **The similarity threshold is untuned** against a real corpus, and on the
+  sample corpus it does not separate covered questions from uncovered ones on
+  nearby topics. Such a question gets a prose decline under a score badge and
+  source chips instead of the refusal card (#192), and an uncovered follow-up
+  can clear the gate the same way (#189). The escalation link under the answer
+  still works. See [above](#hallucination-refuse-rather-than-guess).
 - **Escalations have no handler UI.** The open-queue and resolve endpoints
   exist; a page for Human Resources to work through them does not.
 - **The React components have no unit tests.** The backend suite is the safety
