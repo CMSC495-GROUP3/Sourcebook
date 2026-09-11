@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/brand/sourcebook-icon.png" width="112" height="112" alt="Sourcebook">
+  <img src="assets/brand/sourcebook-icon.png" width="112" height="112" alt="Sourcebook">
 </p>
 
 <h1 align="center">Sourcebook</h1>
@@ -22,7 +22,9 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#deployment">Deployment</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="docs/releases/v0.1.0-alpha.1/handoff.md">Alpha handoff</a> ·
+  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a>
 </p>
 
 ---
@@ -30,7 +32,7 @@
 ## Quick start
 
 No cloud accounts, API keys, or `.env`. This runs the real application against
-a fake model and an in-memory database. You need Python 3.11+, Node 20+, and
+a fake model and an in-memory database. You need Python 3.11+, Node 22+, and
 `make`.
 
 ```bash
@@ -63,13 +65,20 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 
 ## Documentation
 
-| Read                                                                       | For                                                                          |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                                         | running against real services, checks, conventions, and the things that bite |
-| [SECURITY.md](SECURITY.md)                                                 | reporting a vulnerability and what the Security workflow scans               |
-| [evaluation/README.md](evaluation/README.md)                               | smoke and full-corpus labeled sets and how to score the live system          |
-| [scripts/loadtest/RESULTS.md](scripts/loadtest/RESULTS.md)                 | throughput measurements and the reasoning behind `THREADPOOL_TOKENS`         |
-| [.agents/skills/CMSC495-CAP/SKILL.md](.agents/skills/CMSC495-CAP/SKILL.md) | the condensed version of all this for coding agents                          |
+| Read | For |
+| --- | --- |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
+| [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
+| [docs/README.md](docs/README.md) | the index of everything under `docs/` |
+| [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
+| [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
+| [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
+| [docs/releases/v0.1.0-alpha.1/handoff.md](docs/releases/v0.1.0-alpha.1/handoff.md) | the Unit 5 alpha: submitted commit, scope map, verification status, evidence |
+| [docs/releases/v0.1.0-alpha.1/live-benchmark.md](docs/releases/v0.1.0-alpha.1/live-benchmark.md) | what the deployed pilot measured with real OpenAI and Atlas, and its limits |
+| [docs/releases/v0.1.0-alpha.1/live-evaluation.md](docs/releases/v0.1.0-alpha.1/live-evaluation.md) | answer quality on the smoke tier, this prompt against the one before #138 |
+| [docs/releases/v0.1.0-alpha.1/release-notes.md](docs/releases/v0.1.0-alpha.1/release-notes.md) | the v0.1.0-alpha.1 release body: scope, access, known defects, limitations |
+| [v0.1.0-alpha.1 release](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | the tagged Unit 5 alpha, `d7199f5`, with the notes above as its body |
+| [.agents/skills/sourcebook/SKILL.md](.agents/skills/sourcebook/SKILL.md) | the condensed version of all this for coding agents |
 
 ## Contents
 
@@ -87,6 +96,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 - [Document format](#document-format)
 - [Repository layout](#repository-layout)
 - [Known limitations](#known-limitations)
+- [Team](#team)
 - [References](#references)
 - [License](#license)
 
@@ -228,12 +238,13 @@ which matters against the free-tier ceilings below.
 Atlas maps cosine similarity into [0, 1] as (1 + cosine) / 2, so 0.5 means
 unrelated and 1.0 means identical. The default threshold is 0.62.
 
-That number is a starting point, not a measurement, and it needs tuning before
-the pilot. Log the top score for a set of known-answerable and
-known-unanswerable questions against the real corpus, then set the threshold
-between the two clusters. Too high refuses legitimate questions. Too low means
-the refusal never fires. The [query log](#learning-from-the-query-log) is where
-those scores come from.
+That number was set by judgement and has been measured once, on the sample
+corpus: the lowest answerable question in the smoke tier scores 70 and the
+uncovered ones score 62 to 73, so no threshold separates them (#192). Against a
+real corpus, log the top score for a set of known-answerable and
+known-unanswerable questions, then set the threshold between the two clusters.
+Too high refuses legitimate questions. Too low means the refusal never fires.
+The [query log](#learning-from-the-query-log) is where those scores come from.
 
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
@@ -249,9 +260,12 @@ every answer has a quieter "not what you needed?" link. Both file an escalation
 with the question, the assistant's reply, the retrieval score, the cited
 documents, and an optional note from the employee.
 
-The request names the message by its position in the stored conversation, and
-`policy_assistant/api/routes/escalations.py` copies the question from the
-server-side record rather than accepting text from the client. Same rule as the
+Every stored assistant turn carries a `message_id`, minted before the first
+token streams, and the request names the turn by that id. A position in the
+conversation is accepted only for conversations stored before ids existed.
+`policy_assistant/api/routes/escalations.py` resolves the id against the
+server-side record and copies the question from there rather than accepting
+text from the client. Same rule as the
 history handling, same reason: a client that could supply its own text could
 escalate an exchange that never happened. Escalating the same message twice
 returns the first record instead of filing a second.
@@ -322,12 +336,12 @@ The requirement says "serve 10,000 concurrent users." Read as 10,000 employees
 each asking a question every two minutes or so, that is 83 queries per second.
 
 Measured with the stubbed harness in `scripts/loadtest/`. Method, caveats, and
-reproduction steps are in [RESULTS.md](scripts/loadtest/RESULTS.md).
+reproduction steps are in [docs/load-testing.md](docs/load-testing.md).
 
 | Configuration                             | Throughput    |
 | ----------------------------------------- | ------------- |
 | anyio default (40 threads)                | 14.9 req/s    |
-| `THREADPOOL_TOKENS=100` (current default) | 33.5 req/s    |
+| `THREADPOOL_TOKENS=100` (current default) | ~31 req/s, projected from the curve |
 | `THREADPOOL_TOKENS=320`                   | 98.7 req/s    |
 | refusal path (no generation)              | ~700 req/s    |
 | answer served from cache                  | 210-522 req/s |
@@ -348,7 +362,7 @@ So one worker clears the target with a configuration change rather than an
 architecture change. That is why the async rewrite originally planned has been
 deferred. It is not needed to meet the requirement, and it would introduce
 cancellation semantics that are easy to get subtly wrong in a codebase meant to
-be maintained by junior developers. RESULTS.md records that decision with its
+be maintained by junior developers. `docs/load-testing.md` records that decision with its
 evidence. Revisit it if per-request thread-time grows.
 
 Two related bounds keep a stalled provider from taking the whole site down with
@@ -359,8 +373,8 @@ continuously trickling stream is bounded by `OPENAI_STREAM_DEADLINE_SECONDS`
 `OPENAI_CAPACITY_WAIT_SECONDS` (default 1) keep provider saturation from
 occupying every application worker. Login runs on its own
 `LOGIN_THREADPOOL_TOKENS` pool (default 10), so bcrypt still answers when every
-chat slot is occupied. Nginx `proxy_read_timeout` on `/api/` is 90s — above the
-provider timeout plus a follow-up call — so the reverse proxy does not cut a
+chat slot is occupied. Nginx `proxy_read_timeout` on `/api/` is 90s, above the
+provider timeout plus a follow-up call, so the reverse proxy does not cut a
 stream that is still legitimately waiting.
 
 The caveat: the harness stubs the model and the database, and real generation
@@ -591,7 +605,7 @@ locally, plus one variable in `.env`.
 
    ```bash
    python3 -m venv .venv
-   .venv/bin/pip install -r requirements/ingest.lock.txt
+   .venv/bin/pip install -r requirements/ingest.txt
    .venv/bin/python -m policy_assistant.rag.seed_documents    # first time: upload data/sample-policies/ to S3
    .venv/bin/python -m policy_assistant.rag.embed_documents
    ```
@@ -775,7 +789,7 @@ serving and that client addresses reach the API the way the trust chain intends
 make check                          # tests, lint, types, and build; what CI runs
 .venv/bin/python -m pytest          # the Python suite, about a second
 .venv/bin/python -m pytest --cov    # with coverage; CI fails under 80%
-make acceptance                     # real container proxy/rate-limit chain
+make acceptance                     # real container proxy/rate-limit chain; CI's Docker job runs it too
 ```
 
 The suite runs the real application with its external services replaced, the
@@ -807,7 +821,8 @@ reuse: `policy-assistant-api:acceptance` and
 | --------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | CI              | every PR and push to `main`        | ruff, the suite on Python 3.11 through 3.14 with the coverage floor, a validity check on the evaluation set, ESLint, `tsc`, the Vite build, both Docker images, and shellcheck, hadolint, and actionlint |
 | Security        | every PR and push, and each Monday | CodeQL, dependency audits, and a secret scan                                                                                                                       |
-| PR checks       | every PR                           | title format, description filled in, labels by changed path                                                                                                        |
+| PR checks       | every PR                           | title format and description filled in                                                                                                                             |
+| PR path labels  | every PR                           | applies area labels from the changed paths                          
 | Live evaluation | by hand from the Actions tab       | scores the labeled question set against the real provider and index                                                                                                |
 
 CONTRIBUTING.md has the full table.
@@ -847,6 +862,7 @@ policy_assistant/   the Python application, one package, absolute imports only
       projects.py       folders that group conversations
       documents.py      browse and search the indexed corpus
       escalations.py    hand a question to a person; open queue; resolve; retry delivery
+      deps.py           the require_auth dependency every protected route uses
   rag/              the pipeline, imported by api/ and run offline for ingestion
     config.py         every tuning knob, env-overridable; defaults live here
     llm.py            LLMProvider interface, the only vendor-aware module
@@ -858,19 +874,23 @@ policy_assistant/   the Python application, one package, absolute imports only
     seed_documents.py, embed_documents.py   offline ingestion
 web/                React 19, TypeScript, Tailwind 4, Vite; served by Nginx
 tests/              pytest suite; conftest.py stubs every external service
-scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, and the
-                    load-test harness in loadtest/
+scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, the
+                    proxy-chain acceptance test, the live evaluation gate and its
+                    synthetic test, and the load-test harness in loadtest/
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
 data/               42 fictional sample policies
-docs/brand/         the Sourcebook icon
-requirements/       base.txt shared; api.txt (the Docker image), ingest.txt, lint.txt, dev.txt (everything)
+docs/               design.md, evaluation.md, load-testing.md, and one folder per release
+                    under releases/ with its handoff, notes, measurements, and evidence
+assets/brand/       the Sourcebook mark, source PNGs; web/public/ holds the served copies
+requirements/       *.in are pip-compile inputs (base is shared; api is the Docker image; ingest;
+                    lint; dev is everything); api, dev, and ingest compile to .txt locks
 pyproject.toml      ruff and pytest settings
 Makefile            setup, stub, web, test, lint, build, compose; `make` lists them
 Dockerfile          the API image; web/ has its own
 docker-compose.yml  caddy, web, api
 Caddyfile           TLS termination and reverse proxy in front of Nginx
 .env.example        every setting, with a comment on each
-.github/            CI, Security, PR-check, and Live evaluation workflows; templates; Dependabot; CODEOWNERS
+.github/            CI, Security, PR checks, PR path labels, and Live evaluation workflows; templates; Dependabot; CODEOWNERS
 .agents/            a skill file describing this repo for coding agents
 ```
 
@@ -883,8 +903,12 @@ The product name lives in three places: `APP_NAME` in
 - **Authentication is a shared password** (or two), not per-employee accounts, and
   conversations are not scoped to a user. Fine for a pilot. It is the first
   thing to change before a real deployment.
-- **The similarity threshold is untuned** against a real corpus. See
-  [above](#hallucination-refuse-rather-than-guess).
+- **The similarity threshold is untuned** against a real corpus, and on the
+  sample corpus it does not separate covered questions from uncovered ones on
+  nearby topics. Such a question gets a prose decline under a score badge and
+  source chips instead of the refusal card (#192), and an uncovered follow-up
+  can clear the gate the same way (#189). The escalation link under the answer
+  still works. See [above](#hallucination-refuse-rather-than-guess).
 - **Escalations have no handler UI.** The open-queue and resolve endpoints
   exist; a page for Human Resources to work through them does not.
 - **The React components have no unit tests.** The backend suite is the safety
@@ -909,6 +933,30 @@ The product name lives in three places: `APP_NAME` in
   Compose file would move unchanged; only `SITE_ADDRESS` would differ.
 - **The sample corpus is fictional.** "Meridian Systems" is invented, and the
   policies are written to read as realistic, not to be legally accurate.
+
+## Team
+
+CMSC 495 Group 3. The project pitch assigned the three Unit 5 roles.
+
+| Role | Member | What the role owns here |
+| --- | --- | --- |
+| Lead Architect | Taylor Shahan ([@t-shahan](https://github.com/t-shahan)) | module boundaries in `policy_assistant/`, the split between the API and `web/`, the deployment shape, and the architecture diagrams |
+| Interface Designer | Daniel Tsang ([@DanielTsang26](https://github.com/DanielTsang26)) | the endpoint shapes, the streaming events, the `LLMProvider` interface, and the stored record shapes |
+| Integration Lead | Chris ([@threshi-art](https://github.com/threshi-art)) | evaluation, verifying merged work as one system, and the evidence behind any release claim |
+
+The pitch's words for Interface Designer are "API and interfaces", so that
+role covers the contracts in section 2 of the design specification rather than
+the visual design. Chris and Daniel divide integration work in practice, Chris
+on day-to-day integration and evidence, Daniel on repository ownership and the
+CODEOWNERS boundary.
+
+The rest of the team: Gavin ([@gavinwathen](https://github.com/gavinwathen))
+and Dominick ([@fudgepop01](https://github.com/fudgepop01)) build the React
+components and own the design and styling; George Struder
+([@Lazzy-dev](https://github.com/Lazzy-dev)) handles administration,
+dependency locks, and the MongoDB deployment; Robert
+([@RoNUO](https://github.com/RoNUO)) works on corpus availability and the
+passage index.
 
 ## References
 

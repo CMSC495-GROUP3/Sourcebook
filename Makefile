@@ -42,7 +42,7 @@ setup: ## One-time: create .venv, install Python and Node dependencies
 ifeq ($(wildcard $(VENV)/.),)
 	$(PYTHON) -m venv $(VENV)
 endif
-	$(PIP) install -q -r requirements/dev.lock.txt
+	$(PIP) install -q -r requirements/dev.txt
 	cd $(WEB) && npm install
 
 stub: export APP_PASSWORD_HASH = $(shell $(PY) -c "import bcrypt; print(bcrypt.hashpw(b'$(DEV_PASSWORD)', bcrypt.gensalt()).decode())")
@@ -76,10 +76,10 @@ fmt: ## Fix lint findings and format the Python code
 audit: ## Known vulnerabilities in the Python and npm dependency trees
 	./scripts/audit.sh
 
-lock: ## Regenerate requirements/*.lock.txt from requirements/*.txt (same command CI checks with)
-	$(VENV_BIN)/pip-compile --quiet -o requirements/api.lock.txt requirements/api.txt
-	$(VENV_BIN)/pip-compile --quiet -o requirements/dev.lock.txt requirements/dev.txt
-	$(VENV_BIN)/pip-compile --quiet -o requirements/ingest.lock.txt requirements/ingest.txt
+lock: ## Compile api, dev, and ingest .in files into their .txt locks (same command CI checks with)
+	$(VENV_BIN)/pip-compile --quiet -o requirements/api.txt requirements/api.in
+	$(VENV_BIN)/pip-compile --quiet -o requirements/dev.txt requirements/dev.in
+	$(VENV_BIN)/pip-compile --quiet -o requirements/ingest.txt requirements/ingest.in
 
 build: ## Production build of the web app
 	cd $(WEB) && npm run -s build
@@ -92,7 +92,7 @@ compose: ## Full stack in Docker against the real services in .env
 acceptance: ## Real Caddy -> Nginx -> Uvicorn client-IP and rate-limit check (Compose >= 2.24; leaves two :acceptance image tags for cache reuse)
 	$(PY) scripts/test_proxy_chain.py
 
-loadtest: ## Throughput measurement against `make stub`; see scripts/loadtest/RESULTS.md
+loadtest: ## Throughput measurement against `make stub`; see docs/load-testing.md
 	$(PY) scripts/loadtest/run.py --concurrency 10 20 40 80
 
 clean: ## Remove build and test artifacts

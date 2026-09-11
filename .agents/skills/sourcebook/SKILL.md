@@ -1,9 +1,9 @@
 ---
-name: CMSC495-CAP
-description: Working in the CMSC495-CAP repo, the Sourcebook policy assistant. Stack, layout, commands, code conventions, what CI enforces, and the rules that are easy to break without noticing. Read before changing anything here.
+name: sourcebook
+description: Working in the Sourcebook repo, the policy assistant. Stack, layout, commands, code conventions, what CI enforces, and the rules that are easy to break without noticing. Read before changing anything here.
 ---
 
-# CMSC495-CAP: how to work in this repo
+# Sourcebook: how to work in this repo
 
 A retrieval-augmented question answering service over a company policy corpus.
 An employee asks a question, the API retrieves passages from MongoDB Atlas
@@ -53,7 +53,7 @@ scripts/loadtest/   fakemongo.py (partial in-memory Mongo), server.py (the stub 
 scripts/            auto_deploy.sh and its systemd/ units (the EC2 host runs it on a timer), deploy.sh, audit.sh
 evaluation/         smoke (20) and full-corpus labeled questions plus metric definitions
 data/               sample policy corpus
-requirements/       base.txt, api.txt (the Docker image), ingest.txt, lint.txt, dev.txt (everything)
+requirements/       *.in inputs (base shared; api = Docker image; ingest; lint; dev = all); api, dev, ingest compile to .txt locks
 pyproject.toml      ruff and pytest settings
 Dockerfile          the API image; web/Dockerfile is the Nginx image
 .github/            workflows (ci, security, pr-checks, evaluation), templates, Dependabot, CODEOWNERS
@@ -118,7 +118,7 @@ gitleaks. PR checks enforce the title format and a filled-in description.
   pyupgrade, simplify, ruff's own. Line length 100. E501 is off because the
   formatter wraps code. B008 is off because FastAPI's `Depends()` lives in
   default arguments.
-- ruff is pinned exactly in `requirements/lint.txt`. Do not run a different
+- ruff is pinned exactly in `requirements/lint.in`. Do not run a different
   version; the formatter's output changes between releases and CI diffs it.
 - Files that must set environment variables before importing the app
   (`tests/conftest.py`, `scripts/loadtest/server.py`) mark late imports with
@@ -179,7 +179,7 @@ cost someone time.
 - **`LLM_PROVIDER=fake` refuses to start under `APP_ENV=production`.** That
   is a misconfigured deploy, not a bug.
 - **`THREADPOOL_TOKENS` was measured**, not guessed. Read
-  `scripts/loadtest/RESULTS.md` before changing it, and re-measure after.
+  `docs/load-testing.md` before changing it, and re-measure after.
 - **Never commit** `.env`, a key, a bcrypt hash, or a real policy document.
   CI greps for the file names; it cannot catch a secret pasted into code.
 

@@ -147,7 +147,7 @@ EOF
     "$WORK/upstream/requirements"
   echo 'api' >"$WORK/upstream/policy_assistant/app.py"
   echo 'web' >"$WORK/upstream/web/index.html"
-  echo 'req' >"$WORK/upstream/requirements/base.txt"
+  echo 'req' >"$WORK/upstream/requirements/base.in"
   echo 'FROM scratch' >"$WORK/upstream/Dockerfile"
   echo 'services: {}' >"$WORK/upstream/docker-compose.yml"
   echo '# caddy' >"$WORK/upstream/Caddyfile"

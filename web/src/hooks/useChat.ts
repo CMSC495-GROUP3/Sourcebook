@@ -11,6 +11,17 @@ export interface ChatMessage {
   refused?: boolean
   /** Set once this turn has been handed to a person. See EscalateButton. */
   escalation_id?: string
+  /**
+   * The server's stable name for this turn, from the stream's `done` event or
+   * a conversation load. Escalation sends it instead of a position, because a
+   * failed generation leaves this list longer than the stored one. See #84.
+   */
+  message_id?: string
+  /**
+   * A bubble this client wrote after a failure, which the server never stored.
+   * It has no message_id and cannot be escalated.
+   */
+  error?: boolean
 }
 
 interface UseChatOptions {
@@ -59,6 +70,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
         confidence?: number | null
         refused?: boolean
         escalation_id?: string
+        message_id?: string
         follow_ups?: string[]
       }[] = res.data.messages ?? []
       const mapped: ChatMessage[] = raw.map((m) => ({
@@ -68,6 +80,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
         confidence: m.confidence,
         refused: m.refused,
         escalation_id: m.escalation_id,
+        message_id: m.message_id,
         follow_ups: m.follow_ups,
       }))
       setMessages(mapped)
@@ -177,6 +190,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
                   sources: data.sources as string[],
                   confidence: data.confidence as number | null,
                   refused: Boolean(data.refused),
+                  message_id: data.message_id as string | undefined,
                 },
               ]
             })
@@ -193,10 +207,13 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
             if (assistantPushed) {
               setMessages((prev) => {
                 const last = prev[prev.length - 1]
-                return [...prev.slice(0, -1), { ...last, content: data.error as string }]
+                return [...prev.slice(0, -1), { ...last, content: data.error as string, error: true }]
               })
             } else {
-              setMessages((prev) => [...prev, { role: 'assistant', content: data.error as string }])
+              setMessages((prev) => [
+                ...prev,
+                { role: 'assistant', content: data.error as string, error: true },
+              ])
             }
           }
         }
@@ -204,7 +221,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
+        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.', error: true },
       ])
     } finally {
       setLoading(false)

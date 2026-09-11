@@ -1,7 +1,15 @@
 # Load test results — chat streaming throughput
 
 Measured against the requirement *"the system must serve 10,000 concurrent
-users."* All numbers reproducible with the harness in this directory.
+users."* All numbers reproducible with the harness in `scripts/loadtest/`.
+
+These are synthetic. The model, MongoDB, and vector search are stubbed and the
+chat limiter is off, so they measure what the thread pool can sustain, not what
+a user of the deployed pilot waits. For that, see
+[live-benchmark.md](releases/v0.1.0-alpha.1/live-benchmark.md), which runs
+against the deployed stack with real OpenAI and Atlas on a sample far too small
+for throughput. The two answer different questions and neither substitutes for
+the other.
 
 ## Defining the target
 

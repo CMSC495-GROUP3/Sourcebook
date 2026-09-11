@@ -541,3 +541,79 @@ class TestDeliveryStatus:
         assert (
             client.post("/api/escalations/missing/retry-delivery", headers=auth).status_code == 404
         )
+
+
+class TestEscalateByMessageId:
+    """#84: naming the turn by position breaks once the client and the stored
+    conversation disagree on length, which a failed generation guarantees."""
+
+    def _stored(self, session_id: str) -> list[dict]:
+        return FAKE_DB["conversations"].find_one({"session_id": session_id})["messages"]
+
+    def test_persisted_assistant_turns_carry_a_stable_id(self, client, auth, answered):
+        messages = self._stored(answered)
+        assert messages[0]["role"] == "user" and "message_id" not in messages[0]
+        assert isinstance(messages[1]["message_id"], str)
+        assert len(messages[1]["message_id"]) == 32
+
+    def test_conversation_load_returns_the_id(self, client, auth, answered):
+        response = client.get(f"/api/conversations/{answered}", headers=auth)
+        assert response.status_code == 200
+        assistant = response.json()["messages"][1]
+        assert assistant["message_id"] == self._stored(answered)[1]["message_id"]
+
+    def test_resolves_the_named_turn_whatever_its_position(
+        self, client, auth, retrieval, answered, delivered
+    ):
+        """The client's index is stale by two after a failed generation. The id
+        still names the exchange the user clicked."""
+        first_id = self._stored(answered)[1]["message_id"]
+        client.post(
+            "/api/chat", json={"question": "And carryover?", "session_id": answered}, headers=auth
+        )
+        second_id = self._stored(answered)[3]["message_id"]
+        assert first_id != second_id
+
+        record = _create(client, auth, answered, message_id=second_id, index=None).json()
+        assert record["question"] == "And carryover?"
+        assert record["message_id"] == second_id
+
+        stored = self._stored(answered)
+        assert stored[3]["escalation_id"] == record["escalation_id"]
+        assert "escalation_id" not in stored[1]
+
+    def test_id_wins_when_the_client_also_sends_a_drifted_index(
+        self, client, auth, retrieval, answered, delivered
+    ):
+        client.post(
+            "/api/chat", json={"question": "And carryover?", "session_id": answered}, headers=auth
+        )
+        second_id = self._stored(answered)[3]["message_id"]
+        # index=1 is the drifted value a client two entries ahead would send.
+        record = _create(client, auth, answered, message_id=second_id, index=1).json()
+        assert record["question"] == "And carryover?"
+
+    def test_escalating_the_same_id_twice_returns_the_first_record(
+        self, client, auth, answered, delivered
+    ):
+        message_id = self._stored(answered)[1]["message_id"]
+        first = _create(client, auth, answered, message_id=message_id, index=None).json()
+        second = _create(client, auth, answered, message_id=message_id, index=None).json()
+        assert first["escalation_id"] == second["escalation_id"]
+        assert len(delivered) == 1
+
+    def test_unknown_id_is_rejected(self, client, auth, answered, delivered):
+        response = _create(client, auth, answered, message_id="0" * 32, index=None)
+        assert response.status_code == 400
+
+    def test_index_still_works_for_conversations_stored_before_ids(
+        self, client, auth, refused, delivered
+    ):
+        """Rows persisted by an older build have no id; the index path stays."""
+        FAKE_DB["conversations"].update_one(
+            {"session_id": refused}, {"$unset": {"messages.1.message_id": ""}}
+        )
+        assert _create(client, auth, refused).status_code == 200
+
+    def test_one_of_id_or_index_is_required(self, client, auth, answered, delivered):
+        assert _create(client, auth, answered, index=None).status_code == 422

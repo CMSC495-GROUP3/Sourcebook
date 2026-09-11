@@ -98,7 +98,7 @@ REFUSAL_MESSAGE = (
 #        320      99 req/s
 #
 # Roughly 0.31 req/s per thread, at about 105 KB of RSS per thread. Raise this
-# if chat throughput is the constraint; see scripts/loadtest/RESULTS.md before
+# if chat throughput is the constraint; see docs/load-testing.md before
 # changing it, and re-measure rather than guessing.
 THREADPOOL_TOKENS = int(os.getenv("THREADPOOL_TOKENS", "100"))
 
@@ -150,7 +150,7 @@ EMBEDDING_CACHE_TTL_SECONDS = int(os.getenv("EMBEDDING_CACHE_TTL_SECONDS", str(3
 # Bump this whenever ANSWER_SYSTEM_PROMPT changes. It is part of the answer
 # cache key, so without a bump a prompt fix would keep serving pre-fix answers
 # until the TTL expired.
-PROMPT_VERSION = os.getenv("PROMPT_VERSION", "v1")
+PROMPT_VERSION = os.getenv("PROMPT_VERSION", "v2")
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 # Every chat request writes one query_logs record. This is the substrate for

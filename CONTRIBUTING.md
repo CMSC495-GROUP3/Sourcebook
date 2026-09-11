@@ -5,7 +5,7 @@ it is. This page is the practical side: getting it running, checking a change,
 and getting that change merged. If something here is wrong or missing, fix it in
 the same PR as the change that made it wrong.
 
-`.agents/skills/CMSC495-CAP/SKILL.md` is the condensed version of this page
+`.agents/skills/sourcebook/SKILL.md` is the condensed version of this page
 for coding agents: stack, layout, commands, conventions, and the rules that
 are easy to break. Keep the two in step.
 
@@ -91,7 +91,7 @@ make audit    # known vulnerabilities in both dependency trees (the Security wor
 
 Python formatting is enforced. `make fmt` before you commit and CI will not
 complain. The rules are in `pyproject.toml`; the version of ruff is pinned in
-`requirements/lint.txt` because the formatter's output changes between releases.
+`requirements/lint.in` because the formatter's output changes between releases.
 
 ### What CI runs
 
@@ -100,14 +100,15 @@ so they run on fork PRs too.
 
 | Workflow | Job | What fails it |
 |---|---|---|
-| CI | Python lint and format | a `ruff check` finding or an unformatted file |
+| CI | Python lint and format | a `ruff check` finding, an unformatted file, or a lock that no longer matches its `.in` |
 | CI | Python tests (3.11 through 3.14) | a failing test, or coverage under 80% on any version |
 | CI | Evaluation dataset | `evaluation/questions.json` or `questions_full.json` that `load_cases` rejects |
 | CI | Web lint, types, build | ESLint, `tsc -b`, or `vite build` |
 | CI | Docker images and Compose | either image failing to build, the API image failing to import `policy_assistant.api.main`, an invalid `docker-compose.yml`, or `scripts/test_proxy_chain.py` failing the live Caddy → Nginx → Uvicorn client-IP / rate-limit check |
 | CI | Shell, Dockerfile, workflow lint | shellcheck on `scripts/*.sh`, hadolint on both Dockerfiles, actionlint on the workflows, or a `.env`, key, or build output that got committed |
 | Security | CodeQL, dependency advisories, dependency review, leaked secrets | a new finding; the accepted-advisory list is in `scripts/audit.sh` |
-| PR checks | title, description, labels | a title not in `type: what changed` form, or an empty "What and why" |
+| PR checks | title, description | a title not in `type: what changed` form, or an empty "What and why" |
+| PR path labels | labels | nothing; it only applies area labels from the changed paths |
 
 The Security workflow also runs every Monday, so a new advisory in an existing
 dependency shows up as a failed scheduled run rather than in someone's
@@ -123,7 +124,7 @@ A fourth workflow, **Live evaluation**, runs the labeled question set against
 the real provider and index. It costs money, so it only runs when a maintainer
 starts it from the Actions tab, and it needs a repository environment named
 `evaluation` holding `OPENAI_API_KEY`, `MONGODB_URI`, and `MONGODB_DB`. See
-`evaluation/README.md` for what the numbers mean.
+`docs/evaluation.md` for what the numbers mean.
 
 Dependabot opens one grouped PR per ecosystem on Mondays (pip, npm, GitHub
 Actions, Docker base images). Review them like any other PR; CI runs on them.
@@ -218,7 +219,7 @@ covers `.env`; the rest is on you.
 - **Cached answers outlive a prompt fix** unless `PROMPT_VERSION` is bumped. It
   is part of the cache key for exactly this reason.
 - **`THREADPOOL_TOKENS` is the chat throughput ceiling.** It was measured, not
-  guessed; see `scripts/loadtest/RESULTS.md` before changing it, and re-measure
+  guessed; see `docs/load-testing.md` before changing it, and re-measure
   after.
 - **The fake provider's embeddings are meaningless.** Never use `make stub` to
   judge retrieval quality or to tune `SIMILARITY_THRESHOLD`.
@@ -309,7 +310,7 @@ backup and investigate before retrying.
 ## Load testing and deployment
 
 - `make stub` in one terminal, `make loadtest` in another. Method, numbers, and
-  caveats in `scripts/loadtest/RESULTS.md`.
+  caveats in `docs/load-testing.md`.
 - The EC2 host deploys itself: a systemd timer runs `scripts/auto_deploy.sh`
   every two minutes, which fast-forwards to upstream `main` and rebuilds only
   the services whose inputs changed. `scripts/deploy.sh` starts that service
@@ -320,12 +321,12 @@ backup and investigate before retrying.
 
 ## Adding a Python dependency
 
-Edit the relevant `requirements/*.txt` file, never a `.lock.txt`, then regenerate
-the locks and commit both:
+Edit the relevant `requirements/*.in` file, never a compiled `.txt`, then
+regenerate the locks and commit both:
 
     make lock
 
 `make setup` installs `pip-tools`, which provides `pip-compile`. CI runs the
-same command and fails if a committed lock no longer matches its `.txt`. To
+same command and fails if a committed lock no longer matches its `.in`. To
 upgrade pinned versions on purpose, run `pip-compile --upgrade` on the file you
 mean to move and commit that as its own change.
