@@ -238,6 +238,20 @@ assert_file_contains() {
 assert_file_contains "workflow checks env" "validate_live_evaluation.py --check-env"
 assert_file_contains "workflow enables pipefail" "set -euo pipefail"
 assert_file_contains "workflow validates results" "validate_live_evaluation.py --results"
+assert_file_contains "workflow admits the runner to Atlas" "atlas_access_list.sh add"
+assert_file_contains "workflow removes the runner from Atlas even on failure" "if: always() && steps.atlas.outputs.ip != ''"
+
+# The access-list helper must refuse to run without its key, before any call.
+set +e
+OUT=$(env -u ATLAS_PUBLIC_KEY -u ATLAS_PRIVATE_KEY -u ATLAS_PROJECT_ID bash scripts/atlas_access_list.sh remove 203.0.113.9 2>&1)
+STATUS=$?
+set -e
+assert_eq "atlas helper fails closed without its key" "1" "$STATUS"
+if printf '%s' "$OUT" | grep -q "ATLAS_PUBLIC_KEY is empty"; then
+  PASS=$((PASS + 1)); echo "ok - atlas helper names the missing variable"
+else
+  FAIL=$((FAIL + 1)); echo "not ok - atlas helper names the missing variable" >&2
+fi
 
 echo
 echo "$PASS passed, $FAIL failed"
