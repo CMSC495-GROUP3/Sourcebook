@@ -107,7 +107,8 @@ so they run on fork PRs too.
 | CI | Docker images and Compose | either image failing to build, the API image failing to import `policy_assistant.api.main`, an invalid `docker-compose.yml`, or `scripts/test_proxy_chain.py` failing the live Caddy → Nginx → Uvicorn client-IP / rate-limit check |
 | CI | Shell, Dockerfile, workflow lint | shellcheck on `scripts/*.sh`, hadolint on both Dockerfiles, actionlint on the workflows, or a `.env`, key, or build output that got committed |
 | Security | CodeQL, dependency advisories, dependency review, leaked secrets | a new finding; the accepted-advisory list is in `scripts/audit.sh` |
-| PR checks | title, description, labels | a title not in `type: what changed` form, or an empty "What and why" |
+| PR checks | title, description | a title not in `type: what changed` form, or an empty "What and why" |
+| PR path labels | labels | nothing; it only applies area labels from the changed paths |
 
 The Security workflow also runs every Monday, so a new advisory in an existing
 dependency shows up as a failed scheduled run rather than in someone's
