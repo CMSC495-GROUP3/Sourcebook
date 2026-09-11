@@ -31,7 +31,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pymongo import DESCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
@@ -61,10 +61,24 @@ FIRST_ASSISTANT_INDEX = 1
 
 
 class CreateEscalationRequest(BaseModel):
+    """Names one assistant turn, by id where the client has one.
+
+    `message_id` is the reliable name and wins when both are sent. Position is
+    kept for conversations persisted before ids existed, whose stored messages
+    carry none; see #84 for why position alone cannot be trusted.
+    """
+
     session_id: str = Field(..., min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
-    message_index: int = Field(..., ge=FIRST_ASSISTANT_INDEX)
+    message_id: str | None = Field(None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    message_index: int | None = Field(None, ge=FIRST_ASSISTANT_INDEX)
     reason: EscalationReason
     note: str | None = Field(None, max_length=ESCALATION_NOTE_MAX_LENGTH)
+
+    @model_validator(mode="after")
+    def require_a_name(self) -> "CreateEscalationRequest":
+        if self.message_id is None and self.message_index is None:
+            raise ValueError("one of message_id or message_index is required")
+        return self
 
 
 class UpdateEscalationRequest(BaseModel):
@@ -161,25 +175,43 @@ def _deliver_in_background(record: dict) -> None:
     _apply_delivery_result(record["escalation_id"], claimed["delivery_claimed_at"], success)
 
 
-def _escalated_turn(session_id: str, message_index: int) -> tuple[dict, dict]:
-    """Return (user turn, assistant turn) for the message being escalated,
-    validating that the pair exists and has the expected roles."""
+def _escalated_turn(
+    session_id: str, message_id: str | None, message_index: int | None
+) -> tuple[dict, dict, int]:
+    """Return (user turn, assistant turn, position) for the message being escalated.
+
+    The id is resolved against the stored conversation, so a client whose own
+    list has drifted still names the turn the user clicked. Position is the
+    fallback for messages stored before ids, and the resolved position is
+    returned either way because the record and its unique index are keyed on it.
+    """
     conversation = conversations_col.find_one({"session_id": session_id}, {"_id": 0, "messages": 1})
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found.")
 
     messages = conversation.get("messages", [])
-    if message_index >= len(messages):
+    if message_id is not None:
+        position = next(
+            (i for i, m in enumerate(messages) if m.get("message_id") == message_id), None
+        )
+        if position is None:
+            raise HTTPException(status_code=400, detail="No message with that id.")
+    else:
+        position = message_index
+        if position >= len(messages):
+            raise HTTPException(status_code=400, detail="No message at that position.")
+
+    if position < FIRST_ASSISTANT_INDEX:
         raise HTTPException(status_code=400, detail="No message at that position.")
 
-    assistant = messages[message_index]
-    asked = messages[message_index - 1]
+    assistant = messages[position]
+    asked = messages[position - 1]
     if assistant.get("role") != "assistant" or asked.get("role") != "user":
         raise HTTPException(
             status_code=400,
             detail="Only an assistant reply to a question can be escalated.",
         )
-    return asked, assistant
+    return asked, assistant, position
 
 
 def _existing_escalation(assistant: dict, session_id: str, message_index: int) -> dict | None:
@@ -212,9 +244,11 @@ def _retry_conflict(existing: dict) -> HTTPException:
 @router.post("/escalations", dependencies=[Depends(require_auth)])
 @limiter.limit("5/minute")
 def create_escalation(request: Request, body: CreateEscalationRequest, background: BackgroundTasks):
-    asked, assistant = _escalated_turn(body.session_id, body.message_index)
+    asked, assistant, position = _escalated_turn(
+        body.session_id, body.message_id, body.message_index
+    )
 
-    existing = _existing_escalation(assistant, body.session_id, body.message_index)
+    existing = _existing_escalation(assistant, body.session_id, position)
     if existing:
         return existing
 
@@ -225,7 +259,8 @@ def create_escalation(request: Request, body: CreateEscalationRequest, backgroun
         "reason": body.reason,
         "contact": ESCALATION_CONTACT,
         "session_id": body.session_id,
-        "message_index": body.message_index,
+        "message_index": position,
+        "message_id": assistant.get("message_id"),
         "question": asked.get("content", ""),
         "answer_excerpt": (assistant.get("content") or "")[:ANSWER_EXCERPT_LENGTH],
         "refused": bool(assistant.get("refused", False)),
@@ -250,7 +285,7 @@ def create_escalation(request: Request, body: CreateEscalationRequest, backgroun
         # A concurrent request won the race. Return its record; it also owns
         # the webhook delivery, so nothing is sent from here.
         return escalations_col.find_one(
-            {"session_id": body.session_id, "message_index": body.message_index},
+            {"session_id": body.session_id, "message_index": position},
             {"_id": 0},
         )
 
@@ -258,7 +293,7 @@ def create_escalation(request: Request, body: CreateEscalationRequest, backgroun
     # is reopened, and so a repeat request finds the record above.
     conversations_col.update_one(
         {"session_id": body.session_id},
-        {"$set": {f"messages.{body.message_index}.escalation_id": record["escalation_id"]}},
+        {"$set": {f"messages.{position}.escalation_id": record["escalation_id"]}},
     )
 
     # Runs after the response is sent. See policy_assistant/api/notify.py.
