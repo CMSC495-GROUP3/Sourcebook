@@ -27,7 +27,9 @@ score.
 - A grounding gate that refuses instead of guessing, and refuses without
   paying for a model call.
 - Escalation to Human Resources, with an optional webhook, delivery status on
-  each record, and a bounded retry endpoint.
+  each record, and a bounded retry endpoint. An escalation names the stored
+  turn by id, so one filed after a failed generation reaches the question the
+  user clicked (#84, fixed in PR #188).
 - Conversation history, grouped into projects.
 - A Policy Library that renders whole documents, so a citation can be read in
   full.
@@ -73,8 +75,8 @@ operator can apply today.
 
 | Issue | What a user would see | Impact | Mitigation |
 | --- | --- | --- | --- |
-| [#84](https://github.com/CMSC495-GROUP3/Sourcebook/issues/84) | an escalation filed after a failed generation can be recorded against the wrong exchange | Human Resources receives the wrong question, or the request is rejected as out of sync | reload the page after an error before escalating. A fix is open as [PR #188](https://github.com/CMSC495-GROUP3/Sourcebook/pull/188) |
 | [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) | an uncovered question asked as a follow-up is answered with a decline that cites unrelated policies, instead of the refusal card | the citations mislead, and the user loses the refusal card's route to a person | ask an uncovered question in a new conversation, where the gate scores it correctly |
+| [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) | an uncovered question on an HR-adjacent topic, or a prompt injection, is answered with a sentence saying the policies do not cover it, under a score badge and unrelated source chips, instead of the refusal card | the answer is safe, but the one-click route to a person is missing and the chips mislead | "Not what you needed?" under the answer still files the escalation. Found by the live evaluation on 2026-09-11 |
 | [#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) | provider saturation reads as a generic error | the user does not know the request is worth retrying | `OPENAI_MAX_CONCURRENT_REQUESTS` bounds the damage; retry by hand |
 | [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | assigning and deleting a project at the same moment can race | a conversation can end up pointing at a project that no longer exists; the list view treats it as ungrouped | unlikely at pilot volume with one operator |
 | [#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) | nothing at the database level prevents duplicate passage identities | a repeated ingestion could duplicate passages and skew retrieval | ingestion upserts by `(source, chunk_index)`. [PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176) adds the constraint and is held for a maintenance window |
@@ -95,11 +97,14 @@ operator can apply today.
 
 ## What this alpha does not establish
 
-- **Answer quality has not been measured against the live system.** The
-  evaluation workflow was repaired in PR #181, and the comparative run it
-  exists to support has not been done. Tracked as
-  [#137](https://github.com/CMSC495-GROUP3/Sourcebook/issues/137), which lists
-  the gate. Do not read a green workflow badge as evidence of answer quality.
+- **Answer quality is measured on twenty questions, once.** The smoke-tier
+  evaluation in [live-evaluation.md](live-evaluation.md) ran on 2026-09-11
+  with the real provider and index, on this prompt and on the one before
+  PR #138. Retrieval and citation scored 100% of 12 answerable cases on both;
+  the grounding gate stopped none of the five uncovered or injection cases on
+  either, which is #192. The clarification judgements are one reader's. The
+  full tier has not been run, and none of it says anything about a real
+  corpus. Do not read a green workflow badge as evidence of answer quality.
 - **The 10,000-user requirement is not verified.** The throughput figures in
   `scripts/loadtest/RESULTS.md` are synthetic, with the model, the database,
   and retrieval faked and the limiter off. The real-service run in
