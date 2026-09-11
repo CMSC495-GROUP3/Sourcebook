@@ -101,7 +101,7 @@ message_index)` index, and the error and validation table in section 2.5.
 | CodeQL, dependency audit, secret scan | Passed | [Security run 34534962098](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962098) |
 | Answer quality against the live system | Not measured | see below |
 | Real-service latency and error rate on the pilot | Passed, on a sample of seven | [live-benchmark.md](live-benchmark.md): all five agreed targets met on `4352966`, 1.21s median time to first token, no errors, no rate limiting |
-| End-to-end pass through the deployed app by hand | Not recorded | see below |
+| End-to-end pass through the deployed app by hand | Passed, with one defect found | [below](#end-to-end-pass-by-hand): all eight steps pass on `4e90382`; the uncovered-question step surfaced [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) |
 | Escalation after a failed generation | Known defect, open as #84 | see the defects table |
 
 The dependency review job runs only on pull requests, so a push to `main`
@@ -166,24 +166,29 @@ and #52 rather than repeating them. Before the escalation step,
 `ESCALATION_WEBHOOK_URL` points at a controlled test destination or is left
 unset.
 
+`ESCALATION_WEBHOOK_URL` is not set in the host's `.env`, so the escalation
+step stored its record and attempted no delivery. Both escalation records
+below read `delivery_status: pending` with zero attempts, which corroborates
+that from the API side.
+
 | Field | Value |
 | --- | --- |
-| Date (UTC) | _not yet recorded_ |
-| Tester | _not yet recorded_ |
-| Browser and version | _not yet recorded_ |
-| Deployed commit | _not yet recorded_ |
-| Screenshots or logs | _not yet recorded_, sanitized, under `docs/evidence/alpha/` |
+| Date (UTC) | 2026-09-11, 00:10 to 00:40 |
+| Tester | Taylor Shahan, driving Chromium with Playwright |
+| Browser and version | Chromium 153.0.8010.12 (Playwright headless), 1440x1000 |
+| Deployed commit | `4e903828621d30deec838302b005b037e623a9e0` |
+| Screenshots or logs | `docs/evidence/alpha/`, sanitized: no password, no token, no real policy |
 
 | Step | Expected | Result |
 | --- | --- | --- |
-| Sign in with the reviewer password | lands on the chat page; a wrong password shows "Incorrect password." | _not yet recorded_ |
-| Ask a covered question | streamed answer with at least one cited source and a score | _not yet recorded_ |
-| Open a cited source | Policy Library shows the whole document | _not yet recorded_ |
-| Ask a follow-up in the same conversation | the answer uses the history; no cache badge | _not yet recorded_ |
-| Reload the page | the conversation and its sources are restored from history | _not yet recorded_ |
-| Ask an uncovered question | refusal card with the Ask Human Resources button | _not yet recorded_ |
-| Escalate the refusal with a note | confirmation in the UI; the record appears at `GET /api/escalations?status=open`; the webhook arrives at the test destination if one is configured | _not yet recorded_ |
-| Escalate the same message again | the first record comes back, not a second one | _not yet recorded_ |
+| Sign in with the reviewer password | lands on the chat page; a wrong password shows "Incorrect password." | Pass. The wrong password showed "Incorrect password." and stayed on the form; the correct one landed on the chat page. `01`, `02` |
+| Ask a covered question | streamed answer with at least one cited source and a score | Pass. "How many PTO days do full time employees with two years of service receive each year?" answered "15 PTO days each year" and named the Accrual section, with "Strong match · 75%" and two chips, Paid Time Off (PTO) Policy and Sick and Safe Leave Policy. `03` |
+| Open a cited source | Policy Library shows the whole document | Pass. The Paid Time Off (PTO) Policy chip opened the document body including the Accrual section, and the chat input stayed available. `04` |
+| Ask a follow-up in the same conversation | the answer uses the history; no cache badge | Pass. "Does that change after five years of service?" was answered against the history, and no cache badge appeared. `05` |
+| Reload the page | the conversation and its sources are restored from history | Pass. Both questions and the source chips came back after a reload. `06` |
+| Ask an uncovered question | refusal card with the Ask Human Resources button | Pass in a new conversation: "What is the boiling point of mercury at sea level?" gave the refusal card at "Partial match · 59%" with the Ask Human Resources button. `07`. Asked instead as a follow-up inside the PTO conversation it scored 69%, cleared the gate, and was answered rather than refused. That is [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189), opened from this pass. `10` |
+| Escalate the refusal with a note | confirmation in the UI; the record appears at `GET /api/escalations?status=open`; the webhook arrives at the test destination if one is configured | Pass. The form took the note, the UI showed "Sent to Human Resources · ref 9e19a751", and `GET /api/escalations?status=open&session_id=...` returned one record with `reason: refused`, `refused: true`, and the note stored. No webhook is configured, so delivery stayed `pending` with zero attempts. `08`, `09` |
+| Escalate the same message again | the first record comes back, not a second one | Pass. A second create on the same message returned HTTP 200 with the same `escalation_id` and the original note, not the new one, and the session still had exactly one record |
 
 ### The passage index migration
 
@@ -202,7 +207,8 @@ CONTRIBUTING.md. Tracked as #158.
 
 | Issue | What a pilot user would see | Mitigation in the alpha |
 | --- | --- | --- |
-| #84 | an escalation filed after a failed generation can name the wrong exchange | reload after an error before escalating |
+| #84 | an escalation filed after a failed generation can name the wrong exchange | reload after an error before escalating; a fix is open as [PR #188](https://github.com/CMSC495-GROUP3/Sourcebook/pull/188), not in this commit |
+| #189 | an uncovered question asked as a follow-up can clear the grounding gate, so it is answered with a decline that cites unrelated policies instead of the refusal card | ask an uncovered question in a new conversation, where the gate scores it correctly |
 | #118 | provider saturation reads as a generic error, so the user does not know it is worth retrying | `OPENAI_MAX_CONCURRENT_REQUESTS` bounds the damage; retry by hand |
 | #142 | concurrent project assignment and deletion can race | a single-operator pilot makes this unlikely at this volume |
 | #158 | nothing at the database level prevents duplicate passage identities | ingestion upserts by `(source, chunk_index)`; PR #176 adds the constraint |
