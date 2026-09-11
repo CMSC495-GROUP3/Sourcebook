@@ -298,9 +298,14 @@ make setup && make stub        # fake model, in-memory database, no accounts
 With a `.env` holding real credentials, `docker compose up --build` at that
 checkout runs the full stack instead. The commit deployed on the pilot at any
 moment is `refs/deployed/main` on the host, which the README's "Automatic
-deploys" section explains. If the pilot has to be shown at the tagged version
-after `main` has moved, the operator checks out the tag on the host and runs
-`scripts/deploy.sh`, and records the date here.
+deploys" section explains. The pilot is expected to move past the tag; the
+tag, not the pilot, is the submitted version. If the pilot ever has to be
+shown at the tagged version, the operator stops the auto-deploy timer,
+because it refuses a checkout that is not on `main` and would otherwise
+fast-forward it back, checks out the tag in the host checkout, runs
+`docker compose build api web && docker compose up -d`, records the date
+here, and re-enables the timer afterwards. `scripts/deploy.sh` cannot do
+this: it only triggers the auto-deploy, which deploys `origin/main`.
 
 The tag itself is annotated, so it carries its date and tagger, and the
 release is marked prerelease so nobody mistakes it for production:
