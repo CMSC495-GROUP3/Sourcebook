@@ -13,7 +13,7 @@ interface Props {
   /** Attached to the block so the list can scroll a question into view. */
   ref?: Ref<HTMLDivElement>
   message: ChatMessage
-  /** Position in the conversation; the escalation request names the turn by it. */
+  /** Position in the conversation. Used for scroll-into-view and as the escalation fallback. */
   index: number
   sessionId: string | null
   isLast: boolean
@@ -62,6 +62,7 @@ export default function Message({
           <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
             <EscalateButton
               sessionId={sessionId}
+              messageId={message.message_id}
               messageIndex={index}
               reason="refused"
               escalationId={message.escalation_id}
@@ -95,13 +96,18 @@ export default function Message({
           {isLast && (
             <FollowUpButtons questions={message.follow_ups ?? []} onSelect={onFollowUp} />
           )}
-          <EscalateButton
-            sessionId={sessionId}
-            messageIndex={index}
-            reason="unhelpful"
-            escalationId={message.escalation_id}
-            onEscalated={(id) => onEscalated(index, id)}
-          />
+          {/* An error bubble is this client's own text; the server stored no
+              turn to hand to a person. See #84. */}
+          {!message.error && (
+            <EscalateButton
+              sessionId={sessionId}
+              messageId={message.message_id}
+              messageIndex={index}
+              reason="unhelpful"
+              escalationId={message.escalation_id}
+              onEscalated={(id) => onEscalated(index, id)}
+            />
+          )}
         </footer>
       )}
     </div>

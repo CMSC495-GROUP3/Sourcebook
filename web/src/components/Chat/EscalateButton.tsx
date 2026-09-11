@@ -5,9 +5,12 @@
  * action; under an answer it is a quiet "not what you needed?" link. Both post
  * the same request, and `reason` records which one was used.
  *
- * The request names the message by its position in the stored conversation and
- * the server copies the question from its own record. The client never sends
- * the text, so it cannot escalate an exchange that did not happen.
+ * The request names the message by the id the server gave it, and the server
+ * copies the question from its own record. The client never sends the text, so
+ * it cannot escalate an exchange that did not happen. Position is sent only for
+ * conversations stored before ids existed, whose messages carry none; it is
+ * unreliable once a failed generation has made the two lists disagree, which
+ * is what #84 was.
  */
 import { useState } from 'react'
 import { AxiosError } from 'axios'
@@ -18,6 +21,9 @@ import type { Escalation, EscalationReason } from '../../types'
 
 interface Props {
   sessionId: string | null
+  /** The server's name for this turn. Absent only on conversations stored before ids. */
+  messageId?: string
+  /** Fallback position, used only when messageId is absent. */
   messageIndex: number
   reason: EscalationReason
   /** Set once this message has been escalated, in this session or a previous one. */
@@ -42,7 +48,7 @@ function explain(error: unknown): string {
 }
 
 export default function EscalateButton({
-  sessionId, messageIndex, reason, escalationId, prominent = false, onEscalated,
+  sessionId, messageId, messageIndex, reason, escalationId, prominent = false, onEscalated,
 }: Props) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [note, setNote] = useState('')
@@ -68,7 +74,7 @@ export default function EscalateButton({
     try {
       const res = await client.post<Escalation>('/api/escalations', {
         session_id: sessionId,
-        message_index: messageIndex,
+        ...(messageId ? { message_id: messageId } : { message_index: messageIndex }),
         reason,
         note: note.trim() || null,
       })
