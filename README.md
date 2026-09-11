@@ -23,7 +23,8 @@
   <a href="#architecture">Architecture</a> ·
   <a href="#deployment">Deployment</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="docs/alpha/handoff.md">Alpha handoff</a>
+  <a href="docs/alpha/handoff.md">Alpha handoff</a> ·
+  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a>
 </p>
 
 ---
@@ -74,6 +75,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [docs/alpha/live-benchmark.md](docs/alpha/live-benchmark.md)               | what the deployed pilot measured with real OpenAI and Atlas, and its limits  |
 | [docs/alpha/live-evaluation.md](docs/alpha/live-evaluation.md)             | answer quality on the smoke tier, this prompt against the one before #138   |
 | [docs/alpha/release-notes.md](docs/alpha/release-notes.md)                 | the v0.1.0-alpha.1 release body: scope, access, known defects, limitations   |
+| [v0.1.0-alpha.1 release](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | the tagged Unit 5 alpha, `d7199f5`, with the notes above as its body       |
 | [.agents/skills/CMSC495-CAP/SKILL.md](.agents/skills/CMSC495-CAP/SKILL.md) | the condensed version of all this for coding agents                          |
 
 ## Contents

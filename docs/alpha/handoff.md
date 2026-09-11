@@ -34,11 +34,12 @@ the corpus.
 
 | Field | Value |
 | --- | --- |
-| Commit | the commit tagged `v0.1.0-alpha.1`, which is the merge of PR #191 into `main`. Its SHA and its CI and Security runs go into this table in the commit that follows the tag, because a commit cannot name itself |
+| Commit | `d7199f57e3eb600e646d4202de43c97f2c5cc770`, the merge of PR #191 into `main` on 2026-09-11 |
+| Tag and release | [`v0.1.0-alpha.1`](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1), annotated, prerelease, on that commit |
 | Running at | <https://sourcebook.duckdns.org> |
-| Deployed commit | the pilot follows `main`, so `refs/deployed/main` on the host names it; the evidence below records the commit each check ran against |
-| CI | [run 34534962223](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962223) on `4352966`, success; the tagged commit's run is added by the follow-up |
-| Security | [run 34534962098](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962098) on `4352966`, success; the tagged commit's run is added by the follow-up |
+| Deployed commit | the same, per `refs/deployed/main` on the pilot host, checked 2026-09-11 00:20 UTC. The pilot follows `main`, so it moves on from here; the evidence below records the commit each check ran against |
+| CI | [run 34545903866](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34545903866), success |
+| Security | [run 34545903887](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34545903887), success |
 | Proposed tag | `v0.1.0-alpha.1`, annotated, marked prerelease |
 
 The tag is not cut yet. The verification status section says what has been
@@ -327,7 +328,7 @@ page exists to prevent.
 | Answer quality measured against the live system, per the gate on [#137](https://github.com/CMSC495-GROUP3/Sourcebook/issues/137) | Done on 2026-09-11, see [live-evaluation.md](live-evaluation.md). The dispositions in it are one reader's and the issue closes when the owners accept them |
 | [PR #188](https://github.com/CMSC495-GROUP3/Sourcebook/pull/188) merged, or #84 accepted as a shipped defect | Merged before this page, which describes #84 as fixed |
 | [PR #190](https://github.com/CMSC495-GROUP3/Sourcebook/pull/190) merged, so the browser pass is on `main` | Merged; the pass is recorded above |
-| A commit chosen on `main` after those merges, with its CI and Security runs green and linked in the table at the top of this page | The merge commit of PR #191, once its push-to-`main` CI and Security runs are green. The follow-up commit writes the SHA and the run links into the table at the top |
+| A commit chosen on `main` after those merges, with its CI and Security runs green and linked in the table at the top of this page | `d7199f5`, linked at the top |
 
-Once the tag exists, its link goes in the table at the top of this page and in
-the README's Documentation table.
+The tag was cut on 2026-09-11 and is linked in the table at the top of this
+page and in the README's Documentation table.
