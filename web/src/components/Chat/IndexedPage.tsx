@@ -42,7 +42,7 @@ export default function IndexedPage({ library }: Props) {
                   <li key={category} className="leading-6">
                     <Link
                       to={`/documents?category=${encodeURIComponent(category)}`}
-                      className="group flex w-fit items-center gap-1 text-[14px] leading-6 text-ink-2 transition-colors hover:text-accent-ink"
+                      className="group relative flex w-fit items-center pl-4 text-[14px] leading-6 text-ink-2 transition-colors hover:text-accent-ink"
                     >
                       <ChevronRight
                         size={12}
@@ -66,7 +66,7 @@ export default function IndexedPage({ library }: Props) {
             </p>
             <Link
               to="/documents"
-              className="flex w-fit  items-center gap-1.5 self-start text-[14px] leading-6 text-accent underline-offset-3 hover:text-accent-ink hover:underline"
+              className="relative flex w-fit items-center self-start pl-5 text-[14px] leading-6 text-accent underline-offset-3 hover:text-accent-ink hover:underline"
             >
               <BookOpen size={14} aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2" />
               Browse the library
