@@ -39,7 +39,13 @@ any paid provider call (`--yes` skips the prompt for CI).
 ```
 
 The GitHub Actions workflow "Live evaluation" takes the same `tier` input and
-prints the selected case count in the job log before execution. The workflow
+prints the selected case count in the job log before execution. It needs the
+`evaluation` environment to hold all three secrets, and the Atlas cluster's
+IP access list has to admit the GitHub-hosted runner; otherwise the run fails
+at the first query with an SSL handshake error, which is how Atlas rejects an
+address that is not on the list. Until that is set up, run the command above
+from a host that is on the list, as the alpha's
+[live-evaluation.md](../docs/alpha/live-evaluation.md) did. The workflow
 fail-closes when required secrets are empty, the evaluator exits nonzero, or
 `evaluation/results.json` is missing/malformed (see `scripts/validate_live_evaluation.py`).
 

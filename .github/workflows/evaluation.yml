@@ -5,6 +5,9 @@
 # Setup, once: create a repository environment named "evaluation" with the
 # secrets OPENAI_API_KEY, MONGODB_URI, and MONGODB_DB. Restricting the
 # environment to the main branch keeps fork PRs away from the secrets.
+# The Atlas cluster's IP access list must also admit the GitHub-hosted
+# runner, or pymongo fails the TLS handshake before the first query (run
+# 34546642552). The pilot host is on that list; runners are not by default.
 #
 # The numbers this produces are measurements, not a gate. Read the "Metric
 # definitions" section of evaluation/README.md before acting on them.
