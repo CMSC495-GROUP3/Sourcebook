@@ -133,10 +133,10 @@ Deployed commit: `435296607ec1b95a4b989c3c421d0cb246c0ffaa`, the merge of
 14 minutes earlier, so the first pool question generated instead of probing a
 warm cache.
 
-Settings in force. Grepping the host `.env` for these keys returned nothing,
-so the `policy_assistant/rag/config.py` defaults applied. That is one read
-rather than a confirmed dump of the file, so treat the table as the defaults
-the deployment is not known to override.
+Settings in force. Confirmed on 2026-09-11 by listing the variable names set
+in the host's `.env`: it sets twelve, all of them credentials, connection
+strings, the provider choice, and the site address. None of the values below
+appears there, so the `policy_assistant/rag/config.py` defaults applied.
 
 | Setting | Value |
 | --- | --- |
