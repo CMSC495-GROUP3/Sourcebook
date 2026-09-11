@@ -72,6 +72,8 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [scripts/loadtest/RESULTS.md](scripts/loadtest/RESULTS.md)                 | throughput measurements and the reasoning behind `THREADPOOL_TOKENS`         |
 | [docs/alpha/handoff.md](docs/alpha/handoff.md)                             | the Unit 5 alpha: submitted commit, scope map, verification status, evidence |
 | [docs/alpha/live-benchmark.md](docs/alpha/live-benchmark.md)               | what the deployed pilot measured with real OpenAI and Atlas, and its limits  |
+| [docs/alpha/live-evaluation.md](docs/alpha/live-evaluation.md)             | answer quality on the smoke tier, this prompt against the one before #138   |
+| [docs/alpha/release-notes.md](docs/alpha/release-notes.md)                 | the v0.1.0-alpha.1 release body: scope, access, known defects, limitations   |
 | [.agents/skills/CMSC495-CAP/SKILL.md](.agents/skills/CMSC495-CAP/SKILL.md) | the condensed version of all this for coding agents                          |
 
 ## Contents

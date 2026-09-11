@@ -34,11 +34,11 @@ the corpus.
 
 | Field | Value |
 | --- | --- |
-| Commit | `435296607ec1b95a4b989c3c421d0cb246c0ffaa`, head of `main` on 2026-09-10 |
+| Commit | the commit tagged `v0.1.0-alpha.1`, which is the merge of PR #191 into `main`. Its SHA and its CI and Security runs go into this table in the commit that follows the tag, because a commit cannot name itself |
 | Running at | <https://sourcebook.duckdns.org> |
-| Deployed commit | the same, per `refs/deployed/main` on the pilot host, checked 2026-09-10 22:00 UTC |
-| CI | [run 34534962223](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962223), success |
-| Security | [run 34534962098](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962098), success |
+| Deployed commit | the pilot follows `main`, so `refs/deployed/main` on the host names it; the evidence below records the commit each check ran against |
+| CI | [run 34534962223](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962223) on `4352966`, success; the tagged commit's run is added by the follow-up |
+| Security | [run 34534962098](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962098) on `4352966`, success; the tagged commit's run is added by the follow-up |
 | Proposed tag | `v0.1.0-alpha.1`, annotated, marked prerelease |
 
 The tag is not cut yet. The verification status section says what has been
@@ -57,9 +57,9 @@ this one.
 
 | Requirement | Implemented | Evidence | Limitation |
 | --- | --- | --- | --- |
-| Plain-language questions answered from the policy corpus with the source cited | Yes | README "How a question is answered"; `tests/test_chat.py`, `tests/test_rag_chain.py`; evaluation metric "citation correctness" | Answer quality has not been measured against the live system on this commit |
-| Refuse when the corpus does not support an answer | Yes | grounding gate in `policy_assistant/rag/rag_chain.py`; evaluation "unsupported refusal handling" | `SIMILARITY_THRESHOLD` is set at 0.62 by judgement, not tuned against a real corpus |
-| Escalate a refusal or unhelpful answer to Human Resources | Employee side yes; handler side through the API | `policy_assistant/api/routes/escalations.py`, `tests/test_escalations.py`; webhook delivery and retry from #99 / PR #113 | #84: an escalation filed after a failed generation can name the wrong exchange. The specification's Figure 3 has the Human Resources agent read the open queue through `GET /api/escalations?status=open` and `PATCH` it resolved, reached from a Slack or Teams webhook, so API-only handling is the designed path. #159 proposes an in-app queue beyond it |
+| Plain-language questions answered from the policy corpus with the source cited | Yes | README "How a question is answered"; `tests/test_chat.py`, `tests/test_rag_chain.py`; evaluation metric "citation correctness" | Measured on the 20-case smoke tier on 2026-09-11, see [live-evaluation.md](live-evaluation.md); never on a real corpus |
+| Refuse when the corpus does not support an answer | Yes | grounding gate in `policy_assistant/rag/rag_chain.py`; evaluation "unsupported refusal handling" | `SIMILARITY_THRESHOLD` is set at 0.62 by judgement, not tuned against a real corpus. [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192): uncovered questions near HR topics clear the gate, and the model's prose declines instead of the refusal card |
+| Escalate a refusal or unhelpful answer to Human Resources | Employee side yes; handler side through the API | `policy_assistant/api/routes/escalations.py`, `tests/test_escalations.py`; webhook delivery and retry from #99 / PR #113 | Until [PR #188](https://github.com/CMSC495-GROUP3/Sourcebook/pull/188) an escalation filed after a failed generation could name the wrong exchange (#84). The specification's Figure 3 has the Human Resources agent read the open queue through `GET /api/escalations?status=open` and `PATCH` it resolved, reached from a Slack or Teams webhook, so API-only handling is the designed path. #159 proposes an in-app queue beyond it |
 | Learn from the query log (content gaps, FAQ ranking, threshold tuning) | Logging yes; reports not in this commit | `policy_assistant/api/analytics.py`, `tests/test_analytics.py` | The specification asks for a weekly human-read knowledge-gap report over `query_logs`. That report is in draft as PR #171 and did not make this commit, so #160 stands as a gap against the specification |
 | Policy Library renders whole documents | Yes | PR #167, `web/src/components/Documents` | none known |
 | Conversation history, projects, reload | Yes | `tests/test_conversations.py`, PRs #126, #133 | #142: project assignment and deletion are not transactional |
@@ -99,41 +99,51 @@ message_index)` index, and the error and validation table in section 2.5.
 | --- | --- | --- |
 | Python lint, tests on 3.11 to 3.14 with an 80% coverage floor, web lint and types and build, both Docker images, Compose validation, the proxy-chain acceptance script | Passed | [CI run 34534962223](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962223) |
 | CodeQL, dependency audit, secret scan | Passed | [Security run 34534962098](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34534962098) |
-| Answer quality against the live system | Not measured | see below |
+| Answer quality against the live system | Measured on the smoke tier, on `4e90382` and on the pre-#138 baseline; one defect found | [live-evaluation.md](live-evaluation.md): retrieval, citation, and grounded answers 100% of 12 on both commits; the grounding gate stopped none of the five refusal cases, now [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) |
 | Real-service latency and error rate on the pilot | Passed, on a sample of seven | [live-benchmark.md](live-benchmark.md): all five agreed targets met on `4352966`, 1.21s median time to first token, no errors, no rate limiting |
 | End-to-end pass through the deployed app by hand | Passed, with one defect found | [below](#end-to-end-pass-by-hand): all eight steps pass on `4e90382`; the uncovered-question step surfaced [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) |
-| Escalation after a failed generation | Known defect, open as #84 | see the defects table |
+| Escalation after a failed generation | Fixed in [PR #188](https://github.com/CMSC495-GROUP3/Sourcebook/pull/188) | `tests/test_escalations.py` covers the id path and the legacy index path. The browser pass ran before that merge, so its two escalation steps exercised the old path |
 
 The dependency review job runs only on pull requests, so a push to `main`
 skips it. It last ran on the pull request that produced this commit.
 
 ### Answer quality
 
-The measuring instrument works now and the measurement has not been taken.
+The measurement was taken on 2026-09-11 and is written up in
+[live-evaluation.md](live-evaluation.md), with every answer and score in
+`live-evaluation-results.json` beside it. The gate on #137 asked for three
+things, and each was done with the real provider and the pilot's Atlas index,
+exit-code verified, on both `4e90382` (tip `main`, prompt `v2`) and the
+pre-#138 baseline `9871e3ed2faa798cc21d237b421c7ac68963a9a2` (prompt `v1`):
 
-PR #181 merged on 2026-09-10 and closed #180, a defect where the Live
-evaluation workflow could finish green after the evaluator had failed. Empty
-secrets, a nonzero evaluator exit, a missing results file, and malformed
-metrics each fail the job. Two earlier workflow runs exist, from 2026-09-06
-and 2026-09-07, and both predate that fix; one of them is the false green
-#180 documents. Neither is evidence of anything.
+- The 20-case smoke tier on both commits. Recall@5, citation correctness, and
+  grounded answer rate are 100% of 12 answerable cases on both. Unsupported
+  refusal handling and the prompt-injection gate refusal rate are 0% on both:
+  the five cases the grounding gate was expected to stop all scored between
+  62 and 79 against a threshold of 62 and were sent to the model, which then
+  declined in prose every time. The answers are safe; the refusal card and its
+  escalation button are missing. That is [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), and it is the same mechanism
+  as #189.
+- The three ambiguous cases in the set and three questions asked by hand, on
+  the PTO amount, parental-leave eligibility, and working from home, on both
+  commits, with a disposition for each. The `v2` prompt is judged equal or
+  better on all six and asks for the missing employee fact in three of them
+  where `v1` pointed to Human Resources in general. No regression was found.
+  Neither prompt asks the one missing fact for "Can I expense this trip?".
 
-What the alpha still owes:
-
-- A smoke-tier run on this commit with an exit-code-verified result, reporting
-  Recall@5, citation correctness, grounded answer rate, unsupported refusal
-  handling, and the prompt-injection gate refusal rate.
-- The same run against the pre-#138 baseline
-  `9871e3ed2faa798cc21d237b421c7ac68963a9a2`, so the clarify-and-escalate
-  prompt change from PR #138 can be judged as an improvement or not.
-- Three questions asked by hand on both sides, on the PTO amount, on
-  parental-leave eligibility, and on remote work, with a person deciding
-  whether the clarification or escalation was the right call. The ambiguous
-  and prompt-injection cases are reported for review rather than auto-scored,
-  so a person has to read them.
+Two earlier workflow runs, from 2026-09-06 and 2026-09-07, predate the
+fail-closed repair in PR #181 and produced no results file; they are not
+evidence of anything. The repaired workflow was not used for this measurement
+either, because its `evaluation` environment holds `MONGODB_URI` but not
+`MONGODB_DB`, so its secrets gate refuses to start. Setting that one secret is
+what it takes for the workflow to replace the by-hand procedure the page
+describes.
 
 A green workflow badge is not evidence of answer quality and the team does not
-present it as such.
+present it as such. Twenty cases on a fictional corpus, run once, are evidence
+that retrieval and citation work on that corpus and that the gate does not
+separate covered from uncovered questions near HR topics; they are not a
+quality guarantee.
 
 ### Real-service performance
 
@@ -207,8 +217,8 @@ CONTRIBUTING.md. Tracked as #158.
 
 | Issue | What a pilot user would see | Mitigation in the alpha |
 | --- | --- | --- |
-| #84 | an escalation filed after a failed generation can name the wrong exchange | reload after an error before escalating; a fix is open as [PR #188](https://github.com/CMSC495-GROUP3/Sourcebook/pull/188), not in this commit |
 | #189 | an uncovered question asked as a follow-up can clear the grounding gate, so it is answered with a decline that cites unrelated policies instead of the refusal card | ask an uncovered question in a new conversation, where the gate scores it correctly |
+| #192 | an uncovered question on an HR-adjacent topic, or a prompt injection, clears the grounding gate even as a first question; the model declines in prose, but the refusal card and its button do not appear | the answer text says the policies do not cover it; "Not what you needed?" under the answer still files the escalation |
 | #118 | provider saturation reads as a generic error, so the user does not know it is worth retrying | `OPENAI_MAX_CONCURRENT_REQUESTS` bounds the damage; retry by hand |
 | #142 | concurrent project assignment and deletion can race | a single-operator pilot makes this unlikely at this volume |
 | #158 | nothing at the database level prevents duplicate passage identities | ingestion upserts by `(source, chunk_index)`; PR #176 adds the constraint |
@@ -232,7 +242,11 @@ dictionary, and a development laptop is not the t3.micro the pilot runs on.
 None of this measures the deployed system under load, and the bounded run in
 [live-benchmark.md](live-benchmark.md) is too small to become one.
 
-Answer quality is unmeasured on this commit, for the reasons above.
+Answer quality is measured on a 20-case smoke tier and three questions asked
+by hand, on one day, with the clarification judgements made by one reader.
+That is evidence for the sample corpus, not a guarantee. The full tier has not
+been run, and the smoke tier's refusal cases show the gate does not separate
+covered from uncovered questions near HR topics (#192).
 
 `CustomerDataProvider` is designed and not written. When the simulated
 provider lands it will show that the contract holds, not that Sourcebook can
@@ -264,6 +278,10 @@ through the course channel.
 Known defects, limitations, and the checks the team has not run carry over
 from the tables above.
 
+The release body itself is [release-notes.md](release-notes.md), which repeats
+the defects with their impact and mitigation inline rather than pointing back
+here, because a release page is read on its own.
+
 ## The tag, and reproducing this version later
 
 The pilot host follows `main`, so it moves past the tag. The tag does not. To
@@ -288,14 +306,28 @@ release is marked prerelease so nobody mistakes it for production:
 
 ```bash
 git fetch upstream
-git checkout 435296607ec1b95a4b989c3c421d0cb246c0ffaa
+git checkout <the verified commit>
 git tag -a v0.1.0-alpha.1 -m "Unit 5 alpha: verified per docs/alpha/handoff.md"
 git push upstream v0.1.0-alpha.1
 gh release create v0.1.0-alpha.1 --repo CMSC495-GROUP3/Sourcebook --prerelease \
   --title "v0.1.0-alpha.1" --notes-file docs/alpha/release-notes.md
 ```
 
-At tag time the release notes section above is copied to
-`docs/alpha/release-notes.md` so the release body and the repository agree,
-and the release link is added to the table at the top of this page and to the
-README's Documentation table.
+`docs/alpha/release-notes.md` is written and is the release body, so the
+release page and the repository say the same thing. Two things are filled in
+at tag time and are deliberately not guessed now: the commit, and the
+`Tagged commit:` line at the top of that file.
+
+Before running the commands above, all of these must be true. The tag is the
+claim that the alpha was verified, so cutting it early is the one mistake this
+page exists to prevent.
+
+| Blocker | State |
+| --- | --- |
+| Answer quality measured against the live system, per the gate on [#137](https://github.com/CMSC495-GROUP3/Sourcebook/issues/137) | Done on 2026-09-11, see [live-evaluation.md](live-evaluation.md). The dispositions in it are one reader's and the issue closes when the owners accept them |
+| [PR #188](https://github.com/CMSC495-GROUP3/Sourcebook/pull/188) merged, or #84 accepted as a shipped defect | Merged before this page, which describes #84 as fixed |
+| [PR #190](https://github.com/CMSC495-GROUP3/Sourcebook/pull/190) merged, so the browser pass is on `main` | Merged; the pass is recorded above |
+| A commit chosen on `main` after those merges, with its CI and Security runs green and linked in the table at the top of this page | The merge commit of PR #191, once its push-to-`main` CI and Security runs are green. The follow-up commit writes the SHA and the run links into the table at the top |
+
+Once the tag exists, its link goes in the table at the top of this page and in
+the README's Documentation table.
