@@ -5,7 +5,8 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
-export PYTHONPATH="$ROOT"
+# No PYTHONPATH export on purpose: the validator has to find the package
+# on its own, the way the workflow invokes it.
 
 # Prefer PYTHON from the environment, else python/python3 on PATH.
 if [ -z "${PYTHON:-}" ]; then

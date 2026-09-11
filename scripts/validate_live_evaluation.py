@@ -14,8 +14,17 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
-from policy_assistant.rag.evaluation import require_live_env, validate_results_file
+# The workflow runs this file by path, which puts scripts/ rather than the
+# repository root on sys.path. Add the root so the package imports from any
+# working directory without a PYTHONPATH export.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from policy_assistant.rag.evaluation import (
+    require_live_env,
+    validate_results_file,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
