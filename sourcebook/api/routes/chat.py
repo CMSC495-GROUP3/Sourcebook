@@ -29,19 +29,19 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from policy_assistant.api.analytics import log_query
-from policy_assistant.api.db import conversations_col
-from policy_assistant.api.limiter import limiter
-from policy_assistant.api.routes.deps import require_auth
-from policy_assistant.rag.cache import (
+from sourcebook.api.analytics import log_query
+from sourcebook.api.db import conversations_col
+from sourcebook.api.limiter import limiter
+from sourcebook.api.routes.deps import require_auth
+from sourcebook.rag.cache import (
     get_cached_answer,
     get_corpus_version,
     is_cacheable_turn,
     put_cached_answer,
 )
-from policy_assistant.rag.config import CHAT_RATE_LIMIT, HISTORY_TURNS, REFUSAL_MESSAGE
-from policy_assistant.rag.llm import get_provider
-from policy_assistant.rag.rag_chain import (
+from sourcebook.rag.config import CHAT_RATE_LIMIT, HISTORY_TURNS, REFUSAL_MESSAGE
+from sourcebook.rag.llm import get_provider
+from sourcebook.rag.rag_chain import (
     build_messages,
     cited_sources,
     condense_question,
@@ -363,7 +363,7 @@ def _stream(body: ChatRequest):
 
     Starlette iterates this through the thread pool, acquiring a thread per
     yield, so a stream consumes roughly its generation duration in thread-time.
-    THREADPOOL_TOKENS in policy_assistant/rag/config.py sizes that pool and therefore caps chat
+    THREADPOOL_TOKENS in sourcebook/rag/config.py sizes that pool and therefore caps chat
     throughput — see docs/load-testing.md for the measured curve.
 
     All bookkeeping happens in _finalize via `finally`; see the note there on

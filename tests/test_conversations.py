@@ -4,9 +4,9 @@ import threading
 
 import pytest
 
-from policy_assistant.api.db import conversations_col, projects_col
-from policy_assistant.api.routes import conversations as conversations_routes
-from policy_assistant.api.routes import projects as projects_routes
+from sourcebook.api.db import conversations_col, projects_col
+from sourcebook.api.routes import conversations as conversations_routes
+from sourcebook.api.routes import projects as projects_routes
 
 
 def test_conversation_lifecycle(client, auth):

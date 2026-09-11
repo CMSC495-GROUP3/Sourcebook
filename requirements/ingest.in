@@ -1,4 +1,4 @@
-# The offline ingestion scripts (python -m policy_assistant.rag.seed_documents
+# The offline ingestion scripts (python -m sourcebook.rag.seed_documents
 # and embed_documents), run from your shell. The API image does not need these.
 -r base.in
 

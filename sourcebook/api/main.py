@@ -28,19 +28,19 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from slowapi.errors import RateLimitExceeded  # noqa: E402
 
-from policy_assistant.api.db import ensure_indexes  # noqa: E402
-from policy_assistant.api.limiter import limiter, rate_limit_exceeded_handler  # noqa: E402
-from policy_assistant.api.routes.auth import (  # noqa: E402
+from sourcebook.api.db import ensure_indexes  # noqa: E402
+from sourcebook.api.limiter import limiter, rate_limit_exceeded_handler  # noqa: E402
+from sourcebook.api.routes.auth import (  # noqa: E402
     PasswordHashError,
     validate_password_hashes,
 )
-from policy_assistant.api.routes.auth import router as auth_router  # noqa: E402
-from policy_assistant.api.routes.chat import router as chat_router  # noqa: E402
-from policy_assistant.api.routes.conversations import router as conversations_router  # noqa: E402
-from policy_assistant.api.routes.documents import router as documents_router  # noqa: E402
-from policy_assistant.api.routes.escalations import router as escalations_router  # noqa: E402
-from policy_assistant.api.routes.projects import router as projects_router  # noqa: E402
-from policy_assistant.rag.config import (  # noqa: E402
+from sourcebook.api.routes.auth import router as auth_router  # noqa: E402
+from sourcebook.api.routes.chat import router as chat_router  # noqa: E402
+from sourcebook.api.routes.conversations import router as conversations_router  # noqa: E402
+from sourcebook.api.routes.documents import router as documents_router  # noqa: E402
+from sourcebook.api.routes.escalations import router as escalations_router  # noqa: E402
+from sourcebook.api.routes.projects import router as projects_router  # noqa: E402
+from sourcebook.rag.config import (  # noqa: E402
     APP_NAME,
     SIMILARITY_THRESHOLD,
     THREADPOOL_TOKENS,

@@ -8,7 +8,7 @@ import boto3
 import pytest
 from conftest import FAKE_DB
 
-from policy_assistant.rag.cache import get_corpus_version
+from sourcebook.rag.cache import get_corpus_version
 
 
 class _Body:
@@ -42,8 +42,8 @@ class _S3:
 def _load_ingestion(monkeypatch, s3):
     """Import the script only after replacing boto3's network client."""
     monkeypatch.setattr(boto3, "client", lambda *_args, **_kwargs: s3)
-    sys.modules.pop("policy_assistant.rag.embed_documents", None)
-    return importlib.import_module("policy_assistant.rag.embed_documents")
+    sys.modules.pop("sourcebook.rag.embed_documents", None)
+    return importlib.import_module("sourcebook.rag.embed_documents")
 
 
 class _UploadOnlyS3:
@@ -56,7 +56,7 @@ class _UploadOnlyS3:
         self.uploads.append((Bucket, Key))
 
 
-SEEDING_MODULE = "policy_assistant.rag.seed_documents"
+SEEDING_MODULE = "sourcebook.rag.seed_documents"
 
 
 @pytest.fixture

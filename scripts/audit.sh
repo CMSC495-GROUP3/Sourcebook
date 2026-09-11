@@ -12,7 +12,7 @@ IGNORED_ADVISORIES=(
   # ecdsa < 0.19.3 is a transitive dependency of python-jose. The advisory is a
   # timing side channel in signing; the app only verifies JWTs it signed with
   # HS256, which never touches ecdsa. Upstream has stated they will not fix it.
-  # Way out: replace python-jose with PyJWT (now confined to policy_assistant/api/tokens.py), which does not depend on ecdsa.
+  # Way out: replace python-jose with PyJWT (now confined to sourcebook/api/tokens.py), which does not depend on ecdsa.
   PYSEC-2026-1325
 )
 

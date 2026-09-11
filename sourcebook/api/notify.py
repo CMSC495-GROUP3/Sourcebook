@@ -17,7 +17,7 @@ import logging
 import urllib.error
 import urllib.request
 
-from policy_assistant.rag.config import (
+from sourcebook.rag.config import (
     ESCALATION_WEBHOOK_TIMEOUT_SECONDS,
     ESCALATION_WEBHOOK_URL,
 )

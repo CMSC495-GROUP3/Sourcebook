@@ -59,7 +59,7 @@ jobs:
           set -euo pipefail
           python - <<'PY' | tee selection.txt
           import os
-          from policy_assistant.rag.evaluation import load_cases, resolve_dataset
+          from sourcebook.rag.evaluation import load_cases, resolve_dataset
 
           tier, dataset = resolve_dataset(os.environ["EVAL_TIER"])
           cases = load_cases(dataset)
@@ -101,7 +101,7 @@ jobs:
           EVAL_TIER: ${{ inputs.tier }}
         run: |
           set -euo pipefail
-          python -m policy_assistant.rag.evaluation \
+          python -m sourcebook.rag.evaluation \
             --tier "$EVAL_TIER" \
             --yes \
             --output evaluation/results.json | tee evaluation-summary.txt

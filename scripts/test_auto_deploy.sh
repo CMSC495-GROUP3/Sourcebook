@@ -143,9 +143,9 @@ EOF
   git -C "$WORK/upstream" init -q -b main
   git -C "$WORK/upstream" config user.name test
   git -C "$WORK/upstream" config user.email test@example.com
-  mkdir -p "$WORK/upstream/policy_assistant" "$WORK/upstream/web" "$WORK/upstream/scripts" \
+  mkdir -p "$WORK/upstream/sourcebook" "$WORK/upstream/web" "$WORK/upstream/scripts" \
     "$WORK/upstream/requirements"
-  echo 'api' >"$WORK/upstream/policy_assistant/app.py"
+  echo 'api' >"$WORK/upstream/sourcebook/app.py"
   echo 'web' >"$WORK/upstream/web/index.html"
   echo 'req' >"$WORK/upstream/requirements/base.in"
   echo 'FROM scratch' >"$WORK/upstream/Dockerfile"
@@ -176,7 +176,7 @@ commit_upstream() {
         echo "doc $(date +%s%N)" >>"$WORK/upstream/README.md"
         ;;
       --api)
-        echo "api $(date +%s%N)" >>"$WORK/upstream/policy_assistant/app.py"
+        echo "api $(date +%s%N)" >>"$WORK/upstream/sourcebook/app.py"
         ;;
       --web)
         echo "web $(date +%s%N)" >>"$WORK/upstream/web/index.html"

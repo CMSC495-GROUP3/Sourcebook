@@ -40,7 +40,7 @@ services:
 
   api:
     build:
-      # Root context so the image can copy the policy_assistant package
+      # Root context so the image can copy the sourcebook package
       context: .
       dockerfile: Dockerfile
     env_file:

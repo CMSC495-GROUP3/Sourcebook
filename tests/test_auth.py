@@ -9,8 +9,8 @@ import bcrypt
 import pytest
 from conftest import TEST_PASSWORD
 
-from policy_assistant.api.routes import auth as auth_routes
-from policy_assistant.api.tokens import decode_claims
+from sourcebook.api.routes import auth as auth_routes
+from sourcebook.api.tokens import decode_claims
 
 
 def _cost4_hash() -> str:
@@ -67,7 +67,7 @@ def test_empty_second_hash_means_one_password(client, monkeypatch):
 def test_second_hash_alone_does_not_replace_the_first(client, monkeypatch, caplog):
     monkeypatch.setenv("APP_PASSWORD_HASH", "")
     monkeypatch.setenv("APP_PASSWORD_HASH_2", _second_hash())
-    with caplog.at_level(logging.ERROR, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.auth"):
         response = client.post("/api/auth/login", json={"password": SECOND_PASSWORD})
     assert response.status_code == 500
     assert "APP_PASSWORD_HASH is not configured" in caplog.text
@@ -76,7 +76,7 @@ def test_second_hash_alone_does_not_replace_the_first(client, monkeypatch, caplo
 def test_malformed_second_hash_is_a_server_error(client, monkeypatch, caplog):
     # A broken second hash must not quietly fall back to the first password.
     monkeypatch.setenv("APP_PASSWORD_HASH_2", "not-a-bcrypt-hash")
-    with caplog.at_level(logging.ERROR, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.auth"):
         response = client.post("/api/auth/login", json={"password": TEST_PASSWORD})
     assert response.status_code == 500
     assert "APP_PASSWORD_HASH_2 is not a valid bcrypt hash" in caplog.text
@@ -90,7 +90,7 @@ def test_login_records_which_password_was_used(client, monkeypatch, caplog, pass
     # Both passwords open the same door; the log line and the claim are the
     # only way to tell a reviewer's session from the team's afterwards.
     monkeypatch.setenv("APP_PASSWORD_HASH_2", _second_hash())
-    with caplog.at_level(logging.INFO, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.INFO, logger="sourcebook.api.routes.auth"):
         response = client.post("/api/auth/login", json={"password": password})
     assert response.status_code == 200
     claims = decode_claims(response.json()["access_token"])
@@ -227,7 +227,7 @@ def test_startup_accepts_one_or_two_well_formed_hashes(monkeypatch):
 
 def test_unconfigured_password_is_a_server_error(client, monkeypatch, caplog):
     monkeypatch.setenv("APP_PASSWORD_HASH", "")
-    with caplog.at_level(logging.ERROR, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.auth"):
         response = client.post("/api/auth/login", json={"password": TEST_PASSWORD})
     assert response.status_code == 500
     assert "APP_PASSWORD_HASH is not configured" in caplog.text
@@ -235,7 +235,7 @@ def test_unconfigured_password_is_a_server_error(client, monkeypatch, caplog):
 
 def test_malformed_password_hash_is_a_server_error(client, monkeypatch, caplog):
     monkeypatch.setenv("APP_PASSWORD_HASH", "not-a-bcrypt-hash")
-    with caplog.at_level(logging.ERROR, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.auth"):
         response = client.post("/api/auth/login", json={"password": TEST_PASSWORD})
     assert response.status_code == 500
     assert "APP_PASSWORD_HASH is not a valid bcrypt hash" in caplog.text
@@ -247,7 +247,7 @@ def test_hash_with_trailing_whitespace_does_not_silently_lock_out(
 ):
     # checkpw returns False for these, which would read as a wrong password.
     monkeypatch.setenv("APP_PASSWORD_HASH", _cost4_hash() + damage)
-    with caplog.at_level(logging.ERROR, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.auth"):
         response = client.post("/api/auth/login", json={"password": TEST_PASSWORD})
     assert response.status_code == 500
     assert "not a valid bcrypt hash" in caplog.text
@@ -262,7 +262,7 @@ def test_lone_surrogate_password_is_rejected_not_a_server_error(client, caplog):
     # json.loads accepts a lone surrogate; str.encode refuses it with a
     # UnicodeEncodeError, which subclasses ValueError.
     body = json.dumps({"password": "\ud800abc"}).encode("utf-8", "surrogatepass")
-    with caplog.at_level(logging.ERROR, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.auth"):
         response = client.post(
             "/api/auth/login", content=body, headers={"content-type": "application/json"}
         )

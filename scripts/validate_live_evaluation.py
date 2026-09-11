@@ -21,7 +21,7 @@ from pathlib import Path
 # working directory without a PYTHONPATH export.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from policy_assistant.rag.evaluation import (
+from sourcebook.rag.evaluation import (
     require_live_env,
     validate_results_file,
 )
