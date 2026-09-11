@@ -5,7 +5,7 @@ it is. This page is the practical side: getting it running, checking a change,
 and getting that change merged. If something here is wrong or missing, fix it in
 the same PR as the change that made it wrong.
 
-`.agents/skills/CMSC495-CAP/SKILL.md` is the condensed version of this page
+`.agents/skills/sourcebook/SKILL.md` is the condensed version of this page
 for coding agents: stack, layout, commands, conventions, and the rules that
 are easy to break. Keep the two in step.
 
@@ -123,7 +123,7 @@ A fourth workflow, **Live evaluation**, runs the labeled question set against
 the real provider and index. It costs money, so it only runs when a maintainer
 starts it from the Actions tab, and it needs a repository environment named
 `evaluation` holding `OPENAI_API_KEY`, `MONGODB_URI`, and `MONGODB_DB`. See
-`evaluation/README.md` for what the numbers mean.
+`docs/evaluation.md` for what the numbers mean.
 
 Dependabot opens one grouped PR per ecosystem on Mondays (pip, npm, GitHub
 Actions, Docker base images). Review them like any other PR; CI runs on them.
@@ -218,7 +218,7 @@ covers `.env`; the rest is on you.
 - **Cached answers outlive a prompt fix** unless `PROMPT_VERSION` is bumped. It
   is part of the cache key for exactly this reason.
 - **`THREADPOOL_TOKENS` is the chat throughput ceiling.** It was measured, not
-  guessed; see `scripts/loadtest/RESULTS.md` before changing it, and re-measure
+  guessed; see `docs/load-testing.md` before changing it, and re-measure
   after.
 - **The fake provider's embeddings are meaningless.** Never use `make stub` to
   judge retrieval quality or to tune `SIMILARITY_THRESHOLD`.
@@ -240,7 +240,7 @@ covers `.env`; the rest is on you.
 ## Load testing and deployment
 
 - `make stub` in one terminal, `make loadtest` in another. Method, numbers, and
-  caveats in `scripts/loadtest/RESULTS.md`.
+  caveats in `docs/load-testing.md`.
 - The EC2 host deploys itself: a systemd timer runs `scripts/auto_deploy.sh`
   every two minutes, which fast-forwards to upstream `main` and rebuilds only
   the services whose inputs changed. `scripts/deploy.sh` starts that service

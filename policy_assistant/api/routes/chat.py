@@ -364,7 +364,7 @@ def _stream(body: ChatRequest):
     Starlette iterates this through the thread pool, acquiring a thread per
     yield, so a stream consumes roughly its generation duration in thread-time.
     THREADPOOL_TOKENS in policy_assistant/rag/config.py sizes that pool and therefore caps chat
-    throughput — see scripts/loadtest/RESULTS.md for the measured curve.
+    throughput — see docs/load-testing.md for the measured curve.
 
     All bookkeeping happens in _finalize via `finally`; see the note there on
     why it cannot live after the last yield.

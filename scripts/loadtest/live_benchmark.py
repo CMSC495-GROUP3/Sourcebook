@@ -9,7 +9,7 @@ request costs money, so the run is small by design and capped twice: a hard
 request cap and an error-count stop condition. run.py measures what the
 thread pool can sustain with the model faked; this script measures what a user
 of the pilot experiences, on a sample far too small for percentiles. Read
-docs/alpha/live-benchmark.md for the protocol, the agreed targets, and the
+docs/releases/v0.1.0-alpha.1/live-benchmark.md for the protocol, the agreed targets, and the
 results.
 
 Each request records the path the server reports in its `done` event
@@ -65,7 +65,7 @@ PATH_REFUSED = "refused"
 PATH_RATE_LIMITED = "rate-limited"
 PATH_ERROR = "error"
 
-# Proposed alpha targets. docs/alpha/live-benchmark.md says which of these the
+# Proposed alpha targets. docs/releases/v0.1.0-alpha.1/live-benchmark.md says which of these the
 # team agreed before the run; change them there and here together.
 TARGETS = {
     "generated_ttft_p50_s": 4.0,
@@ -374,7 +374,7 @@ def _fmt(value: float | None, unit: str = "s") -> str:
 
 
 def render_markdown(records: list[Record], summary: dict) -> str:
-    """Tables ready to paste into docs/alpha/live-benchmark.md."""
+    """Tables ready to paste into docs/releases/v0.1.0-alpha.1/live-benchmark.md."""
     lines = [
         "| Step | Expected | Observed | HTTP | TTFT | Complete | Follow-ups | Sources | Confidence | Error |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",

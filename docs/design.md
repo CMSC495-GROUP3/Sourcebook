@@ -1,6 +1,6 @@
 # Sourcebook design tokens
 
-The values live in `src/index.css` inside the Tailwind `@theme` block. This
+The values live in `web/src/index.css` inside the Tailwind `@theme` block. This
 file explains them. Change the CSS, then update this page.
 
 The direction is paper and ink. Warm off-white surfaces, near-black text, and
@@ -119,7 +119,7 @@ charcoal, ink is warm off-white, and the accent and status colors are
 lifted so they hold their contrast. Filled buttons are accent with paper
 text in both themes: dark green with cream text in light, sage with
 charcoal text in dark. The values live
-under `:root[data-theme="dark"]` in `src/index.css`.
+under `:root[data-theme="dark"]` in `web/src/index.css`.
 
 | Token | Dark oklch | Hex |
 | --- | --- | --- |
@@ -149,7 +149,7 @@ paint so there is no flash.
 ## Type
 
 Two families, both self-hosted from `@fontsource-variable` and imported in
-`src/main.tsx`.
+`web/src/main.tsx`.
 
 | Role | Face | Size / line | Where |
 | --- | --- | --- | --- |
@@ -206,9 +206,9 @@ The group's drawing: an open book with a ribbon rising out of it, as a
 sticker with a pale outline. The blues of the original are shifted to the
 green accent (cover in the deep green, ribbon in the lighter one); the
 outline and shadow are untouched, so it sits on paper and on charcoal
-alike. `public/icon.png` is the full-size mark the app renders through
+alike. `web/public/icon.png` is the full-size mark the app renders through
 `BrandMark`; `icon-16`, `icon-32`, and `icon-180` are the browser tab and
-home-screen icons. `docs/brand/sourcebook-icon.png` is the same file and
+home-screen icons. `assets/brand/sourcebook-icon.png` is the same file and
 `sourcebook-icon-original.png` is the untouched blue original.
 
 The mark and the name are optically aligned in `Brand.tsx`, not per call
