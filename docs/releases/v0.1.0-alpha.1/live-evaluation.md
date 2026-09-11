@@ -30,7 +30,7 @@ The dataset is `evaluation/questions.json`, identical on both commits, SHA-256
 ## How it was run
 
 On the pilot host, with the `.env`, provider, and Atlas vector index the
-deployed app uses, through `policy_assistant.rag.evaluation`, which is the
+deployed app uses, through `sourcebook.rag.evaluation`, which is the
 same runner the Live evaluation workflow calls. It runs in-process rather than
 through the deployed API, so it pays for retrieval and one answer call per
 grounded case, bypasses the answer cache and the rate limiter, and writes no
@@ -47,7 +47,7 @@ path the labeled cases did.
 # from the host checkout, and again from the baseline worktree
 PYTHONPATH=. .venv/bin/python -c '
 from dotenv import load_dotenv; load_dotenv(".env")
-import sys; from policy_assistant.rag.evaluation import main; sys.exit(main(sys.argv[1:]))
+import sys; from sourcebook.rag.evaluation import main; sys.exit(main(sys.argv[1:]))
 ' --tier smoke --yes --output results.json
 ```
 

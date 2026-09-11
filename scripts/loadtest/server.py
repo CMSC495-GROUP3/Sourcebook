@@ -23,7 +23,7 @@ It does **not** measure end-to-end production latency. Stubbed out:
 - **Atlas Vector Search.** Replaced with canned passages. `$vectorSearch` is an
   Atlas-only aggregation stage and cannot run locally at all.
 
-The stubs live in this file rather than behind flags in `policy_assistant/` so that no
+The stubs live in this file rather than behind flags in `sourcebook/` so that no
 test-only branch can ever be reached in production.
 
 ## Reading the gate
@@ -125,8 +125,8 @@ def _fake_retrieve(query: str, k: int = 5) -> list[dict]:
 
 # Route every collection through the in-memory fake before importing the app,
 # so db.py's module-level handles bind to fakes rather than to a real cluster.
-from policy_assistant.rag import mongo  # noqa: E402
 from scripts.loadtest.fakemongo import FakeDB  # noqa: E402
+from sourcebook.rag import mongo  # noqa: E402
 
 _FAKE_DB = FakeDB()
 mongo.get_db = lambda: _FAKE_DB
@@ -135,7 +135,7 @@ mongo.get_collection = lambda name: LatentCollection(_FAKE_DB[name])
 # The canned passages also live in the passages collection, so the Policy
 # Library has one document to list under `make stub`. Retrieval never reads
 # them (it is replaced below); only /api/documents does.
-from policy_assistant.rag.config import (  # noqa: E402
+from sourcebook.rag.config import (  # noqa: E402
     DOCUMENT_BODIES_COLLECTION,
     PASSAGES_COLLECTION,
 )
@@ -169,13 +169,13 @@ _FAKE_DB[DOCUMENT_BODIES_COLLECTION].insert_one(
     }
 )
 
-from policy_assistant.rag import cache  # noqa: E402
+from sourcebook.rag import cache  # noqa: E402
 
 cache.get_collection = mongo.get_collection
 
-from policy_assistant.api import main  # noqa: E402
-from policy_assistant.api.limiter import limiter  # noqa: E402
-from policy_assistant.api.routes import chat as chat_routes  # noqa: E402
+from sourcebook.api import main  # noqa: E402
+from sourcebook.api.limiter import limiter  # noqa: E402
+from sourcebook.api.routes import chat as chat_routes  # noqa: E402
 
 
 def _startup() -> None:

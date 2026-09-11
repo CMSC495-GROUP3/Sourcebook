@@ -12,7 +12,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from policy_assistant.api.tokens import bearer_token, cred_claim, decode_claims
+from sourcebook.api.tokens import bearer_token, cred_claim, decode_claims
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ limiter = Limiter(key_func=get_remote_address)
 def _cred_claim(request: Request) -> str | None:
     """Return the JWT ``cred`` claim for logging, or None.
 
-    Same decode as require_auth, via policy_assistant.api.tokens, so the log
+    Same decode as require_auth, via sourcebook.api.tokens, so the log
     line and the auth check cannot disagree about who a token belongs to. None
     means the header is missing or malformed, the token does not verify, or
     the claim is not shaped like a variable name; a verified, well-shaped

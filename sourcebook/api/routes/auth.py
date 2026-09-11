@@ -10,9 +10,9 @@ from anyio import CapacityLimiter
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from policy_assistant.api.limiter import limiter
-from policy_assistant.api.tokens import encode_token
-from policy_assistant.rag.config import LOGIN_THREADPOOL_TOKENS
+from sourcebook.api.limiter import limiter
+from sourcebook.api.tokens import encode_token
+from sourcebook.rag.config import LOGIN_THREADPOOL_TOKENS
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

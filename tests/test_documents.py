@@ -1,6 +1,6 @@
 """Source-format abstraction: header parsing and passage records."""
 
-from policy_assistant.rag.documents import (
+from sourcebook.rag.documents import (
     doc_id_from_key,
     document_record,
     parse_document,

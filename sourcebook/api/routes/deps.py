@@ -6,12 +6,12 @@ import os
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from policy_assistant.api.routes.auth import (
+from sourcebook.api.routes.auth import (
     FINGERPRINT_HEX_LEN,
     PASSWORD_HASH_VARS,
     credential_fingerprint,
 )
-from policy_assistant.api.tokens import cred_claim, decode_claims
+from sourcebook.api.tokens import cred_claim, decode_claims
 
 bearer_scheme = HTTPBearer()
 

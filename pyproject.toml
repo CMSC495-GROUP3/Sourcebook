@@ -1,7 +1,7 @@
 # Python tooling configuration. `make lint`, `make fmt`, `make test`, and CI all
 # read this file, so a change here changes what gets merged.
 #
-# The application is not packaged for distribution; `policy_assistant/` is
+# The application is not packaged for distribution; `sourcebook/` is
 # imported from the repository root (pytest adds it to sys.path below, uvicorn
 # and `python -m` run from the root, and the Dockerfile copies it to /app).
 
@@ -27,7 +27,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["policy_assistant", "scripts"]
+known-first-party = ["sourcebook", "scripts"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -39,4 +39,4 @@ addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.coverage.run]
-source = ["policy_assistant"]
+source = ["sourcebook"]

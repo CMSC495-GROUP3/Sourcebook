@@ -1,5 +1,5 @@
 # The API image. Build context is the repository root (docker-compose.yml sets
-# it) so the whole policy_assistant package is copied in. The web app has its
+# it) so the whole sourcebook package is copied in. The web app has its
 # own Dockerfile under web/.
 
 FROM python:3.14-slim
@@ -10,7 +10,7 @@ WORKDIR /app
 COPY requirements/api.txt requirements/
 RUN pip install --no-cache-dir -r requirements/api.txt
 
-COPY policy_assistant/ policy_assistant/
+COPY sourcebook/ sourcebook/
 
 EXPOSE 8000
 
@@ -19,4 +19,4 @@ EXPOSE 8000
 # not Nginx's own container IP. Trust is NOT "*": uvicorn reads
 # FORWARDED_ALLOW_IPS (Compose sets it to Docker's 172.16.0.0/12 and 192.168.0.0/16 pools).
 # A bare local `uvicorn` without that env trusts only 127.0.0.1.
-CMD ["uvicorn", "policy_assistant.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["uvicorn", "sourcebook.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

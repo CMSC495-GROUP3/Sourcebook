@@ -3,7 +3,7 @@
 
 api:
   - changed-files:
-      - any-glob-to-any-file: ["policy_assistant/**", "Dockerfile"]
+      - any-glob-to-any-file: ["sourcebook/**", "Dockerfile"]
 
 web:
   - changed-files:
@@ -15,7 +15,7 @@ tests:
 
 evaluation:
   - changed-files:
-      - any-glob-to-any-file: ["evaluation/**", "policy_assistant/rag/evaluation.py"]
+      - any-glob-to-any-file: ["evaluation/**", "sourcebook/rag/evaluation.py"]
 
 documentation:
   - changed-files:

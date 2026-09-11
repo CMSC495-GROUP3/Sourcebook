@@ -5,11 +5,11 @@ import logging
 
 from conftest import FAKE_DB, make_passages, sse_events
 
-from policy_assistant.api.limiter import limiter
-from policy_assistant.api.routes.chat import ChatRequest, _stream, load_history
-from policy_assistant.rag import llm
-from policy_assistant.rag.cache import get_cached_answer, get_corpus_version
-from policy_assistant.rag.config import HISTORY_TURNS, REFUSAL_MESSAGE
+from sourcebook.api.limiter import limiter
+from sourcebook.api.routes.chat import ChatRequest, _stream, load_history
+from sourcebook.rag import llm
+from sourcebook.rag.cache import get_cached_answer, get_corpus_version
+from sourcebook.rag.config import HISTORY_TURNS, REFUSAL_MESSAGE
 
 FAKE_ANSWER = llm.FakeProvider.ANSWER
 
@@ -133,7 +133,7 @@ class TestChat:
     def test_rate_limited_per_client(self, client, auth, retrieval, conversation, caplog):
         limiter.enabled = True
         limiter.reset()
-        with caplog.at_level(logging.WARNING, logger="policy_assistant.api.limiter"):
+        with caplog.at_level(logging.WARNING, logger="sourcebook.api.limiter"):
             statuses = [
                 client.post(
                     "/api/chat",
@@ -348,9 +348,7 @@ class TestDroppedStream:
             calls["n"] += 1
             return []
 
-        monkeypatch.setattr(
-            "policy_assistant.api.routes.chat.generate_follow_ups", empty_follow_ups
-        )
+        monkeypatch.setattr("sourcebook.api.routes.chat.generate_follow_ups", empty_follow_ups)
         events = list(_stream(ChatRequest(question="How much PTO?", session_id=conversation)))
         assert any("follow_ups" in e for e in events)
         assert calls["n"] == 1

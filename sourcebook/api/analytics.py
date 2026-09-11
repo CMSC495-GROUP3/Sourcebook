@@ -26,8 +26,8 @@ a user's answer to a bookkeeping problem.
 import logging
 from datetime import UTC, datetime
 
-from policy_assistant.api.db import query_logs_col
-from policy_assistant.rag.cache import question_hash
+from sourcebook.api.db import query_logs_col
+from sourcebook.rag.cache import question_hash
 
 logger = logging.getLogger(__name__)
 

@@ -27,8 +27,8 @@ from conftest import TEST_PASSWORD
 from fastapi.testclient import TestClient
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from policy_assistant.api import main
-from policy_assistant.api.limiter import limiter
+from sourcebook.api import main
+from sourcebook.api.limiter import limiter
 
 # Must match docker-compose.yml FORWARDED_ALLOW_IPS and nginx.conf.
 DOCKER_POOL_CIDR = "172.16.0.0/12,192.168.0.0/16"
@@ -55,7 +55,7 @@ def test_untrusted_source_cannot_make_uvicorn_accept_forwarded_identity(caplog):
     client = _uvicorn_client(peer=UNTRUSTED_PEER, trusted_hosts=DOCKER_POOL_CIDR)
     limiter.enabled = True
     limiter.reset()
-    with caplog.at_level(logging.WARNING, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.WARNING, logger="sourcebook.api.routes.auth"):
         response = _failed_login(client, forwarded_for="1.2.3.4")
     assert response.status_code == 401
     assert "Failed login attempt from 203.0.113.9" in caplog.text
@@ -71,7 +71,7 @@ def test_trusted_nginx_replace_header_is_honoured(peer, caplog):
     client = _uvicorn_client(peer=peer)
     limiter.enabled = True
     limiter.reset()
-    with caplog.at_level(logging.WARNING, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.WARNING, logger="sourcebook.api.routes.auth"):
         response = _failed_login(client, forwarded_for="203.0.113.50")
     assert response.status_code == 401
     assert "Failed login attempt from 203.0.113.50" in caplog.text
@@ -82,7 +82,7 @@ def test_direct_local_uvicorn_trust_ignores_non_loopback_forgery(caplog):
     client = _uvicorn_client(peer=UNTRUSTED_PEER, trusted_hosts="127.0.0.1")
     limiter.enabled = True
     limiter.reset()
-    with caplog.at_level(logging.WARNING, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.WARNING, logger="sourcebook.api.routes.auth"):
         response = _failed_login(client, forwarded_for="1.2.3.4")
     assert response.status_code == 401
     assert "Failed login attempt from 203.0.113.9" in caplog.text
@@ -118,7 +118,7 @@ def test_legacy_append_style_xff_documents_why_nginx_must_replace(caplog):
     client = _uvicorn_client(peer=NGINX_PEER)
     limiter.enabled = True
     limiter.reset()
-    with caplog.at_level(logging.WARNING, logger="policy_assistant.api.routes.auth"):
+    with caplog.at_level(logging.WARNING, logger="sourcebook.api.routes.auth"):
         response = _failed_login(client, forwarded_for=f"1.2.3.4, {NGINX_PEER[0]}")
     assert response.status_code == 401
     assert "Failed login attempt from 1.2.3.4" in caplog.text

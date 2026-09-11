@@ -122,7 +122,7 @@ main() {
     changed=$(git diff --name-only "$(git hash-object -t tree /dev/null)" "$new")
   fi
   services=()
-  grep -qE '^(Dockerfile|requirements/|policy_assistant/)' <<<"$changed" && services+=(api)
+  grep -qE '^(Dockerfile|requirements/|sourcebook/)' <<<"$changed" && services+=(api)
   grep -qE '^web/' <<<"$changed" && services+=(web)
   # docker-compose.yml is not a build input; `up` recreates whatever it
   # changed, Caddy included. Both images are rebuilt anyway in case a build
