@@ -5,7 +5,7 @@ CMSC 495 Unit 5 alpha. It is a pilot, not a production system, and the
 sections below say plainly what it does, what is broken, and what nobody has
 measured yet.
 
-Tagged commit: _filled at tag time_. The evidence behind every claim here is
+Tagged commit: `d7199f57e3eb600e646d4202de43c97f2c5cc770`. The evidence behind every claim here is
 in [handoff.md](handoff.md), which is the page to read if you are grading this.
 
 ## What it does
