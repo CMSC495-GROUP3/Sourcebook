@@ -1,4 +1,4 @@
-# The live AI evaluation from evaluation/README.md, run against the real
+# The live AI evaluation from docs/evaluation.md, run against the real
 # provider, corpus, and vector index. It costs money and needs secrets, so it
 # runs only when a maintainer starts it from the Actions tab.
 #
@@ -7,7 +7,7 @@
 # environment to the main branch keeps fork PRs away from the secrets.
 #
 # The numbers this produces are measurements, not a gate. Read the "Metric
-# definitions" section of evaluation/README.md before acting on them.
+# definitions" section of docs/evaluation.md before acting on them.
 #
 # Fail-closed: empty secrets, a nonzero evaluator exit, a missing results
 # file, or malformed metrics must fail the job (see issue #180 / run

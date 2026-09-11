@@ -8,7 +8,7 @@ interface MarkProps {
 /**
  * The Sourcebook mark: the group's book-and-ribbon drawing, recolored to the
  * green accent. The file is public/icon.png; the smaller renditions next to
- * it are the browser tab and home-screen icons. docs/brand holds the source
+ * it are the browser tab and home-screen icons. assets/brand holds the source
  * and the original blue version.
  *
  * The ribbon rises out of the top of the square, so the book itself sits

@@ -1,6 +1,6 @@
 # End-to-end pass evidence, Unit 5 alpha
 
-Screenshots from the pass recorded in [../../alpha/handoff.md](../../alpha/handoff.md),
+Screenshots from the pass recorded in [../handoff.md](../handoff.md),
 run on 2026-09-11 against deployed commit `4e90382` in Chromium 153.0.8010.12
 at 1440x1000. The corpus is the fictional Meridian Systems sample, so no real
 policy appears. No password, token, or session id is visible in any image.

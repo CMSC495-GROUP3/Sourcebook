@@ -98,7 +98,7 @@ REFUSAL_MESSAGE = (
 #        320      99 req/s
 #
 # Roughly 0.31 req/s per thread, at about 105 KB of RSS per thread. Raise this
-# if chat throughput is the constraint; see scripts/loadtest/RESULTS.md before
+# if chat throughput is the constraint; see docs/load-testing.md before
 # changing it, and re-measure rather than guessing.
 THREADPOOL_TOKENS = int(os.getenv("THREADPOOL_TOKENS", "100"))
 

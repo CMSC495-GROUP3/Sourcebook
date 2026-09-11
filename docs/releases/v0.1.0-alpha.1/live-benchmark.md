@@ -1,7 +1,7 @@
 # Alpha performance benchmark against the real services
 
 Unit 5 asks whether the pilot meets minimum acceptable performance. The
-existing [load-test results](../../scripts/loadtest/RESULTS.md) answer a
+existing [load-test results](../../load-testing.md) answer a
 different question. They ran on a laptop with a fake model, an in-memory
 database, canned retrieval, and the chat limiter switched off, and they measure
 what the thread pool can sustain. This page covers the deployed pilot with
@@ -45,7 +45,7 @@ touch.
 
 The client holds every stream open through the follow-up event. Hanging up at
 `done` is a legitimate client behaviour, but it exercises the
-generator-close path that RESULTS.md finding 4 describes rather than the
+generator-close path that load-testing.md finding 4 describes rather than the
 ordinary one, and this run is about the ordinary one.
 
 ## Caps and stop conditions
@@ -98,7 +98,7 @@ BENCH_PASSWORD='the pilot password' ./.venv/bin/python scripts/loadtest/live_ben
   --url https://sourcebook.duckdns.org \
   --deployed-sha "$(ssh ubuntu@sourcebook.duckdns.org git -C CMSC495-CAP rev-parse refs/deployed/main)" \
   --client-location 'home, Maryland' \
-  --out docs/alpha/live-benchmark-results.json
+  --out docs/releases/v0.1.0-alpha.1/live-benchmark-results.json
 ```
 
 Without `--yes` the script says how many chat requests it may send and asks
@@ -111,7 +111,7 @@ results section below, together with the fields listed there.
 
 To read the requests from the server side afterwards, the query log has one
 row per request, keyed by session ids that all start with `bench-<run id>`.
-`docs/alpha/handoff.md` links the query-log report work in #160 / PR #171.
+`docs/releases/v0.1.0-alpha.1/handoff.md` links the query-log report work in #160 / PR #171.
 Container logs are thinner than this page first claimed: `docker logs
 cmsc495-cap-api-1` prints Uvicorn access lines only, so it confirms the
 request count, the status codes, and the client address, and it does not name
@@ -218,7 +218,7 @@ measurement would differ by less than a cent.
 A passing run shows that the deployed path works end to end for a single
 user and a burst of three, within the agreed limits, on that day. It says
 nothing about 10,000 concurrent users. That claim rests on the synthetic
-measurements in RESULTS.md plus the caveats listed there, and a pilot run of
+measurements in load-testing.md plus the caveats listed there, and a pilot run of
 this size does not change it either way. The handoff page records the
 original requirement, the synthetic evidence, this run, and the gap between
 them without redefining the requirement.

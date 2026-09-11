@@ -51,7 +51,7 @@ def log_query(
 
     `cache_hit` is "answer", "embedding", or None, so the measured hit rate can
     be reported — that number is what makes the cost projection in
-    scripts/loadtest/RESULTS.md defensible.
+    docs/load-testing.md defensible.
     """
     try:
         scores = [p.get("score", 0.0) for p in passages]

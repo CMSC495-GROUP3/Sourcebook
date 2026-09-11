@@ -63,9 +63,9 @@ That needs no accounts, no API key, and no network. It is the fastest way to
 see the refusal path, escalation, and the Policy Library without asking anyone
 for anything.
 
-**Setup and usage** are in the [README](../../README.md), which walks one
+**Setup and usage** are in the [README](../../../README.md), which walks one
 question through retrieval, the gate, and streaming.
-[CONTRIBUTING.md](../../CONTRIBUTING.md) covers running against real services,
+[CONTRIBUTING.md](../../../CONTRIBUTING.md) covers running against real services,
 the checks, and the things that bite.
 
 ## Known defects
@@ -106,7 +106,7 @@ operator can apply today.
   full tier has not been run, and none of it says anything about a real
   corpus. Do not read a green workflow badge as evidence of answer quality.
 - **The 10,000-user requirement is not verified.** The throughput figures in
-  `scripts/loadtest/RESULTS.md` are synthetic, with the model, the database,
+  `docs/load-testing.md` are synthetic, with the model, the database,
   and retrieval faked and the limiter off. The real-service run in
   [live-benchmark.md](live-benchmark.md) is seven requests, which says the
   deployed path works for one user and a burst of three on one day and nothing

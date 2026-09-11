@@ -21,3 +21,5 @@ Caddyfile
 .git/
 .gitignore
 **/*.md
+docs/
+assets/

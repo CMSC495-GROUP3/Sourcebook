@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/brand/sourcebook-icon.png" width="112" height="112" alt="Sourcebook">
+  <img src="assets/brand/sourcebook-icon.png" width="112" height="112" alt="Sourcebook">
 </p>
 
 <h1 align="center">Sourcebook</h1>
@@ -23,7 +23,7 @@
   <a href="#architecture">Architecture</a> ·
   <a href="#deployment">Deployment</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="docs/alpha/handoff.md">Alpha handoff</a> ·
+  <a href="docs/releases/v0.1.0-alpha.1/handoff.md">Alpha handoff</a> ·
   <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a>
 </p>
 
@@ -65,18 +65,20 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 
 ## Documentation
 
-| Read                                                                       | For                                                                          |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                                         | running against real services, checks, conventions, and the things that bite |
-| [SECURITY.md](SECURITY.md)                                                 | reporting a vulnerability and what the Security workflow scans               |
-| [evaluation/README.md](evaluation/README.md)                               | smoke and full-corpus labeled sets and how to score the live system          |
-| [scripts/loadtest/RESULTS.md](scripts/loadtest/RESULTS.md)                 | throughput measurements and the reasoning behind `THREADPOOL_TOKENS`         |
-| [docs/alpha/handoff.md](docs/alpha/handoff.md)                             | the Unit 5 alpha: submitted commit, scope map, verification status, evidence |
-| [docs/alpha/live-benchmark.md](docs/alpha/live-benchmark.md)               | what the deployed pilot measured with real OpenAI and Atlas, and its limits  |
-| [docs/alpha/live-evaluation.md](docs/alpha/live-evaluation.md)             | answer quality on the smoke tier, this prompt against the one before #138   |
-| [docs/alpha/release-notes.md](docs/alpha/release-notes.md)                 | the v0.1.0-alpha.1 release body: scope, access, known defects, limitations   |
-| [v0.1.0-alpha.1 release](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | the tagged Unit 5 alpha, `d7199f5`, with the notes above as its body       |
-| [.agents/skills/CMSC495-CAP/SKILL.md](.agents/skills/CMSC495-CAP/SKILL.md) | the condensed version of all this for coding agents                          |
+| Read | For |
+| --- | --- |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
+| [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
+| [docs/README.md](docs/README.md) | the index of everything under `docs/` |
+| [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
+| [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
+| [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
+| [docs/releases/v0.1.0-alpha.1/handoff.md](docs/releases/v0.1.0-alpha.1/handoff.md) | the Unit 5 alpha: submitted commit, scope map, verification status, evidence |
+| [docs/releases/v0.1.0-alpha.1/live-benchmark.md](docs/releases/v0.1.0-alpha.1/live-benchmark.md) | what the deployed pilot measured with real OpenAI and Atlas, and its limits |
+| [docs/releases/v0.1.0-alpha.1/live-evaluation.md](docs/releases/v0.1.0-alpha.1/live-evaluation.md) | answer quality on the smoke tier, this prompt against the one before #138 |
+| [docs/releases/v0.1.0-alpha.1/release-notes.md](docs/releases/v0.1.0-alpha.1/release-notes.md) | the v0.1.0-alpha.1 release body: scope, access, known defects, limitations |
+| [v0.1.0-alpha.1 release](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | the tagged Unit 5 alpha, `d7199f5`, with the notes above as its body |
+| [.agents/skills/sourcebook/SKILL.md](.agents/skills/sourcebook/SKILL.md) | the condensed version of all this for coding agents |
 
 ## Contents
 
@@ -330,7 +332,7 @@ The requirement says "serve 10,000 concurrent users." Read as 10,000 employees
 each asking a question every two minutes or so, that is 83 queries per second.
 
 Measured with the stubbed harness in `scripts/loadtest/`. Method, caveats, and
-reproduction steps are in [RESULTS.md](scripts/loadtest/RESULTS.md).
+reproduction steps are in [docs/load-testing.md](docs/load-testing.md).
 
 | Configuration                             | Throughput    |
 | ----------------------------------------- | ------------- |
@@ -356,7 +358,7 @@ So one worker clears the target with a configuration change rather than an
 architecture change. That is why the async rewrite originally planned has been
 deferred. It is not needed to meet the requirement, and it would introduce
 cancellation semantics that are easy to get subtly wrong in a codebase meant to
-be maintained by junior developers. RESULTS.md records that decision with its
+be maintained by junior developers. `docs/load-testing.md` records that decision with its
 evidence. Revisit it if per-request thread-time grows.
 
 Two related bounds keep a stalled provider from taking the whole site down with
@@ -870,7 +872,9 @@ scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, a
                     load-test harness in loadtest/
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
 data/               42 fictional sample policies
-docs/brand/         the Sourcebook icon
+docs/               design.md, evaluation.md, load-testing.md, and one folder per release
+                    under releases/ with its handoff, notes, measurements, and evidence
+assets/brand/       the Sourcebook mark, source PNGs; web/public/ holds the served copies
 requirements/       *.in are pip-compile inputs (base is shared; api is the Docker image; ingest;
                     lint; dev is everything); api, dev, and ingest compile to .txt locks
 pyproject.toml      ruff and pytest settings

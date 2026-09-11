@@ -92,7 +92,7 @@ compose: ## Full stack in Docker against the real services in .env
 acceptance: ## Real Caddy -> Nginx -> Uvicorn client-IP and rate-limit check (Compose >= 2.24; leaves two :acceptance image tags for cache reuse)
 	$(PY) scripts/test_proxy_chain.py
 
-loadtest: ## Throughput measurement against `make stub`; see scripts/loadtest/RESULTS.md
+loadtest: ## Throughput measurement against `make stub`; see docs/load-testing.md
 	$(PY) scripts/loadtest/run.py --concurrency 10 20 40 80
 
 clean: ## Remove build and test artifacts
