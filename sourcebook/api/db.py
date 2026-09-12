@@ -18,7 +18,10 @@ from sourcebook.rag.config import (
     ANSWER_CACHE_TTL_SECONDS,
     DOCUMENT_BODIES_COLLECTION,
     EMBEDDING_CACHE_TTL_SECONDS,
+    INDEX_OPTIONS_CONFLICT,
+    PASSAGE_IDENTITY_KEYS,
     PASSAGES_COLLECTION,
+    PASSAGES_IDENTITY_INDEX,
     QUERY_LOG_TTL_SECONDS,
 )
 from sourcebook.rag.mongo import get_collection
@@ -54,9 +57,6 @@ embedding_cache_col = get_collection("embedding_cache")
 # is only ever read by _id.
 meta_col = get_collection("meta")
 
-PASSAGES_IDENTITY_INDEX = "source_1_chunk_index_1"
-INDEX_OPTIONS_CONFLICT = 85
-
 
 def ensure_indexes() -> None:
     """Create indexes if they don't already exist (idempotent).
@@ -75,10 +75,11 @@ def ensure_indexes() -> None:
     # projects — point lookup by project_id
     projects_col.create_index("project_id", unique=True)
 
-    # passages — fetch one document's passages in order
+    # passages — one record per (source, chunk_index), fetched in order.
+    # The name is pinned so the migration and this call agree on it.
     try:
         passages_col.create_index(
-            [("source", ASCENDING), ("chunk_index", ASCENDING)],
+            PASSAGE_IDENTITY_KEYS,
             name=PASSAGES_IDENTITY_INDEX,
             unique=True,
         )

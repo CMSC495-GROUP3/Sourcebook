@@ -6,19 +6,15 @@ legacy non-unique compound index, and creates the unique replacement.
 Do not run this against production without an explicit operations decision.
 """
 
-from pymongo import ASCENDING
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from sourcebook.rag.config import PASSAGES_COLLECTION
+from sourcebook.rag.config import (
+    INDEX_OPTIONS_CONFLICT,
+    PASSAGE_IDENTITY_KEYS,
+    PASSAGES_COLLECTION,
+    PASSAGES_IDENTITY_INDEX,
+)
 from sourcebook.rag.mongo import get_collection
-
-PASSAGES_IDENTITY_INDEX = "source_1_chunk_index_1"
-INDEX_OPTIONS_CONFLICT = 85
-
-PASSAGE_IDENTITY_KEYS = [
-    ("source", ASCENDING),
-    ("chunk_index", ASCENDING),
-]
 
 
 def _index_keys(index: dict) -> list[tuple]:
