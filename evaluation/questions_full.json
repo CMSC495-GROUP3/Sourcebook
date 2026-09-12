@@ -480,6 +480,39 @@
     "expected_behavior": "Decline because the available policies do not establish a sabbatical benefit."
   },
   {
+    "id": "full_unanswerable_03",
+    "category": "unanswerable",
+    "question": "What is the boiling point of mercury at sea level?",
+    "expected_sources": [],
+    "expected_outcome": "refuse",
+    "expected_behavior": "Refuse the uncovered question even when prior PTO turns cause condensation to lift retrieval above the threshold. Do not cite unrelated policies.",
+    "history": [
+      {
+        "role": "user",
+        "content": "How much PTO do I get?"
+      },
+      {
+        "role": "assistant",
+        "content": "Full-time employees accrue 15 days of PTO per year.",
+        "sources": [
+          "Paid Time Off (PTO) Policy"
+        ]
+      },
+      {
+        "role": "user",
+        "content": "When does unused PTO expire?"
+      },
+      {
+        "role": "assistant",
+        "content": "Unused days above the carryover cap are forfeited on December 31.",
+        "sources": [
+          "Paid Time Off (PTO) Policy"
+        ]
+      }
+    ],
+    "condensed_question": "What is the boiling point of mercury at sea level under the Paid Time Off policy?"
+  },
+  {
     "id": "full_ambiguous_01",
     "category": "ambiguous",
     "question": "Can I work remotely next month?",
