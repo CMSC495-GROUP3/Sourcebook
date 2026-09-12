@@ -31,6 +31,14 @@ def _find_passage_identity_index(collection):
     return None
 
 
+def _is_migrated(index) -> bool:
+    return (
+        index is not None
+        and index.get("unique") is True
+        and index.get("name") == PASSAGES_IDENTITY_INDEX
+    )
+
+
 def _keep_id(ids):
     """Keep the greatest _id so reconciliation is deterministic."""
     try:
@@ -75,8 +83,10 @@ def migrate_passage_identity_index(collection=None) -> dict:
 
     existing = _find_passage_identity_index(collection)
 
-    # Already migrated: safe no-op on repeated runs.
-    if existing is not None and existing.get("unique") is True:
+    # Already migrated, so repeated runs change nothing. The name matters as
+    # much as uniqueness, because ensure_indexes pins it and MongoDB refuses
+    # the same keys under a second name with IndexOptionsConflict.
+    if _is_migrated(existing):
         return {
             "removed_duplicates": 0,
             "dropped_legacy_index": False,

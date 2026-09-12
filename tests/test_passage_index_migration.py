@@ -1,7 +1,7 @@
 """Tests for the one-time passages identity-index migration."""
 
 import pytest
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from scripts import migrate_passage_index as migration
 
@@ -186,4 +186,52 @@ def test_migration_reports_duplicate_race():
         RuntimeError,
         match="Duplicate passages still exist",
     ):
+        migration.migrate_passage_identity_index(collection)
+
+
+def test_migration_renames_a_unique_legacy_index_under_another_name():
+    # ensure_indexes pins the name, so a unique index under any other name
+    # would fail startup with code 85 forever unless the migration replaces it.
+    collection = MigrationCollection(
+        docs=[{"_id": 1, "source": "documents/pto.md", "chunk_index": 0}],
+        indexes=[
+            {
+                "name": "passage_identity",
+                "key": {"source": 1, "chunk_index": 1},
+                "unique": True,
+            }
+        ],
+    )
+
+    result = migration.migrate_passage_identity_index(collection)
+
+    assert result["dropped_legacy_index"] is True
+    assert result["created_unique_index"] is True
+    assert collection.dropped == ["passage_identity"]
+    assert [name for _, name, _ in collection.created] == ["source_1_chunk_index_1"]
+
+
+def test_migration_explains_an_index_options_conflict():
+    class ConflictingCollection(MigrationCollection):
+        def create_index(self, keys, *, name, unique):
+            raise OperationFailure("Index with name already exists", code=85)
+
+    collection = ConflictingCollection(
+        docs=[{"_id": 1, "source": "documents/pto.md", "chunk_index": 0}]
+    )
+
+    with pytest.raises(RuntimeError, match="conflicting options"):
+        migration.migrate_passage_identity_index(collection)
+
+
+def test_migration_reraises_other_operation_failures():
+    class FailingCollection(MigrationCollection):
+        def create_index(self, keys, *, name, unique):
+            raise OperationFailure("not authorized", code=13)
+
+    collection = FailingCollection(
+        docs=[{"_id": 1, "source": "documents/pto.md", "chunk_index": 0}]
+    )
+
+    with pytest.raises(OperationFailure):
         migration.migrate_passage_identity_index(collection)
