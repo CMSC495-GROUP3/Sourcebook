@@ -11,13 +11,17 @@ during module loading rather than as a clear startup failure. `main.py` calls
 """
 
 from pymongo import ASCENDING, DESCENDING
+from pymongo.errors import OperationFailure
 
 # rag/ holds the pipeline, its config, and the shared Mongo client.
 from sourcebook.rag.config import (
     ANSWER_CACHE_TTL_SECONDS,
     DOCUMENT_BODIES_COLLECTION,
     EMBEDDING_CACHE_TTL_SECONDS,
+    INDEX_OPTIONS_CONFLICT,
+    PASSAGE_IDENTITY_KEYS,
     PASSAGES_COLLECTION,
+    PASSAGES_IDENTITY_INDEX,
     QUERY_LOG_TTL_SECONDS,
 )
 from sourcebook.rag.mongo import get_collection
@@ -71,8 +75,21 @@ def ensure_indexes() -> None:
     # projects — point lookup by project_id
     projects_col.create_index("project_id", unique=True)
 
-    # passages — fetch one document's passages in order
-    passages_col.create_index([("source", ASCENDING), ("chunk_index", ASCENDING)])
+    # passages — one record per (source, chunk_index), fetched in order.
+    # The name is pinned so the migration and this call agree on it.
+    try:
+        passages_col.create_index(
+            PASSAGE_IDENTITY_KEYS,
+            name=PASSAGES_IDENTITY_INDEX,
+            unique=True,
+        )
+    except OperationFailure as exc:
+        if exc.code == INDEX_OPTIONS_CONFLICT:
+            raise RuntimeError(
+                "The passages identity index exists with legacy options. "
+                "Run the one-time passage-index migration before starting the application."
+            ) from exc
+        raise
 
     # document_bodies — point lookup by source when a document is opened
     document_bodies_col.create_index("source", unique=True)

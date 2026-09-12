@@ -229,6 +229,102 @@ covers `.env`; the rest is on you.
 - **The fake provider's embeddings are meaningless.** Never use `make stub` to
   judge retrieval quality or to tune `SIMILARITY_THRESHOLD`.
 
+## Passage identity index migration
+
+The `passages` collection requires a unique compound index on
+`(source, chunk_index)`. Older databases may still have the same index as
+non-unique and may also contain duplicate passage identities.
+
+Do not run this migration against production without an explicit operations
+decision and a current database backup/snapshot.
+
+Before migration:
+
+1. Stop or otherwise prevent passage ingestion/writers from changing the
+   collection during the migration.
+2. Confirm a current MongoDB Atlas backup/snapshot exists.
+3. Check for duplicate passage identities:
+
+   ```javascript
+   db.passages.aggregate([
+     {
+       $group: {
+         _id: { source: "$source", chunk_index: "$chunk_index" },
+         count: { $sum: 1 }
+       }
+     },
+     { $match: { count: { $gt: 1 } } }
+   ])
+   ```
+
+4. Inspect the current indexes:
+
+   ```javascript
+   db.passages.getIndexes()
+   ```
+
+Run the dry run first, from the repository root:
+
+```bash
+.venv/bin/python -m scripts.migrate_passage_index --dry-run
+```
+
+It prints one line per duplicated identity, naming the record it would
+keep and the `_id`s it would delete, then what it would do to the index,
+and changes nothing. Read those lines before going on. Then run it for
+real:
+
+```bash
+.venv/bin/python -m scripts.migrate_passage_index
+```
+
+The migration:
+
+- prints the same per-duplicate lines before each delete, so the job log
+  is the audit trail;
+- keeps the record with the greatest `_id` in each group and deletes the
+  rest;
+- drops the legacy compound index when present, non-unique or under
+  another name;
+- creates `source_1_chunk_index_1` with `unique: true`;
+- is safe to rerun after a successful migration.
+
+Two things to know at cutover:
+
+- Between the drop and the create there is a moment with no identity
+  index at all. If the script dies there, rerun it; it finds no index and
+  creates the unique one.
+- Once the unique index exists, the previous API image fails at startup
+  with `IndexOptionsConflict` (code 85), because it declares the same
+  keys without `unique`. Rolling back the image is blocked from that
+  point; roll back the database from the snapshot instead.
+
+The local FakeMongo used by the test suite does not enforce MongoDB index
+uniqueness. Tests therefore verify the unique index declaration, migration
+behavior, duplicate reconciliation, and failure handling without pretending
+that FakeMongo can reproduce MongoDB's duplicate-key enforcement.
+
+After migration:
+
+1. Confirm no duplicate identities remain.
+2. Confirm `db.passages.getIndexes()` reports
+   `source_1_chunk_index_1` with `unique: true`.
+3. Re-run `scripts/embed_documents.py`. The migration keeps the greatest
+   `_id` in each duplicate group, and ingestion refreshed an arbitrary one
+   while duplicates existed, so the survivor can hold stale text and a
+   stale embedding. Re-embedding overwrites every passage from the source.
+4. Start the application and confirm normal startup succeeds.
+5. Smoke-test document retrieval and the Policy Library before returning the
+   deployment to normal service.
+
+If migration fails, do not repeatedly modify the production collection by hand.
+Keep passage writers stopped, inspect the reported error and current indexes,
+and restore from the approved backup/snapshot if rollback is required.
+
+Prefer a forward-only recovery. Recreate the legacy non-unique index only if an
+explicit operations decision requires it; otherwise restore from the approved
+backup and investigate before retrying.
+
 ## Debugging
 
 - The OpenAPI console at `/docs` lets you call any endpoint with a token. Log in
