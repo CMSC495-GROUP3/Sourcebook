@@ -9,8 +9,8 @@ Do not run this against production without an explicit operations decision.
 from pymongo import ASCENDING
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from policy_assistant.rag.config import PASSAGES_COLLECTION
-from policy_assistant.rag.mongo import get_collection
+from sourcebook.rag.config import PASSAGES_COLLECTION
+from sourcebook.rag.mongo import get_collection
 
 PASSAGES_IDENTITY_INDEX = "source_1_chunk_index_1"
 INDEX_OPTIONS_CONFLICT = 85
