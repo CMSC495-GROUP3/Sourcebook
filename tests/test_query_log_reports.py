@@ -12,6 +12,7 @@ from itertools import pairwise
 from typing import Any
 
 import pytest
+from pymongo.errors import ServerSelectionTimeoutError
 
 from sourcebook.rag import query_log_reports as reports
 
@@ -589,3 +590,56 @@ def test_cli_rejects_bad_window(capsys):
     captured = capsys.readouterr()
     assert code == 2
     assert "Invalid arguments" in captured.err
+
+
+# ── CLI path ──────────────────────────────────────────────────────────────────
+
+WINDOW = ["--since", "2026-08-01", "--until", "2026-09-01"]
+
+
+def test_cli_prints_report_from_the_shared_collection(monkeypatch, sample_docs, capsys):
+    seen: list[str] = []
+
+    def fake_get_collection(name: str):
+        seen.append(name)
+        return SyntheticQueryLogs(sample_docs)
+
+    monkeypatch.setattr(reports, "get_collection", fake_get_collection)
+    code = reports.main(WINDOW)
+    captured = capsys.readouterr()
+    assert code == 0
+    assert seen == [reports.QUERY_LOGS_COLLECTION]
+    assert captured.out.startswith("query_logs report\n")
+    assert captured.err == ""
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ServerSelectionTimeoutError("mongodb://reporter:hunter2@cluster.example/?tls=true"),
+        RuntimeError("MONGODB_URI is not set. Copy .env.example to .env and fill it in."),
+    ],
+    ids=["driver", "config"],
+)
+def test_cli_names_the_failure_class_and_hides_its_message(monkeypatch, capsys, exc):
+    def raise_it(name: str):
+        raise exc
+
+    monkeypatch.setattr(reports, "get_collection", raise_it)
+    code = reports.main(WINDOW)
+    captured = capsys.readouterr()
+    assert code == 1
+    assert captured.out == ""
+    assert type(exc).__name__ in captured.err
+    assert "Confirm MONGODB_URI / MONGODB_DB" in captured.err
+    assert "hunter2" not in captured.err
+    assert ".env.example" not in captured.err
+
+
+def test_cli_lets_an_unexpected_error_keep_its_traceback(monkeypatch):
+    def raise_it(name: str):
+        raise KeyError("_id")
+
+    monkeypatch.setattr(reports, "get_collection", raise_it)
+    with pytest.raises(KeyError):
+        reports.main(WINDOW)

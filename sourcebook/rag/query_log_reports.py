@@ -30,6 +30,7 @@ from itertools import pairwise
 from typing import Any
 
 from dotenv import load_dotenv
+from pymongo.errors import PyMongoError
 
 from sourcebook.rag.mongo import get_collection
 
@@ -427,10 +428,14 @@ def main(argv: list[str] | None = None) -> int:
             top=args.top,
             min_repeat=args.min_repeat,
         )
-    except Exception:
-        # Never print connection strings, tokens, or raw driver errors.
+    except (PyMongoError, RuntimeError) as exc:
+        # The driver's message can carry the connection string, so only the
+        # class name is printed. RuntimeError is the missing-MONGODB_URI case
+        # from mongo.get_client. Anything else is a bug here and keeps its
+        # traceback.
         print(
-            "Failed to read query_logs. Confirm MONGODB_URI / MONGODB_DB and try again.",
+            f"Failed to read query_logs ({type(exc).__name__}). "
+            "Confirm MONGODB_URI / MONGODB_DB and try again.",
             file=sys.stderr,
         )
         return 1
