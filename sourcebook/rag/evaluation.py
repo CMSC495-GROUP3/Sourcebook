@@ -60,6 +60,9 @@ SMOKE_CATEGORY_MIX = {
 
 # Live Actions / paid CLI must refuse empty secrets before any provider call.
 REQUIRED_LIVE_ENV_VARS = ("OPENAI_API_KEY", "MONGODB_URI", "MONGODB_DB")
+# Characters MongoDB / PyMongo reject in a database name (pymongo.database._check_name).
+INVALID_MONGODB_DB_CHARS = (" ", ".", "$", "/", "\\", "\x00", '"')
+MONGODB_DB_MAX_LENGTH = 64
 # Keys ``score_results`` always emits; Actions postflight rejects anything else.
 REQUIRED_RESULT_METRIC_KEYS = (
     "evaluated_cases",
@@ -81,11 +84,33 @@ _RATE_METRIC_KEYS = (
 )
 
 
-def require_live_env(environ: Mapping[str, str] | None = None) -> None:
-    """Fail closed when required live-evaluation env values are missing or blank.
+def validate_mongodb_db_name(name: str) -> str:
+    """Reject empty or illegal MongoDB database names before any client call.
 
-    Empty strings count as missing. GitHub environment secrets that exist but
-    hold no value therefore cannot reach PyMongo as ``InvalidName``.
+    Matches PyMongo's ``_check_name`` plus the 64-byte server limit so an
+    invalid ``MONGODB_DB`` secret fails closed at preflight instead of after
+    paid setup, or being treated as a successful empty run.
+    """
+    cleaned = name.strip()
+    if not cleaned:
+        raise ValueError("MONGODB_DB is empty")
+    if len(cleaned.encode("utf-8")) > MONGODB_DB_MAX_LENGTH:
+        raise ValueError(f"MONGODB_DB exceeds the {MONGODB_DB_MAX_LENGTH}-byte MongoDB name limit")
+    for invalid_char in INVALID_MONGODB_DB_CHARS:
+        if invalid_char in cleaned:
+            raise ValueError(
+                f"MONGODB_DB is not a valid MongoDB database name (contains {invalid_char!r})"
+            )
+    return cleaned
+
+
+def require_live_env(environ: Mapping[str, str] | None = None) -> None:
+    """Fail closed when required live-evaluation env values are missing or invalid.
+
+    Empty strings count as missing. ``MONGODB_DB`` must also be a legal MongoDB
+    database name so GitHub secrets that exist but hold ``""`` or an illegal
+    value cannot reach PyMongo as ``InvalidName`` or green a run with no
+    trustworthy results.
     """
     env = os.environ if environ is None else environ
     missing = [name for name in REQUIRED_LIVE_ENV_VARS if not str(env.get(name, "")).strip()]
@@ -93,6 +118,7 @@ def require_live_env(environ: Mapping[str, str] | None = None) -> None:
         raise ValueError(
             "Live evaluation requires non-empty environment values for: " + ", ".join(missing)
         )
+    validate_mongodb_db_name(str(env.get("MONGODB_DB", "")))
 
 
 def _validate_rate_metric(name: str, value: Any) -> None:
@@ -530,6 +556,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    try:
+        require_live_env()
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
     # Argparse owns CLI exclusivity; resolve_dataset still rejects both for
     # library callers and defaults to the smoke tier when neither is set.
     tier, dataset = resolve_dataset(args.tier, args.dataset)
@@ -540,21 +572,25 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        require_live_env()
+        results = run_evaluation(cases)
+        metrics = score_results(cases, results)
+        report = {
+            "tier": tier,
+            "dataset": str(dataset),
+            "metrics": metrics,
+            "results": results,
+        }
+        # Fail closed locally the same way Actions postflight does.
+        validate_results_report(report)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-
-    results = run_evaluation(cases)
-    metrics = score_results(cases, results)
-    report = {
-        "tier": tier,
-        "dataset": str(dataset),
-        "metrics": metrics,
-        "results": results,
-    }
-    # Fail closed locally the same way Actions postflight does.
-    validate_results_report(report)
+    except Exception as exc:
+        print(
+            "Live evaluation failed before trustworthy results were produced: " + str(exc),
+            file=sys.stderr,
+        )
+        return 1
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
