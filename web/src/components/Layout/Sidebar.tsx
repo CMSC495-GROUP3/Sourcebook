@@ -142,7 +142,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
       <aside
         id="app-sidebar"
         aria-label="Navigation"
-        className="flex h-screen w-15 shrink-0 flex-col items-center border-r border-rule bg-paper-2"
+        className="flex  h-svh w-15 shrink-0 flex-col items-center border-r border-rule bg-paper-2"
       >
         <div className="flex h-15 w-full shrink-0 items-center justify-center border-b border-rule">
           <BrandMark size={28} />
@@ -199,7 +199,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
       id="app-sidebar"
       inert={!isDesktop && !open}
       aria-label="Conversations"
-      className={`h-screen w-66 shrink-0 flex-col border-r border-rule bg-paper-2 ${layoutClass}`}
+      className={`h-svh w-66 shrink-0 flex-col border-r border-rule bg-paper-2 ${layoutClass}`}
     >
       {/* Brand */}
       <div className="flex h-15 shrink-0 items-center gap-2.5 border-b border-rule pr-3 pl-4">
