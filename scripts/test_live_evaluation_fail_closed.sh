@@ -171,6 +171,16 @@ assert_contains "empty MONGODB_DB message" "MONGODB_DB" "$OUT"
 
 set +e
 OUT=$(
+  OPENAI_API_KEY=key MONGODB_URI=mongodb://example MONGODB_DB=policy.assistant \
+    "$PYTHON" scripts/validate_live_evaluation.py --check-env 2>&1
+)
+STATUS=$?
+set -e
+assert_eq "illegal MONGODB_DB exits nonzero" "1" "$STATUS"
+assert_contains "illegal MONGODB_DB message" "MONGODB_DB" "$OUT"
+
+set +e
+OUT=$(
   OPENAI_API_KEY=key MONGODB_URI=mongodb://example MONGODB_DB=policy_assistant \
     "$PYTHON" scripts/validate_live_evaluation.py --check-env 2>&1
 )
@@ -240,6 +250,17 @@ assert_file_contains "workflow enables pipefail" "set -euo pipefail"
 assert_file_contains "workflow validates results" "validate_live_evaluation.py --results"
 assert_file_contains "workflow admits the runner to Atlas" "atlas_access_list.sh add"
 assert_file_contains "workflow removes the runner from Atlas even on failure" "if: always() && steps.atlas.outputs.ip != ''"
+
+if awk '
+  $0 ~ /- name: Validate evaluation results/ {found=1; next}
+  found {print; exit}
+' "$WORKFLOW" | grep -Fq "if: always()"; then
+  PASS=$((PASS + 1))
+  echo "ok - workflow results gate always runs"
+else
+  FAIL=$((FAIL + 1))
+  echo "not ok - workflow results gate always runs" >&2
+fi
 
 # The access-list helper must refuse to run without its key, before any call.
 set +e

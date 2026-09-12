@@ -123,11 +123,12 @@ means a job added or renamed in `ci.yml` cannot quietly stop being required.
 A fourth workflow, **Live evaluation**, runs the labeled question set against
 the real provider and index. It costs money, so it only runs when a maintainer
 starts it from the Actions tab, and it needs a repository environment named
-`evaluation` holding `OPENAI_API_KEY`, `MONGODB_URI`, `MONGODB_DB`, and an
-Atlas API key as `ATLAS_PUBLIC_KEY`, `ATLAS_PRIVATE_KEY`, and
-`ATLAS_PROJECT_ID`, which the job uses to admit its own IP to the cluster's
-access list for the length of the run. See `docs/evaluation.md` for the setup
-and for what the numbers mean.
+`evaluation` holding `OPENAI_API_KEY`, `MONGODB_URI`, a legal non-empty
+`MONGODB_DB` name, and an Atlas API key as `ATLAS_PUBLIC_KEY`,
+`ATLAS_PRIVATE_KEY`, and `ATLAS_PROJECT_ID`, which the job uses to admit its
+own IP to the cluster's access list for the length of the run. Empty or
+illegal `MONGODB_DB` values fail the job closed. See `docs/evaluation.md`
+for the setup and for what the numbers mean.
 
 Dependabot opens one grouped PR per ecosystem on Mondays (pip, npm, GitHub
 Actions, Docker base images). Review them like any other PR; CI runs on them.

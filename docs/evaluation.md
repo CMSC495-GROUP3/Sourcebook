@@ -47,8 +47,10 @@ Admin" role as `ATLAS_PUBLIC_KEY`, `ATLAS_PRIVATE_KEY`, and
 rejects any address that is not on the cluster's IP access list, so the job
 adds its own IP to that list before the evaluator runs and removes it
 afterwards, even on failure, through `scripts/atlas_access_list.sh`. The
-workflow fail-closes when required secrets are empty, the evaluator exits
-nonzero, or `evaluation/results.json` is missing/malformed (see
+workflow fail-closes when required secrets are empty, `MONGODB_DB` is not a
+legal MongoDB database name, the evaluator exits nonzero, or
+`evaluation/results.json` is missing/malformed. The results gate runs even
+when the evaluator step fails or is skipped (see
 `scripts/validate_live_evaluation.py`).
 
 The command prints the summary metrics and writes detailed answers to

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -10,9 +11,15 @@ from scripts.validate_live_evaluation import main as validate_cli_main
 from sourcebook.rag.evaluation import (
     _validate_rate_metric,
     require_live_env,
+    validate_mongodb_db_name,
     validate_results_file,
     validate_results_report,
 )
+from sourcebook.rag.evaluation import (
+    main as evaluation_main,
+)
+
+WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "evaluation.yml"
 
 
 def _valid_report(**overrides: object) -> dict:
@@ -54,26 +61,82 @@ def _valid_report(**overrides: object) -> dict:
     return report
 
 
+def _complete_env(**overrides: str) -> dict[str, str]:
+    env = {
+        "OPENAI_API_KEY": "key",
+        "MONGODB_URI": "mongodb://example",
+        "MONGODB_DB": "sourcebook",
+    }
+    env.update(overrides)
+    return env
+
+
 def test_require_live_env_rejects_missing_and_blank_values():
     with pytest.raises(ValueError, match="MONGODB_DB"):
-        require_live_env(
-            {
-                "OPENAI_API_KEY": "key",
-                "MONGODB_URI": "mongodb://example",
-                "MONGODB_DB": "",
-            }
-        )
+        require_live_env(_complete_env(MONGODB_DB=""))
 
     with pytest.raises(ValueError, match="OPENAI_API_KEY, MONGODB_URI, MONGODB_DB"):
         require_live_env({})
 
-    require_live_env(
-        {
-            "OPENAI_API_KEY": "key",
-            "MONGODB_URI": "mongodb://example",
-            "MONGODB_DB": "policy_assistant",
-        }
-    )
+    require_live_env(_complete_env(MONGODB_DB="policy_assistant"))
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\n", "\t"])
+def test_empty_mongodb_db_fails_closed(blank: str):
+    with pytest.raises(ValueError, match="MONGODB_DB"):
+        require_live_env(_complete_env(MONGODB_DB=blank))
+
+
+@pytest.mark.parametrize(
+    "illegal",
+    ["foo.bar", "$admin", "db/name", "db\\name", 'say"hi', "has space", "a\x00b", "a" * 65],
+)
+def test_invalid_mongodb_db_name_fails_closed(illegal: str):
+    with pytest.raises(ValueError, match="MONGODB_DB"):
+        require_live_env(_complete_env(MONGODB_DB=illegal))
+    with pytest.raises(ValueError, match="MONGODB_DB"):
+        validate_mongodb_db_name(illegal)
+
+
+def test_legal_mongodb_db_name_is_accepted():
+    require_live_env(_complete_env(MONGODB_DB="sourcebook"))
+    assert validate_mongodb_db_name("  sourcebook  ") == "sourcebook"
+
+
+def test_evaluation_main_rejects_empty_mongodb_db_without_writing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    monkeypatch.setenv("OPENAI_API_KEY", "key")
+    monkeypatch.setenv("MONGODB_URI", "mongodb://example")
+    monkeypatch.setenv("MONGODB_DB", "")
+    output = tmp_path / "results.json"
+    assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
+    assert not output.exists()
+    assert "MONGODB_DB" in capsys.readouterr().err
+
+
+def test_evaluation_main_rejects_invalid_mongodb_db_without_writing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    monkeypatch.setenv("OPENAI_API_KEY", "key")
+    monkeypatch.setenv("MONGODB_URI", "mongodb://example")
+    monkeypatch.setenv("MONGODB_DB", "policy.assistant")
+    output = tmp_path / "results.json"
+    assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
+    assert not output.exists()
+    assert "MONGODB_DB" in capsys.readouterr().err
+
+
+def test_evaluation_main_rejects_missing_mongodb_db_without_writing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    monkeypatch.setenv("OPENAI_API_KEY", "key")
+    monkeypatch.setenv("MONGODB_URI", "mongodb://example")
+    monkeypatch.delenv("MONGODB_DB", raising=False)
+    output = tmp_path / "results.json"
+    assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
+    assert not output.exists()
+    assert "MONGODB_DB" in capsys.readouterr().err
 
 
 def test_validate_results_report_accepts_complete_fixture():
@@ -168,6 +231,14 @@ def test_validate_results_file_and_cli(tmp_path, capsys, monkeypatch):
 
     monkeypatch.setenv("OPENAI_API_KEY", "key")
     monkeypatch.setenv("MONGODB_URI", "mongodb://example")
+    monkeypatch.setenv("MONGODB_DB", "")
+    assert validate_cli_main(["--check-env"]) == 1
+    assert "MONGODB_DB" in capsys.readouterr().err
+
+    monkeypatch.setenv("MONGODB_DB", "policy.assistant")
+    assert validate_cli_main(["--check-env"]) == 1
+    assert "MONGODB_DB" in capsys.readouterr().err
+
     monkeypatch.setenv("MONGODB_DB", "policy_assistant")
     assert validate_cli_main(["--check-env", "--results", str(good)]) == 0
     out = capsys.readouterr().out
@@ -177,3 +248,21 @@ def test_validate_results_file_and_cli(tmp_path, capsys, monkeypatch):
     bad = tmp_path / "bad.json"
     bad.write_text(json.dumps({"metrics": {"evaluated_cases": 0}, "results": []}) + "\n")
     assert validate_cli_main(["--results", str(bad)]) == 1
+
+
+def test_workflow_fail_closed_contract():
+    """The Actions job must not green without env and always-on results gates."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "validate_live_evaluation.py --check-env" in text
+    assert "validate_live_evaluation.py --results evaluation/results.json" in text
+    assert "set -euo pipefail" in text
+
+    lines = text.splitlines()
+    validate_index = next(
+        index
+        for index, line in enumerate(lines)
+        if line.strip() == "- name: Validate evaluation results"
+    )
+    gate = "\n".join(lines[validate_index : validate_index + 4])
+    assert "if: always()" in gate
+    assert "--results evaluation/results.json" in gate
