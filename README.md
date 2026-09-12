@@ -70,6 +70,8 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
 | [docs/README.md](docs/README.md) | the index of everything under `docs/` |
+| [docs/api.md](docs/api.md) | client walkthrough of every HTTP route, with stub request and response bodies |
+| [docs/openapi.json](docs/openapi.json) | committed OpenAPI document; regenerate with `make openapi` |
 | [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
 | [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
 | [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
