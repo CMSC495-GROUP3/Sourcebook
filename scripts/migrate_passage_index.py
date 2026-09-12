@@ -3,8 +3,14 @@
 This script reconciles duplicate (source, chunk_index) records, removes the
 legacy non-unique compound index, and creates the unique replacement.
 
+Run it with --dry-run first. That prints every duplicate group and what the
+migration would do, and changes nothing. Without the flag it prints the same
+lines before each delete, so the job log is the audit trail.
+
 Do not run this against production without an explicit operations decision.
 """
+
+import argparse
 
 from dotenv import load_dotenv
 from pymongo.errors import DuplicateKeyError, OperationFailure
@@ -52,7 +58,8 @@ def _keep_id(ids):
         return max(ids, key=repr)
 
 
-def _remove_duplicate_passages(collection) -> int:
+def _duplicate_groups(collection) -> list[dict]:
+    """One entry per duplicated identity, naming the record kept and the ones to delete."""
     groups = collection.aggregate(
         [
             {
@@ -69,20 +76,39 @@ def _remove_duplicate_passages(collection) -> int:
         ]
     )
 
-    removed = 0
-
+    found = []
     for group in groups:
         ids = list(group["ids"])
         keep_id = _keep_id(ids)
-        duplicate_ids = [record_id for record_id in ids if record_id != keep_id]
+        delete_ids = [record_id for record_id in ids if record_id != keep_id]
+        if delete_ids:
+            found.append(
+                {
+                    "source": group["_id"].get("source"),
+                    "chunk_index": group["_id"].get("chunk_index"),
+                    "keep_id": keep_id,
+                    "delete_ids": delete_ids,
+                }
+            )
+    return found
 
-        if duplicate_ids:
-            removed += collection.delete_many({"_id": {"$in": duplicate_ids}}).deleted_count
 
+def _report_duplicates(groups: list[dict]) -> None:
+    for group in groups:
+        print(
+            f"duplicate source={group['source']!r} chunk_index={group['chunk_index']!r} "
+            f"keep={group['keep_id']!r} delete={group['delete_ids']!r}"
+        )
+
+
+def _remove_duplicate_passages(collection, groups: list[dict]) -> int:
+    removed = 0
+    for group in groups:
+        removed += collection.delete_many({"_id": {"$in": group["delete_ids"]}}).deleted_count
     return removed
 
 
-def migrate_passage_identity_index(collection=None) -> dict:
+def migrate_passage_identity_index(collection=None, *, dry_run: bool = False) -> dict:
     if collection is None:
         collection = get_collection(PASSAGES_COLLECTION)
 
@@ -93,12 +119,25 @@ def migrate_passage_identity_index(collection=None) -> dict:
     # the same keys under a second name with IndexOptionsConflict.
     if _is_migrated(existing):
         return {
+            "dry_run": dry_run,
             "removed_duplicates": 0,
             "dropped_legacy_index": False,
             "created_unique_index": False,
         }
 
-    removed_duplicates = _remove_duplicate_passages(collection)
+    # Printed before any delete in both modes, so the log shows what went.
+    groups = _duplicate_groups(collection)
+    _report_duplicates(groups)
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "removed_duplicates": sum(len(group["delete_ids"]) for group in groups),
+            "dropped_legacy_index": existing is not None,
+            "created_unique_index": True,
+        }
+
+    removed_duplicates = _remove_duplicate_passages(collection, groups)
 
     dropped_legacy_index = False
     if existing is not None:
@@ -125,14 +164,35 @@ def migrate_passage_identity_index(collection=None) -> dict:
         raise
 
     return {
+        "dry_run": False,
         "removed_duplicates": removed_duplicates,
         "dropped_legacy_index": dropped_legacy_index,
         "created_unique_index": True,
     }
 
 
-def main() -> None:
-    result = migrate_passage_identity_index()
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Reconcile duplicate passages and make the identity index unique."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the duplicates and the index changes, and change nothing",
+    )
+    args = parser.parse_args(argv)
+
+    result = migrate_passage_identity_index(dry_run=args.dry_run)
+
+    if result["dry_run"]:
+        print(
+            "Passage identity migration dry run: "
+            f"{result['removed_duplicates']} duplicate passages would be removed; "
+            f"legacy index would be dropped={result['dropped_legacy_index']}; "
+            f"unique index would be created={result['created_unique_index']}. "
+            "Nothing changed."
+        )
+        return
 
     print(
         "Passage identity migration complete: "

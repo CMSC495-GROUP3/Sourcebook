@@ -92,6 +92,7 @@ def test_migration_reconciles_duplicates_and_replaces_legacy_index():
     result = migration.migrate_passage_identity_index(collection)
 
     assert result == {
+        "dry_run": False,
         "removed_duplicates": 1,
         "dropped_legacy_index": True,
         "created_unique_index": True,
@@ -129,6 +130,7 @@ def test_migration_is_idempotent_after_unique_index_exists():
     second = migration.migrate_passage_identity_index(collection)
 
     expected = {
+        "dry_run": False,
         "removed_duplicates": 0,
         "dropped_legacy_index": False,
         "created_unique_index": False,
@@ -235,3 +237,99 @@ def test_migration_reraises_other_operation_failures():
 
     with pytest.raises(OperationFailure):
         migration.migrate_passage_identity_index(collection)
+
+
+def test_dry_run_reports_duplicates_and_changes_nothing(capsys):
+    collection = MigrationCollection(
+        docs=[
+            {"_id": 2, "source": "documents/pto.md", "chunk_index": 0},
+            {"_id": 7, "source": "documents/pto.md", "chunk_index": 0},
+            {"_id": 9, "source": "documents/conduct.md", "chunk_index": 0},
+        ],
+        indexes=[
+            {
+                "name": "source_1_chunk_index_1",
+                "key": {"source": 1, "chunk_index": 1},
+            }
+        ],
+    )
+
+    result = migration.migrate_passage_identity_index(collection, dry_run=True)
+
+    assert result == {
+        "dry_run": True,
+        "removed_duplicates": 1,
+        "dropped_legacy_index": True,
+        "created_unique_index": True,
+    }
+    assert [doc["_id"] for doc in collection.docs] == [2, 7, 9]
+    assert collection.dropped == []
+    assert collection.created == []
+    assert (
+        "duplicate source='documents/pto.md' chunk_index=0 keep=7 delete=[2]"
+        in capsys.readouterr().out
+    )
+
+
+def test_migration_prints_every_duplicate_before_deleting(capsys):
+    class WatchingCollection(MigrationCollection):
+        seen = ""
+
+        def delete_many(self, query):
+            # The whole audit trail must already be on stdout when the first
+            # delete runs. readouterr drains the buffer, so keep what it read.
+            self.seen += capsys.readouterr().out
+            assert "keep=7 delete=[2]" in self.seen
+            assert "keep=12 delete=[3, 8]" in self.seen
+            return super().delete_many(query)
+
+    collection = WatchingCollection(
+        docs=[
+            {"_id": 2, "source": "documents/pto.md", "chunk_index": 0},
+            {"_id": 7, "source": "documents/pto.md", "chunk_index": 0},
+            {"_id": 3, "source": "documents/leave.md", "chunk_index": 1},
+            {"_id": 12, "source": "documents/leave.md", "chunk_index": 1},
+            {"_id": 8, "source": "documents/leave.md", "chunk_index": 1},
+        ]
+    )
+
+    result = migration.migrate_passage_identity_index(collection)
+
+    assert result["removed_duplicates"] == 3
+    assert sorted(doc["_id"] for doc in collection.docs) == [7, 12]
+
+
+def test_main_dry_run_flag_changes_nothing(monkeypatch, capsys):
+    collection = MigrationCollection(
+        docs=[
+            {"_id": 2, "source": "documents/pto.md", "chunk_index": 0},
+            {"_id": 7, "source": "documents/pto.md", "chunk_index": 0},
+        ]
+    )
+    monkeypatch.setattr(migration, "get_collection", lambda name: collection)
+
+    migration.main(["--dry-run"])
+
+    out = capsys.readouterr().out
+    assert "duplicate source='documents/pto.md' chunk_index=0 keep=7 delete=[2]" in out
+    assert out.rstrip().endswith("Nothing changed.")
+    assert "1 duplicate passages would be removed" in out
+    assert [doc["_id"] for doc in collection.docs] == [2, 7]
+    assert collection.created == []
+
+
+def test_main_reports_a_completed_migration(monkeypatch, capsys):
+    collection = MigrationCollection(
+        docs=[
+            {"_id": 2, "source": "documents/pto.md", "chunk_index": 0},
+            {"_id": 7, "source": "documents/pto.md", "chunk_index": 0},
+        ]
+    )
+    monkeypatch.setattr(migration, "get_collection", lambda name: collection)
+
+    migration.main([])
+
+    out = capsys.readouterr().out
+    assert "Passage identity migration complete: 1 duplicate passages removed" in out
+    assert [doc["_id"] for doc in collection.docs] == [7]
+    assert [name for _, name, _ in collection.created] == ["source_1_chunk_index_1"]
