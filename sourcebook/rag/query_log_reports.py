@@ -5,9 +5,14 @@ This module is the read side of that loop: a bounded, read-only MongoDB aggregat
 over a caller-supplied time window. It does not change logging, grounding, or
 ``SIMILARITY_THRESHOLD``.
 
-Run from the repository root with ``MONGODB_URI`` configured:
+Run from the repository root on the EC2 host, where ``.env`` holds
+``MONGODB_URI`` and the cluster's IP access list admits the host. Anywhere
+else waits out ``--timeout`` and fails. ``--until`` defaults to now:
 
-    python -m sourcebook.rag.query_log_reports --since 2026-08-01 --until 2026-09-01
+    python -m sourcebook.rag.query_log_reports --since 2026-08-01
+
+``query_logs`` rows expire after ``QUERY_LOG_TTL_SECONDS`` (90 days), so a
+window that ends earlier than that prints an empty report, not an error.
 
 Reports:
 
