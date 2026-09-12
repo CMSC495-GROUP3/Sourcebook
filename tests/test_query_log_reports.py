@@ -634,7 +634,9 @@ def client_calls(monkeypatch) -> list[dict[str, Any]]:
     return calls
 
 
-def test_cli_prints_report_from_the_shared_collection(client_calls, monkeypatch, sample_docs, capsys):
+def test_cli_prints_report_from_the_shared_collection(
+    client_calls, monkeypatch, sample_docs, capsys
+):
     seen: list[str] = []
 
     def fake_get_collection(name: str):

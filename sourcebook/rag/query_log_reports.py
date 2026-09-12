@@ -422,8 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_TIMEOUT_SECONDS,
         help=(
-            "Seconds to wait for the cluster before giving up "
-            f"(default {DEFAULT_TIMEOUT_SECONDS})."
+            f"Seconds to wait for the cluster before giving up (default {DEFAULT_TIMEOUT_SECONDS})."
         ),
     )
     return parser
