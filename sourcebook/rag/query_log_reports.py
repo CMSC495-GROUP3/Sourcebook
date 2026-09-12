@@ -193,6 +193,9 @@ def score_distribution_pipeline(since: datetime, until: datetime) -> list[dict[s
         {"$match": _time_match(since, until)},
         {
             "$facet": {
+                # Rows with no refused field fall out of every branch below,
+                # so the report prints this total beside answered and refused.
+                "window_summary": [{"$group": {"_id": None, "count": {"$sum": 1}}}],
                 "answered_summary": [
                     {"$match": {"refused": False}},
                     *facet_branch,
@@ -305,6 +308,7 @@ def format_report(
     score_facet: Mapping[str, Any],
 ) -> str:
     """Render a deterministic, operator-readable report."""
+    total = _one_summary(score_facet.get("window_summary") or []).get("count", 0)
     answered = _one_summary(score_facet.get("answered_summary") or [])
     refused = _one_summary(score_facet.get("refused_summary") or [])
     lines = [
@@ -319,6 +323,7 @@ def format_report(
         *_format_hash_rows(faq, include_refused=True),
         "",
         "3. Answered vs refused best_score",
+        f"  rows in window: {total}",
         "  answered:",
         f"    count={answered.get('count', 0)}  "
         f"null_scores={answered.get('null_scores', 0)}  "

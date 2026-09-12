@@ -516,6 +516,22 @@ def test_score_distribution_nulls_bins_and_perfect_one(sample_docs, use_collecti
     assert "answered:" in text and "refused:" in text
 
 
+def test_window_total_counts_rows_the_refused_facets_skip(use_collection):
+    # A row with no refused field is in the window but in neither summary,
+    # so answered + refused would understate traffic without the total.
+    docs = [
+        _doc(created_at=datetime(2026, 8, 3, tzinfo=UTC), question_hash="a", refused=False),
+        _doc(created_at=datetime(2026, 8, 4, tzinfo=UTC), question_hash="b", refused=True),
+        _doc(created_at=datetime(2026, 8, 5, tzinfo=UTC), question_hash="c", refused=None),
+        _doc(created_at=datetime(2026, 9, 5, tzinfo=UTC), question_hash="d", refused=False),
+    ]
+    use_collection(SyntheticQueryLogs(docs))
+    text = reports.run_report(since=SINCE, until=UNTIL)
+    scores = text.split("3. Answered vs refused best_score", 1)[1]
+    assert "rows in window: 3" in scores
+    assert scores.index("rows in window") < scores.index("answered:")
+
+
 def test_missing_sample_text_and_missing_hash_do_not_crash(use_collection):
     docs = [
         _doc(
