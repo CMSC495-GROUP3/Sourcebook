@@ -32,13 +32,17 @@ from typing import Any
 from dotenv import load_dotenv
 from pymongo.errors import PyMongoError
 
-from sourcebook.rag.mongo import get_collection
+from sourcebook.rag.mongo import get_client, get_collection
 
 # Operator-facing caps. Aggregation pipelines always $match the time window first,
 # then $group / $sort / $limit so the client never loads the full collection.
 DEFAULT_TOP = 20
 MAX_TOP = 100
 DEFAULT_MIN_REPEAT = 2
+# pymongo waits 30 s for server selection by default. That is right for the
+# API, which fails at startup, but this is the first interactive consumer and a
+# wrong URI should fail fast enough to read as a config error.
+DEFAULT_TIMEOUT_SECONDS = 10
 # Cosine-style scores land in [0, 1]. Mongo ``$bucket`` upper bounds are exclusive,
 # so the final edge is slightly above 1.0 so a perfect 1.0 still lands in [0.9, 1.0].
 SCORE_BOUNDARIES = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0001]
@@ -90,6 +94,12 @@ def validate_min_repeat(min_repeat: int) -> None:
     """FAQ ranking only includes hashes seen at least this many times."""
     if min_repeat < 2:
         raise ReportInputError("--min-repeat must be at least 2")
+
+
+def validate_timeout(timeout: int) -> None:
+    """Server selection needs a positive wait."""
+    if timeout < 1:
+        raise ReportInputError("--timeout must be at least 1 second")
 
 
 def _time_match(since: datetime, until: datetime) -> dict[str, Any]:
@@ -397,6 +407,15 @@ def build_parser() -> argparse.ArgumentParser:
         dest="min_repeat",
         help=f"Minimum count for FAQ candidates (default {DEFAULT_MIN_REPEAT}).",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT_SECONDS,
+        help=(
+            "Seconds to wait for the cluster before giving up "
+            f"(default {DEFAULT_TIMEOUT_SECONDS})."
+        ),
+    )
     return parser
 
 
@@ -411,12 +430,15 @@ def main(argv: list[str] | None = None) -> int:
         validate_window(since, until)
         validate_top(args.top)
         validate_min_repeat(args.min_repeat)
+        validate_timeout(args.timeout)
     except ReportInputError as exc:
         print(f"Invalid arguments: {exc}", file=sys.stderr)
         return 2
 
     load_dotenv()
     try:
+        # Creates the shared client, so the timeout is set before any query.
+        get_client(server_selection_timeout_ms=args.timeout * 1000)
         report = run_report(
             since=since,
             until=until,

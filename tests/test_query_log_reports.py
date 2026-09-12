@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from pymongo.errors import ServerSelectionTimeoutError
 
+from sourcebook.rag import mongo
 from sourcebook.rag import query_log_reports as reports
 
 SINCE = datetime(2026, 8, 1, tzinfo=UTC)
@@ -609,7 +610,15 @@ def test_cli_rejects_bad_window(capsys):
 WINDOW = ["--since", "2026-08-01", "--until", "2026-09-01"]
 
 
-def test_cli_prints_report_from_the_shared_collection(monkeypatch, sample_docs, capsys):
+@pytest.fixture
+def client_calls(monkeypatch) -> list[dict[str, Any]]:
+    """Record what main() asks the client factory for instead of building one."""
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(reports, "get_client", lambda **kwargs: calls.append(kwargs))
+    return calls
+
+
+def test_cli_prints_report_from_the_shared_collection(client_calls, monkeypatch, sample_docs, capsys):
     seen: list[str] = []
 
     def fake_get_collection(name: str):
@@ -633,7 +642,7 @@ def test_cli_prints_report_from_the_shared_collection(monkeypatch, sample_docs, 
     ],
     ids=["driver", "config"],
 )
-def test_cli_names_the_failure_class_and_hides_its_message(monkeypatch, capsys, exc):
+def test_cli_names_the_failure_class_and_hides_its_message(client_calls, monkeypatch, capsys, exc):
     def raise_it(name: str):
         raise exc
 
@@ -648,10 +657,46 @@ def test_cli_names_the_failure_class_and_hides_its_message(monkeypatch, capsys, 
     assert ".env.example" not in captured.err
 
 
-def test_cli_lets_an_unexpected_error_keep_its_traceback(monkeypatch):
+def test_cli_lets_an_unexpected_error_keep_its_traceback(client_calls, monkeypatch):
     def raise_it(name: str):
         raise KeyError("_id")
 
     monkeypatch.setattr(reports, "get_collection", raise_it)
     with pytest.raises(KeyError):
         reports.main(WINDOW)
+
+
+# ── Server selection timeout ──────────────────────────────────────────────────
+
+
+def test_cli_passes_the_timeout_to_the_client_factory(client_calls, use_collection):
+    use_collection(SyntheticQueryLogs([]))
+    assert reports.main(WINDOW) == 0
+    assert reports.main([*WINDOW, "--timeout", "3"]) == 0
+    assert client_calls == [
+        {"server_selection_timeout_ms": 10_000},
+        {"server_selection_timeout_ms": 3_000},
+    ]
+
+
+def test_cli_rejects_a_non_positive_timeout(client_calls, capsys):
+    code = reports.main([*WINDOW, "--timeout", "0"])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "--timeout" in captured.err
+    assert client_calls == []
+
+
+def test_get_client_applies_the_timeout_only_when_asked():
+    # conftest rebinds get_db and get_collection, not get_client, and building
+    # a MongoClient performs no I/O, so this exercises the real factory.
+    mongo.reset_client()
+    try:
+        assert mongo.get_client().options.server_selection_timeout == 30.0
+        mongo.reset_client()
+        client = mongo.get_client(server_selection_timeout_ms=1500)
+        assert client.options.server_selection_timeout == 1.5
+        # A later call without the option returns the same client unchanged.
+        assert mongo.get_client() is client
+    finally:
+        mongo.reset_client()
