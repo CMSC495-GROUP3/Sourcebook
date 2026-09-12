@@ -22,7 +22,8 @@ def test_export_is_byte_identical_across_two_writes(tmp_path: Path) -> None:
 def test_committed_openapi_matches_regeneration() -> None:
     """``make openapi`` (and CI) fail unless docs/openapi.json is current."""
     assert OUTPUT.is_file(), "docs/openapi.json is missing; run make openapi"
-    assert OUTPUT.read_text(encoding="utf-8") == dumps(export_schema())
+    committed = OUTPUT.read_text(encoding="utf-8").replace("\r\n", "\n")
+    assert committed == dumps(export_schema())
 
 
 def test_api_md_names_every_openapi_path() -> None:
