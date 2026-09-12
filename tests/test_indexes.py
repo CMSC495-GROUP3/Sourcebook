@@ -21,6 +21,18 @@ def test_ensure_indexes_explains_legacy_passage_index(monkeypatch):
         db.ensure_indexes()
 
 
+def test_ensure_indexes_reraises_other_operation_failures(monkeypatch):
+    # Only IndexOptionsConflict gets the migration hint. Anything else, such
+    # as an authorization failure, must surface as itself.
+    def unauthorized(*args, **kwargs):
+        raise OperationFailure("not authorized", code=13)
+
+    monkeypatch.setattr(FAKE_DB["passages"], "create_index", unauthorized)
+
+    with pytest.raises(OperationFailure):
+        db.ensure_indexes()
+
+
 def test_ensure_indexes_declares_a_unique_source_index_for_document_bodies(monkeypatch):
     declared: list[tuple] = []
 
