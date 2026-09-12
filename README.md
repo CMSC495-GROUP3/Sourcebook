@@ -401,6 +401,17 @@ That log is how the system improves from evidence rather than intuition.
   sound basis for tuning `SIMILARITY_THRESHOLD`, and there is no other way to
   collect it.
 
+Run a read-only report over a time window. Run it on the EC2 host. The
+cluster's IP access list admits that host, so anywhere else waits out
+`--timeout` (default 10 s) and then fails in a way that looks like a config
+typo.
+
+    python -m sourcebook.rag.query_log_reports --since 2026-08-01
+
+`--until` defaults to now. Optional `--top` and `--min-repeat` bound the ranked
+lists. `query_logs` rows expire after 90 days (`QUERY_LOG_TTL_SECONDS`), so a
+window that ends earlier than that prints an empty report rather than an error.
+
 This is deliberately not fine-tuning. Retraining on interaction data would
 contradict the reason RAG was chosen, and no pilot produces the volume it would
 need. Improving what gets retrieved, and knowing what to write next, delivers

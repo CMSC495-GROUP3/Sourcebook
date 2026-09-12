@@ -51,8 +51,14 @@ _client: MongoClient | None = None
 _lock = Lock()
 
 
-def get_client() -> MongoClient:
-    """Return the process-wide client, creating it on first use."""
+def get_client(*, server_selection_timeout_ms: int | None = None) -> MongoClient:
+    """Return the process-wide client, creating it on first use.
+
+    ``server_selection_timeout_ms`` only applies to the call that creates the
+    client. The API never passes it and keeps pymongo's 30 s default; the
+    query-log report CLI passes a short one so a wrong URI on a laptop fails
+    in seconds instead of stalling.
+    """
     global _client
     if _client is not None:
         return _client
@@ -66,7 +72,10 @@ def get_client() -> MongoClient:
                 raise RuntimeError(
                     "MONGODB_URI is not set. Copy .env.example to .env and fill it in."
                 )
-            _client = MongoClient(uri, maxPoolSize=MONGO_MAX_POOL_SIZE)
+            options: dict[str, int] = {"maxPoolSize": MONGO_MAX_POOL_SIZE}
+            if server_selection_timeout_ms is not None:
+                options["serverSelectionTimeoutMS"] = server_selection_timeout_ms
+            _client = MongoClient(uri, **options)
     return _client
 
 

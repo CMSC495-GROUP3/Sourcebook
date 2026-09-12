@@ -242,7 +242,15 @@ covers `.env`; the rest is on you.
   yet.
 - Query analytics are in the `query_logs` collection: refused questions grouped
   by `question_hash` are the content gaps, and `best_score` on answered versus
-  refused rows is what the threshold should be tuned against.
+  refused rows is what the threshold should be tuned against. Run a read-only
+  offline report over a time window, on the EC2 host, since the cluster's IP
+  access list admits that host and anywhere else waits out `--timeout`
+  (default 10 s) and fails:
+  `python -m sourcebook.rag.query_log_reports --since 2026-08-01`.
+  `--until` defaults to now. Optional `--top` and `--min-repeat` bound the
+  ranked lists. Rows expire after 90 days (`QUERY_LOG_TTL_SECONDS`), so an
+  older window prints an empty report. Sample text comes from already-logged
+  truncated `question_raw` / `question_condensed` when present.
 - API logs go to stdout. In Compose: `docker compose logs -f api`.
 
 ## Load testing and deployment
