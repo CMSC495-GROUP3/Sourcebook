@@ -48,13 +48,15 @@ Content-Type: application/json
 
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyIiwiY3JlZCI6IkFQUF9QQVNTV09SRF9IQVNIIiwiZmluZ2VycHJpbnQiOiIzMTc5ZDM2YTU4YTAiLCJleHAiOjE3ODkyNjE0Mzd9.lL9VqRjO1POHVeN7zBluauDeeBts7xwtYGv1vYXonHw",
+  "access_token": "<access_token>",
   "token_type": "bearer"
 }
 ```
 
-The token lasts 24 hours. Rotating the password hash revokes sessions bound to
-it. Paste the token into `/docs` → Authorize to call the rest of the console.
+The live body is a JWT that lasts 24 hours; the example is a placeholder so
+the committed page does not look like a leaked token. Rotating the password
+hash revokes sessions bound to it. Paste a live token into `/docs` → Authorize
+to call the rest of the console.
 
 ## Ask (SSE)
 

@@ -1,11 +1,14 @@
 """The committed OpenAPI document must match a fresh, repeatable export."""
 
+import re
 from pathlib import Path
 
 from scripts.export_openapi import OUTPUT, dumps, export_schema, write_openapi
 
 ROOT = Path(__file__).resolve().parents[1]
 API_MD = ROOT / "docs" / "api.md"
+# gitleaks rule ``jwt`` matches three base64url segments starting with eyJ.
+_JWT_SHAPED = re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
 
 
 def test_export_is_byte_identical_across_two_writes(tmp_path: Path) -> None:
@@ -32,3 +35,10 @@ def test_api_md_names_every_openapi_path() -> None:
     schema = export_schema()
     missing = [path for path in schema["paths"] if path not in text]
     assert missing == [], f"docs/api.md omits OpenAPI paths: {missing}"
+
+
+def test_api_md_login_example_has_no_jwt() -> None:
+    """Committed JWTs trip gitleaks; the walkthrough uses a placeholder."""
+    text = API_MD.read_text(encoding="utf-8")
+    assert _JWT_SHAPED.search(text) is None
+    assert '"access_token": "<access_token>"' in text
