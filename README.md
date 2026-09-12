@@ -70,6 +70,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
 | [docs/README.md](docs/README.md) | the index of everything under `docs/` |
+| [docs/team.md](docs/team.md) | individual contributions, mailmapped identities, and the row each member checks |
 | [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
 | [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
 | [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
@@ -954,9 +955,12 @@ The rest of the team: Gavin ([@gavinwathen](https://github.com/gavinwathen))
 and Dominick ([@fudgepop01](https://github.com/fudgepop01)) build the React
 components and own the design and styling; George Struder
 ([@Lazzy-dev](https://github.com/Lazzy-dev)) handles administration,
-dependency locks, and the MongoDB deployment; Robert
+dependency locks, and the MongoDB deployment; Rob
 ([@RoNUO](https://github.com/RoNUO)) works on corpus availability and the
 passage index.
+
+Per-person commits, reviews, and the issues that show the work are in
+[docs/team.md](docs/team.md). Each member checks their own row.
 
 ## References
 

@@ -6,6 +6,7 @@ vulnerability in [SECURITY.md](../SECURITY.md).
 
 | Page | What it covers |
 | --- | --- |
+| [team.md](team.md) | individual contributions, mailmapped identities, and the row each member checks |
 | [design.md](design.md) | the paper-and-ink design system for `web/`: tokens, type, layout, motion, and the mark |
 | [evaluation.md](evaluation.md) | the labeled question sets in `evaluation/`, the metrics, and how to run the live evaluation |
 | [load-testing.md](load-testing.md) | synthetic throughput measurements from `scripts/loadtest/` and the `THREADPOOL_TOKENS` decision |
