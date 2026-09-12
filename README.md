@@ -67,6 +67,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 
 | Read | For |
 | --- | --- |
+| [docs/releases/v1.0.0/portfolio.md](docs/releases/v1.0.0/portfolio.md) | Unit 8 grader table (pre-tag scaffold). `v1.0.0` is not cut; do not treat this row as the submitted version |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
 | [docs/README.md](docs/README.md) | the index of everything under `docs/` |
