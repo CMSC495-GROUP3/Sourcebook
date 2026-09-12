@@ -214,7 +214,8 @@ class TestChat:
         )
         _ask(client, auth, follow_up, stream_session)
 
-        assert retrieval.calls[-2:] == [condensed, condensed]
+        # Each route retrieves the rewritten query, then the original question.
+        assert retrieval.calls[-4:] == [condensed, follow_up, condensed, follow_up]
 
         chat_log, stream_log = list(FAKE_DB["query_logs"].find({}))
         assert chat_log["question_raw"] == follow_up
@@ -222,6 +223,83 @@ class TestChat:
         assert chat_log["question_condensed"] != follow_up
         assert stream_log["question_condensed"] == condensed
         assert chat_log["question_hash"] == stream_log["question_hash"]
+
+
+class TestOriginalQuestionSafetyGate:
+    """#189 through the chat routes: history must not rescue an uncovered ask."""
+
+    def test_unsupported_original_refuses_and_cites_nothing(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        mercury = "What is the boiling point of mercury at sea level?"
+
+        def by_query(query: str, k: int = 5) -> list[dict]:
+            retrieval.calls.append(query)
+            if "mercury" in query.casefold():
+                return make_passages(0.59, title="Health Insurance and Benefits Enrollment")[:k]
+            return make_passages(0.80, 0.75, title="Paid Time Off (PTO) Policy")[:k]
+
+        monkeypatch.setattr("sourcebook.rag.rag_chain.retrieve_passages", by_query)
+
+        assert (
+            client.post(
+                "/api/chat",
+                json={"question": "How much PTO do I get?", "session_id": conversation},
+                headers=auth,
+            ).status_code
+            == 200
+        )
+
+        body = client.post(
+            "/api/chat",
+            json={"question": mercury, "session_id": conversation},
+            headers=auth,
+        ).json()
+        assert body["refused"] is True
+        assert body["answer"] == REFUSAL_MESSAGE
+        assert body["sources"] == []
+        assert body["follow_ups"] == []
+        assert body["confidence"] == 59
+
+        stored = _messages(conversation)[-1]
+        assert stored["refused"] is True and stored["sources"] == []
+
+        events = _ask(client, auth, mercury, conversation)
+        done = next(event for event in events if event.get("done"))
+        assert events[0] == {"chunk": REFUSAL_MESSAGE}
+        assert done["refused"] is True
+        assert done["sources"] == []
+
+    def test_supported_follow_up_still_answers(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        follow_up = "how much do I get?"
+
+        def by_query(query: str, k: int = 5) -> list[dict]:
+            retrieval.calls.append(query)
+            if query == follow_up:
+                return make_passages(0.50, title="Paid Time Off (PTO) Policy")[:k]
+            return make_passages(0.80, title="Paid Time Off (PTO) Policy")[:k]
+
+        monkeypatch.setattr("sourcebook.rag.rag_chain.retrieve_passages", by_query)
+
+        assert (
+            client.post(
+                "/api/chat",
+                json={"question": "How much PTO do I get?", "session_id": conversation},
+                headers=auth,
+            ).status_code
+            == 200
+        )
+
+        body = client.post(
+            "/api/chat",
+            json={"question": follow_up, "session_id": conversation},
+            headers=auth,
+        ).json()
+        assert body["refused"] is False
+        assert body["sources"] == ["Paid Time Off (PTO) Policy"]
+        assert body["answer"] == FAKE_ANSWER
 
 
 # ── Streaming ─────────────────────────────────────────────────────────────────
@@ -302,7 +380,8 @@ class TestStream:
     def test_follow_up_turns_bypass_the_cache(self, client, auth, retrieval, conversation):
         _ask(client, auth, "How much PTO?", conversation)
         _ask(client, auth, "How much PTO?", conversation)
-        assert len(retrieval.calls) == 2
+        # First turn retrieves once; the follow-up retrieves condensed + original.
+        assert len(retrieval.calls) == 3
 
     def test_generation_error_persists_nothing(
         self, client, auth, retrieval, conversation, monkeypatch

@@ -4,8 +4,10 @@ import pytest
 from conftest import make_passages
 
 from sourcebook.rag import config, rag_chain
+from sourcebook.rag.config import REFUSAL_MESSAGE
 from sourcebook.rag.rag_chain import (
     ANSWER_SYSTEM_PROMPT,
+    answer_question,
     build_citation_manifest,
     build_context,
     build_messages,
@@ -13,7 +15,9 @@ from sourcebook.rag.rag_chain import (
     condense_question,
     confidence_score,
     generate_follow_ups,
+    ground_question,
     is_grounded,
+    resolve_grounding,
 )
 
 
@@ -35,6 +39,181 @@ class TestGroundingGate:
         passages = make_passages(0.9)
         del passages[0]["score"]
         assert is_grounded(passages, threshold=0.62) is False
+
+
+PTO_HISTORY = [
+    {"role": "user", "content": "How much PTO do I get?"},
+    {
+        "role": "assistant",
+        "content": "Full-time employees accrue 15 days of PTO per year.",
+        "sources": ["Paid Time Off (PTO) Policy"],
+    },
+]
+
+MERCURY = "What is the boiling point of mercury at sea level?"
+REFERENTIAL_FOLLOW_UP = "how much do I get?"
+
+
+class TestOriginalQuestionSafetyGate:
+    """#189: condensation must not launder an unsupported standalone question."""
+
+    def test_unsupported_original_is_not_rescued_by_unrelated_history(self):
+        original = make_passages(0.59, title="Disciplinary Action and Termination")
+        lifted = make_passages(0.80, 0.75, title="Paid Time Off (PTO) Policy")
+        grounded, chosen = resolve_grounding(
+            MERCURY,
+            original_passages=original,
+            condensed_query=f"{MERCURY} under the Paid Time Off policy",
+            condensed_passages=lifted,
+        )
+        assert grounded is False
+        assert chosen == original
+        assert cited_sources(chosen) == ["Disciplinary Action and Termination"]
+
+    def test_referential_follow_up_can_use_condensed_retrieval(self):
+        original = make_passages(0.50, title="Paid Time Off (PTO) Policy")
+        rewritten = make_passages(0.80, title="Paid Time Off (PTO) Policy")
+        grounded, chosen = resolve_grounding(
+            REFERENTIAL_FOLLOW_UP,
+            original_passages=original,
+            condensed_query="How much PTO do I get in my first year?",
+            condensed_passages=rewritten,
+        )
+        assert grounded is True
+        assert chosen == rewritten
+        assert cited_sources(chosen) == ["Paid Time Off (PTO) Policy"]
+
+    def test_supported_follow_up_with_topic_term_in_the_hits(self):
+        original = make_passages(0.48, title="Paid Time Off (PTO) Policy")
+        rewritten = make_passages(0.81, title="Paid Time Off (PTO) Policy")
+        rewritten[0]["text"] = "Contractors accrue PTO on a separate schedule."
+        grounded, chosen = resolve_grounding(
+            "what about contractors?",
+            original_passages=original,
+            condensed_query="How much PTO do contractors accrue?",
+            condensed_passages=rewritten,
+        )
+        assert grounded is True
+        assert chosen == rewritten
+
+    def test_topic_shift_follow_up_is_not_cited_from_prior_policy(self):
+        original = make_passages(0.40, title="Health Insurance and Benefits Enrollment")
+        lifted = make_passages(0.80, title="Paid Time Off (PTO) Policy")
+        grounded, chosen = resolve_grounding(
+            "what about mercury?",
+            original_passages=original,
+            condensed_query="What about mercury in the Paid Time Off policy?",
+            condensed_passages=lifted,
+        )
+        assert grounded is False
+        assert chosen == original
+        assert cited_sources(chosen) != ["Paid Time Off (PTO) Policy"]
+
+    def test_first_turn_refusal_stays_on_the_raw_question(self):
+        weak = make_passages(0.50, 0.40)
+        grounded, chosen = resolve_grounding(
+            MERCURY,
+            original_passages=weak,
+            condensed_query=MERCURY,
+            condensed_passages=weak,
+        )
+        assert grounded is False
+        assert chosen == weak
+
+    def test_first_turn_answer_is_unchanged(self):
+        strong = make_passages(0.80, 0.75)
+        grounded, chosen = resolve_grounding(
+            "How much PTO do I get?",
+            original_passages=strong,
+            condensed_query="How much PTO do I get?",
+            condensed_passages=strong,
+        )
+        assert grounded is True
+        assert chosen == strong
+
+    def test_hr_adjacent_standalone_is_outside_this_gate(self):
+        # #192: an uncovered HR-flavoured ask that already clears the cosine
+        # threshold on the original question is not this correction.
+        adjacent = make_passages(0.73, title="Relocation Assistance")
+        question = "May I take a six month paid sabbatical after ten years?"
+        grounded, chosen = resolve_grounding(
+            question,
+            original_passages=adjacent,
+            condensed_query=question,
+            condensed_passages=adjacent,
+        )
+        assert grounded is True
+        assert chosen == adjacent
+
+
+def _retrieve_by_query(query: str, k: int = 5) -> list[dict]:
+    """Synthetic Atlas: mercury is weak; condensed PTO-shaped queries are strong."""
+    lowered = query.casefold()
+    if "mercury" in lowered:
+        return make_passages(0.59, title="Health Insurance and Benefits Enrollment")[:k]
+    if query == REFERENTIAL_FOLLOW_UP:
+        return make_passages(0.50, title="Paid Time Off (PTO) Policy")[:k]
+    return make_passages(0.80, 0.75, title="Paid Time Off (PTO) Policy")[:k]
+
+
+class TestAnswerQuestionSafetyGate:
+    def test_unsupported_original_refuses_after_unrelated_history(self, monkeypatch):
+        monkeypatch.setattr(rag_chain, "retrieve_passages", _retrieve_by_query)
+        result = answer_question(MERCURY, PTO_HISTORY)
+        assert result["refused"] is True
+        assert result["answer"] == REFUSAL_MESSAGE
+        assert result["sources"] == []
+        assert result["follow_ups"] == []
+        assert result["confidence"] == 59
+
+    def test_supported_follow_up_still_answers(self, monkeypatch):
+        monkeypatch.setattr(rag_chain, "retrieve_passages", _retrieve_by_query)
+        result = answer_question(REFERENTIAL_FOLLOW_UP, PTO_HISTORY)
+        assert result["refused"] is False
+        assert result["sources"] == ["Paid Time Off (PTO) Policy"]
+        assert result["answer"]
+        assert result["confidence"] == 78
+
+    def test_first_turn_unsupported_still_refuses(self, monkeypatch):
+        monkeypatch.setattr(rag_chain, "retrieve_passages", _retrieve_by_query)
+        result = answer_question(MERCURY, [])
+        assert result["refused"] is True
+        assert result["answer"] == REFUSAL_MESSAGE
+        assert result["sources"] == []
+
+    def test_refusal_does_not_call_the_answer_model(self, monkeypatch):
+        monkeypatch.setattr(rag_chain, "retrieve_passages", _retrieve_by_query)
+
+        def no_answer(*args, role="utility", **kwargs):
+            assert role != "answer"
+            return "How much PTO do I get under the Paid Time Off policy?"
+
+        monkeypatch.setattr(
+            rag_chain, "get_provider", lambda: type("P", (), {"complete": no_answer})()
+        )
+        result = answer_question(MERCURY, PTO_HISTORY)
+        assert result["refused"] is True
+
+    def test_ground_question_retrieves_both_signals_on_a_rewrite(self, monkeypatch):
+        calls: list[str] = []
+
+        def retrieve(query: str, k: int = 5) -> list[dict]:
+            calls.append(query)
+            return _retrieve_by_query(query, k)
+
+        monkeypatch.setattr(rag_chain, "retrieve_passages", retrieve)
+        monkeypatch.setattr(
+            rag_chain,
+            "condense_question",
+            lambda query, history: f"{query} under the Paid Time Off policy",
+        )
+        retrieval = ground_question(MERCURY, PTO_HISTORY)
+        assert calls == [
+            f"{MERCURY} under the Paid Time Off policy",
+            MERCURY,
+        ]
+        assert retrieval["grounded"] is False
+        assert retrieval["confidence"] == 59
 
 
 class TestConfidence:

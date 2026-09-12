@@ -11,9 +11,15 @@ Two guarantees the rest of the application depends on:
 1. Every answer carries the source documents it was drawn from.
 2. If retrieval is too weak (see config.SIMILARITY_THRESHOLD), no model call is
    made at all and the user gets an honest refusal instead of a guess.
+
+Follow-up turns rewrite the query for recall (`condense_question`). The
+grounding gate still scores the question the employee asked. Condensation may
+widen a referential follow-up; it may not lift a standalone unsupported
+question over the threshold by borrowing unrelated conversation history.
 """
 
 import os
+import re
 
 from dotenv import load_dotenv
 
@@ -114,6 +120,206 @@ def is_grounded(passages: list[dict], threshold: float = SIMILARITY_THRESHOLD) -
     if not passages:
         return False
     return max(p.get("score", 0.0) for p in passages) >= threshold
+
+
+# Function words and light verbs. A question that reduces to these does not
+# name a new topic, so condensation may rescue it as a referential follow-up.
+# Standalone nouns ("mercury", "sabbatical") stay in the content-term set.
+_FOLLOW_UP_STOPWORDS = frozenset(
+    {
+        "a",
+        "about",
+        "also",
+        "an",
+        "and",
+        "any",
+        "are",
+        "at",
+        "be",
+        "been",
+        "but",
+        "by",
+        "can",
+        "could",
+        "did",
+        "do",
+        "does",
+        "for",
+        "from",
+        "get",
+        "getting",
+        "got",
+        "had",
+        "has",
+        "have",
+        "how",
+        "i",
+        "if",
+        "in",
+        "into",
+        "is",
+        "it",
+        "its",
+        "just",
+        "many",
+        "may",
+        "me",
+        "might",
+        "much",
+        "my",
+        "not",
+        "of",
+        "off",
+        "on",
+        "or",
+        "our",
+        "out",
+        "over",
+        "should",
+        "so",
+        "some",
+        "still",
+        "take",
+        "taken",
+        "taking",
+        "than",
+        "that",
+        "the",
+        "then",
+        "this",
+        "to",
+        "too",
+        "use",
+        "used",
+        "using",
+        "was",
+        "we",
+        "were",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "with",
+        "would",
+        "you",
+        "your",
+    }
+)
+
+
+def _content_terms(text: str) -> frozenset[str]:
+    """Topic-bearing tokens from a question, used to detect a history hijack."""
+    words = re.findall(r"[a-z0-9]+", text.casefold())
+    return frozenset(word for word in words if word not in _FOLLOW_UP_STOPWORDS and len(word) > 2)
+
+
+def _passages_support_terms(passages: list[dict], terms: frozenset[str]) -> bool:
+    """True when the question named no topic, or at least one topic term hits."""
+    if not terms:
+        return True
+    blob = " ".join(f"{p.get('title') or ''} {p.get('text') or ''}" for p in passages).casefold()
+    return any(re.search(rf"\b{re.escape(term)}\b", blob) is not None for term in terms)
+
+
+def _merge_passages(*groups: list[dict]) -> list[dict]:
+    """Concatenate passage groups, keeping the first copy of each chunk."""
+    merged: list[dict] = []
+    seen: set[tuple] = set()
+    for group in groups:
+        for passage in group:
+            key = (
+                passage.get("doc_id"),
+                passage.get("chunk_index"),
+                passage.get("title"),
+                passage.get("text"),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(passage)
+    return merged
+
+
+def resolve_grounding(
+    query: str,
+    *,
+    original_passages: list[dict],
+    condensed_query: str,
+    condensed_passages: list[dict],
+    threshold: float = SIMILARITY_THRESHOLD,
+) -> tuple[bool, list[dict]]:
+    """Apply the original-question safety gate.
+
+    Returns ``(grounded, passages)``. On a pass, ``passages`` are what the
+    model may cite. On a refusal they are the original-question hits so the
+    displayed score stays honest and citations stay empty.
+
+    Condensation may rescue a referential follow-up (no topic nouns, or those
+    nouns appear in the rewritten hits). It may not rescue a standalone
+    question whose own retrieval missed the threshold. That second case is
+    the #189 defect: unrelated history must not launder an uncovered ask.
+    """
+    original_ok = is_grounded(original_passages, threshold)
+    condensed_ok = is_grounded(condensed_passages, threshold)
+    rewritten = condensed_query != query
+
+    if original_ok:
+        if rewritten and condensed_ok:
+            terms = _content_terms(query)
+            extras = [
+                passage
+                for passage in condensed_passages
+                if not terms or _passages_support_terms([passage], terms)
+            ]
+            return True, _merge_passages(original_passages, extras)
+        return True, original_passages
+
+    if (
+        rewritten
+        and condensed_ok
+        and _passages_support_terms(condensed_passages, _content_terms(query))
+    ):
+        return True, condensed_passages
+
+    return False, original_passages
+
+
+def ground_question(query: str, chat_history: list[dict] | None = None) -> dict:
+    """Retrieve, rewrite if needed, and decide whether the corpus can answer.
+
+    Returns ``condensed``, ``passages``, ``grounded``, and ``confidence``.
+    First turns retrieve once. Follow-ups retrieve the rewritten query and
+    the original question so the safety gate can see both scores.
+    """
+    chat_history = chat_history or []
+    condensed = condense_question(query, chat_history)
+
+    if condensed == query:
+        passages = retrieve_passages(query)
+        grounded, chosen = resolve_grounding(
+            query,
+            original_passages=passages,
+            condensed_query=condensed,
+            condensed_passages=passages,
+        )
+    else:
+        condensed_passages = retrieve_passages(condensed)
+        original_passages = retrieve_passages(query)
+        grounded, chosen = resolve_grounding(
+            query,
+            original_passages=original_passages,
+            condensed_query=condensed,
+            condensed_passages=condensed_passages,
+        )
+
+    return {
+        "condensed": condensed,
+        "passages": chosen,
+        "grounded": grounded,
+        "confidence": confidence_score(chosen),
+    }
 
 
 def confidence_score(passages: list[dict]) -> int:
@@ -277,14 +483,14 @@ def answer_question(query: str, chat_history: list[dict] | None = None) -> dict:
     """
     chat_history = chat_history or []
 
-    retrieval_query = condense_question(query, chat_history)
-    passages = retrieve_passages(retrieval_query)
+    retrieval = ground_question(query, chat_history)
+    passages = retrieval["passages"]
 
-    if not is_grounded(passages):
+    if not retrieval["grounded"]:
         return {
             "answer": REFUSAL_MESSAGE,
             "sources": [],
-            "confidence": confidence_score(passages),
+            "confidence": retrieval["confidence"],
             "follow_ups": [],
             "refused": True,
         }
@@ -307,7 +513,7 @@ def answer_question(query: str, chat_history: list[dict] | None = None) -> dict:
     return {
         "answer": answer,
         "sources": cited_sources(passages),
-        "confidence": confidence_score(passages),
+        "confidence": retrieval["confidence"],
         "follow_ups": generate_follow_ups(query, answer),
         "refused": False,
     }

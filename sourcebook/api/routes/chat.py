@@ -44,11 +44,8 @@ from sourcebook.rag.llm import get_provider
 from sourcebook.rag.rag_chain import (
     build_messages,
     cited_sources,
-    condense_question,
-    confidence_score,
     generate_follow_ups,
-    is_grounded,
-    retrieve_passages,
+    ground_question,
 )
 
 logger = logging.getLogger(__name__)
@@ -172,11 +169,12 @@ def _answer(question: str, history: list[dict]) -> dict:
             # Cache hits are first-turn only, so raw and condensed are equal.
             return {**cached, "passages": [], "cache_hit": "answer", "condensed": question}
 
-    retrieval_query = condense_question(question, history)
-    passages = retrieve_passages(retrieval_query)
-    confidence = confidence_score(passages)
+    retrieval = ground_question(question, history)
+    passages = retrieval["passages"]
+    confidence = retrieval["confidence"]
+    retrieval_query = retrieval["condensed"]
 
-    if not is_grounded(passages):
+    if not retrieval["grounded"]:
         result = {
             "answer": REFUSAL_MESSAGE,
             "sources": [],
@@ -421,14 +419,14 @@ def _stream(body: ChatRequest):
                     yield _sse({"follow_ups": cached["follow_ups"]})
                 return
 
-        retrieval_query = condense_question(body.question, history)
-        passages = retrieve_passages(retrieval_query)
-        state["condensed"] = retrieval_query
+        retrieval = ground_question(body.question, history)
+        passages = retrieval["passages"]
+        state["condensed"] = retrieval["condensed"]
         state["passages"] = passages
-        state["confidence"] = confidence_score(passages)
+        state["confidence"] = retrieval["confidence"]
 
         # Grounding gate — below the threshold we decline without generating.
-        if not is_grounded(passages):
+        if not retrieval["grounded"]:
             logger.info(
                 "Refused: best score %.3f below threshold for session %s",
                 max((p.get("score", 0.0) for p in passages), default=0.0),

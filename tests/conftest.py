@@ -53,12 +53,12 @@ main.ensure_indexes = lambda: None
 from fastapi.testclient import TestClient  # noqa: E402
 
 from sourcebook.api.limiter import limiter  # noqa: E402
-from sourcebook.api.routes import chat as chat_routes  # noqa: E402
 from sourcebook.api.routes.auth import (  # noqa: E402
     PRIMARY_PASSWORD_HASH_VAR,
     create_access_token,
     credential_fingerprint,
 )
+from sourcebook.rag import rag_chain as rag_chain_mod  # noqa: E402
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
 
@@ -145,7 +145,7 @@ class Retrieval:
 @pytest.fixture
 def retrieval(monkeypatch) -> Retrieval:
     stub = Retrieval()
-    monkeypatch.setattr(chat_routes, "retrieve_passages", stub)
+    monkeypatch.setattr(rag_chain_mod, "retrieve_passages", stub)
     return stub
 
 
