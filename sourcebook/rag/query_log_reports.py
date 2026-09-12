@@ -1,13 +1,13 @@
 """Offline query_logs reports for content gaps, FAQ ranking, and score distributions.
 
-Every chat request writes one ``query_logs`` row (see ``policy_assistant.api.analytics``).
+Every chat request writes one ``query_logs`` row (see ``sourcebook.api.analytics``).
 This module is the read side of that loop: a bounded, read-only MongoDB aggregation
 over a caller-supplied time window. It does not change logging, grounding, or
 ``SIMILARITY_THRESHOLD``.
 
 Run from the repository root with ``MONGODB_URI`` configured:
 
-    python -m policy_assistant.rag.query_log_reports --since 2026-08-01 --until 2026-09-01
+    python -m sourcebook.rag.query_log_reports --since 2026-08-01 --until 2026-09-01
 
 Reports:
 
@@ -31,7 +31,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from policy_assistant.rag.mongo import get_collection
+from sourcebook.rag.mongo import get_collection
 
 # Operator-facing caps. Aggregation pipelines always $match the time window first,
 # then $group / $sort / $limit so the client never loads the full collection.

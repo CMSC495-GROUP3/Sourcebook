@@ -62,14 +62,14 @@ Needed for anything touching retrieval quality, ingestion, or the provider.
    "Load the corpus" section has the exact JSON). The driver cannot create a
    search index; this step is manual and it is the one people forget.
    ```bash
-   .venv/bin/python -m policy_assistant.rag.seed_documents     # documents -> S3
-   .venv/bin/python -m policy_assistant.rag.embed_documents    # chunk, embed, store
+   .venv/bin/python -m sourcebook.rag.seed_documents     # documents -> S3
+   .venv/bin/python -m sourcebook.rag.embed_documents    # chunk, embed, store
    ```
 4. Run it either way:
 
    | | Command | Use when |
    |---|---|---|
-   | Dev mode | `.venv/bin/uvicorn policy_assistant.api.main:app --reload` plus `make web` | changing code |
+   | Dev mode | `.venv/bin/uvicorn sourcebook.api.main:app --reload` plus `make web` | changing code |
    | Full stack | `make compose` | checking the Nginx proxy, the Docker build, or what a deploy will run |
 
    In dev mode the API is at http://localhost:8000 and the OpenAPI console at
@@ -104,7 +104,7 @@ so they run on fork PRs too.
 | CI | Python tests (3.11 through 3.14) | a failing test, or coverage under 80% on any version |
 | CI | Evaluation dataset | `evaluation/questions.json` or `questions_full.json` that `load_cases` rejects |
 | CI | Web lint, types, build | ESLint, `tsc -b`, or `vite build` |
-| CI | Docker images and Compose | either image failing to build, the API image failing to import `policy_assistant.api.main`, an invalid `docker-compose.yml`, or `scripts/test_proxy_chain.py` failing the live Caddy → Nginx → Uvicorn client-IP / rate-limit check |
+| CI | Docker images and Compose | either image failing to build, the API image failing to import `sourcebook.api.main`, an invalid `docker-compose.yml`, or `scripts/test_proxy_chain.py` failing the live Caddy → Nginx → Uvicorn client-IP / rate-limit check |
 | CI | Shell, Dockerfile, workflow lint | shellcheck on `scripts/*.sh`, hadolint on both Dockerfiles, actionlint on the workflows, or a `.env`, key, or build output that got committed |
 | Security | CodeQL, dependency advisories, dependency review, leaked secrets | a new finding; the accepted-advisory list is in `scripts/audit.sh` |
 | PR checks | title, description | a title not in `type: what changed` form, or an empty "What and why" |
@@ -123,8 +123,11 @@ means a job added or renamed in `ci.yml` cannot quietly stop being required.
 A fourth workflow, **Live evaluation**, runs the labeled question set against
 the real provider and index. It costs money, so it only runs when a maintainer
 starts it from the Actions tab, and it needs a repository environment named
-`evaluation` holding `OPENAI_API_KEY`, `MONGODB_URI`, and `MONGODB_DB`. See
-`docs/evaluation.md` for what the numbers mean.
+`evaluation` holding `OPENAI_API_KEY`, `MONGODB_URI`, `MONGODB_DB`, and an
+Atlas API key as `ATLAS_PUBLIC_KEY`, `ATLAS_PRIVATE_KEY`, and
+`ATLAS_PROJECT_ID`, which the job uses to admit its own IP to the cluster's
+access list for the length of the run. See `docs/evaluation.md` for the setup
+and for what the numbers mean.
 
 Dependabot opens one grouped PR per ecosystem on Mondays (pip, npm, GitHub
 Actions, Docker base images). Review them like any other PR; CI runs on them.
@@ -155,22 +158,22 @@ keep it obviously partial rather than pretending to be complete.
 
 | I want to change... | Look in |
 |---|---|
-| a tuning knob (threshold, chunk size, TTLs, thread pool) | `policy_assistant/rag/config.py`; every value is env-overridable, defaults live here |
-| the answer prompt | `policy_assistant/rag/rag_chain.py` `ANSWER_SYSTEM_PROMPT`, then bump `PROMPT_VERSION` in `policy_assistant/rag/config.py` or cached answers keep serving the old prompt |
-| retrieval or the grounding gate | `policy_assistant/rag/rag_chain.py` |
-| which model or vendor is used | `policy_assistant/rag/llm.py` only. Add a subclass, register it in `_PROVIDERS`, set `LLM_PROVIDER` |
-| how a source format is parsed | `policy_assistant/rag/documents.py` |
-| an API endpoint | `policy_assistant/api/routes/`; one file per area, mounted in `policy_assistant/api/main.py` |
-| a MongoDB collection or index | `policy_assistant/api/db.py` |
+| a tuning knob (threshold, chunk size, TTLs, thread pool) | `sourcebook/rag/config.py`; every value is env-overridable, defaults live here |
+| the answer prompt | `sourcebook/rag/rag_chain.py` `ANSWER_SYSTEM_PROMPT`, then bump `PROMPT_VERSION` in `sourcebook/rag/config.py` or cached answers keep serving the old prompt |
+| retrieval or the grounding gate | `sourcebook/rag/rag_chain.py` |
+| which model or vendor is used | `sourcebook/rag/llm.py` only. Add a subclass, register it in `_PROVIDERS`, set `LLM_PROVIDER` |
+| how a source format is parsed | `sourcebook/rag/documents.py` |
+| an API endpoint | `sourcebook/api/routes/`; one file per area, mounted in `sourcebook/api/main.py` |
+| a MongoDB collection or index | `sourcebook/api/db.py` |
 | the chat UI | `web/src/components/Chat/`, state in `web/src/hooks/useChat.ts` |
-| the product name or the escalation contact | both `policy_assistant/rag/config.py` and `web/src/config.ts`; they are mirrored, change both |
+| the product name or the escalation contact | both `sourcebook/rag/config.py` and `web/src/config.ts`; they are mirrored, change both |
 | the sample corpus | `data/sample-policies/`, then re-run ingestion |
 
-`policy_assistant` is one package and every import is absolute
-(`from policy_assistant.rag.config import ...`), so run things from the repo
-root as modules: `python -m policy_assistant.rag.embed_documents`,
-`uvicorn policy_assistant.api.main:app`. Running a file by path
-(`python policy_assistant/rag/embed_documents.py`) puts the wrong directory on
+`sourcebook` is one package and every import is absolute
+(`from sourcebook.rag.config import ...`), so run things from the repo
+root as modules: `python -m sourcebook.rag.embed_documents`,
+`uvicorn sourcebook.api.main:app`. Running a file by path
+(`python sourcebook/rag/embed_documents.py`) puts the wrong directory on
 `sys.path` and the package import fails.
 
 ## Getting a change merged
@@ -208,13 +211,13 @@ covers `.env`; the rest is on you.
   supports TypeScript 7.
 - **Do not deploy under gunicorn `--preload`.** `MongoClient` is not fork-safe
   and the collection handles bind at import. `uvicorn --workers N` is fine. The
-  reasoning is in `policy_assistant/rag/mongo.py`.
+  reasoning is in `sourcebook/rag/mongo.py`.
 - **`LLM_PROVIDER=fake` refuses to start with `APP_ENV=production`**, on
   purpose. If a deploy fails with that error, the environment is misconfigured,
   not the code.
 - **Connections per process** are `MONGO_MAX_POOL_SIZE` and the cluster limit is
   workers times that. Atlas free tier caps in the low hundreds and fails under
-  load rather than at startup. Redo the arithmetic in `policy_assistant/rag/mongo.py` before
+  load rather than at startup. Redo the arithmetic in `sourcebook/rag/mongo.py` before
   raising either number.
 - **Cached answers outlive a prompt fix** unless `PROMPT_VERSION` is bumped. It
   is part of the cache key for exactly this reason.
@@ -237,7 +240,7 @@ covers `.env`; the rest is on you.
   by `question_hash` are the content gaps, and `best_score` on answered versus
   refused rows is what the threshold should be tuned against. Run a read-only
   offline report over a time window (requires `MONGODB_URI`):
-  `python -m policy_assistant.rag.query_log_reports --since 2026-08-01 --until 2026-09-01`.
+  `python -m sourcebook.rag.query_log_reports --since 2026-08-01 --until 2026-09-01`.
   Optional `--top` and `--min-repeat` bound the ranked lists. Sample text comes
   from already-logged truncated `question_raw` / `question_condensed` when present.
 - API logs go to stdout. In Compose: `docker compose logs -f api`.

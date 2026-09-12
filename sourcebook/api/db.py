@@ -13,14 +13,14 @@ during module loading rather than as a clear startup failure. `main.py` calls
 from pymongo import ASCENDING, DESCENDING
 
 # rag/ holds the pipeline, its config, and the shared Mongo client.
-from policy_assistant.rag.config import (
+from sourcebook.rag.config import (
     ANSWER_CACHE_TTL_SECONDS,
     DOCUMENT_BODIES_COLLECTION,
     EMBEDDING_CACHE_TTL_SECONDS,
     PASSAGES_COLLECTION,
     QUERY_LOG_TTL_SECONDS,
 )
-from policy_assistant.rag.mongo import get_collection
+from sourcebook.rag.mongo import get_collection
 
 # Constructing a collection handle performs no I/O — pymongo connects on the
 # first real operation — so binding these at import is safe.

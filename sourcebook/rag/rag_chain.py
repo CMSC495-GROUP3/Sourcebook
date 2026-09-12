@@ -17,8 +17,8 @@ import os
 
 from dotenv import load_dotenv
 
-from policy_assistant.rag.cache import embed_cached
-from policy_assistant.rag.config import (
+from sourcebook.rag.cache import embed_cached
+from sourcebook.rag.config import (
     CONDENSE_TURNS,
     HISTORY_TURNS,
     NUM_CANDIDATES,
@@ -28,8 +28,8 @@ from policy_assistant.rag.config import (
     SIMILARITY_THRESHOLD,
     VECTOR_INDEX_NAME,
 )
-from policy_assistant.rag.llm import get_provider
-from policy_assistant.rag.mongo import get_collection
+from sourcebook.rag.llm import get_provider
+from sourcebook.rag.mongo import get_collection
 
 load_dotenv()
 

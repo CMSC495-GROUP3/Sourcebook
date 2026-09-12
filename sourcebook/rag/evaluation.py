@@ -23,7 +23,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from policy_assistant.rag.documents import parse_document
+from sourcebook.rag.documents import parse_document
 
 ALLOWED_CATEGORIES = {
     "answerable",
@@ -324,8 +324,8 @@ def extract_answer_citations(answer: str, known_titles: Iterable[str]) -> list[s
 
 def run_live_case(case: dict[str, Any]) -> dict[str, Any]:
     """Execute one case through the configured retrieval and answer pipeline."""
-    from policy_assistant.rag.llm import get_provider
-    from policy_assistant.rag.rag_chain import (
+    from sourcebook.rag.llm import get_provider
+    from sourcebook.rag.rag_chain import (
         build_messages,
         cited_sources,
         confidence_score,

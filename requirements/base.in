@@ -1,7 +1,7 @@
 # Dependencies every role needs. Not installed on its own; api.in and
 # ingest.in include it with -r.
 
-# OpenAI — embeddings and chat completions via policy_assistant/rag/llm.py
+# OpenAI — embeddings and chat completions via sourcebook/rag/llm.py
 openai
 
 # MongoDB — passages, conversations, projects, caches, query logs

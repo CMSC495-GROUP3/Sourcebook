@@ -136,7 +136,7 @@ warm cache.
 Settings in force. Confirmed on 2026-09-11 by listing the variable names set
 in the host's `.env`: it sets twelve, all of them credentials, connection
 strings, the provider choice, and the site address. None of the values below
-appears there, so the `policy_assistant/rag/config.py` defaults applied.
+appears there, so the `sourcebook/rag/config.py` defaults applied.
 
 | Setting | Value |
 | --- | --- |

@@ -4,9 +4,9 @@ import json
 import urllib.error
 from datetime import UTC, datetime
 
-from policy_assistant.api import notify
-from policy_assistant.api.notify import deliver_escalation, format_summary
-from policy_assistant.rag.config import ESCALATION_CONTACT
+from sourcebook.api import notify
+from sourcebook.api.notify import deliver_escalation, format_summary
+from sourcebook.rag.config import ESCALATION_CONTACT
 
 RECORD = {
     "escalation_id": "abcdef0123456789",

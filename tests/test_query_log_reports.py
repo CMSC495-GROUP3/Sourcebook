@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from policy_assistant.rag import query_log_reports as reports
+from sourcebook.rag import query_log_reports as reports
 
 SINCE = datetime(2026, 8, 1, tzinfo=UTC)
 UNTIL = datetime(2026, 9, 1, tzinfo=UTC)

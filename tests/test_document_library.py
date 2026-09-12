@@ -2,9 +2,9 @@
 
 from conftest import FAKE_DB
 
-from policy_assistant.api.limiter import limiter
-from policy_assistant.api.routes.documents import _preview
-from policy_assistant.rag.cache import get_corpus_version
+from sourcebook.api.limiter import limiter
+from sourcebook.api.routes.documents import _preview
+from sourcebook.rag.cache import get_corpus_version
 
 
 def _seed_passages(*docs: tuple[str, str, str, int]):

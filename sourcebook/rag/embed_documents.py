@@ -2,7 +2,7 @@
 
 Run once after the documents are in S3, and again whenever they change:
 
-    python -m policy_assistant.rag.embed_documents
+    python -m sourcebook.rag.embed_documents
 
 This is the "embed documents once into Atlas" half of the design. Nothing here
 runs at query time.
@@ -15,17 +15,17 @@ import boto3
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from policy_assistant.rag.cache import bump_corpus_version
-from policy_assistant.rag.config import (
+from sourcebook.rag.cache import bump_corpus_version
+from sourcebook.rag.config import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
     DOCUMENT_BODIES_COLLECTION,
     PASSAGES_COLLECTION,
     S3_DOCUMENT_PREFIX,
 )
-from policy_assistant.rag.documents import document_record, parse_document, passage_records
-from policy_assistant.rag.llm import get_provider
-from policy_assistant.rag.mongo import get_collection
+from sourcebook.rag.documents import document_record, parse_document, passage_records
+from sourcebook.rag.llm import get_provider
+from sourcebook.rag.mongo import get_collection
 
 load_dotenv()
 
@@ -73,7 +73,7 @@ def embed_and_store() -> None:
     if not documents:
         sys.exit(
             f"No documents found under s3://{os.getenv('S3_BUCKET_NAME')}/{S3_DOCUMENT_PREFIX} — "
-            f"run python -m policy_assistant.rag.seed_documents first."
+            f"run python -m sourcebook.rag.seed_documents first."
         )
 
     provider = get_provider()

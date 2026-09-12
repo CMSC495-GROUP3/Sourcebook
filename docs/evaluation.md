@@ -34,20 +34,22 @@ explicitly. The runner prints the case count and asks for confirmation before
 any paid provider call (`--yes` skips the prompt for CI).
 
 ```bash
-.venv/bin/python -m policy_assistant.rag.evaluation --tier smoke
-.venv/bin/python -m policy_assistant.rag.evaluation --tier full --yes
+.venv/bin/python -m sourcebook.rag.evaluation --tier smoke
+.venv/bin/python -m sourcebook.rag.evaluation --tier full --yes
 ```
 
 The GitHub Actions workflow "Live evaluation" takes the same `tier` input and
 prints the selected case count in the job log before execution. It needs the
-`evaluation` environment to hold all three secrets, and the Atlas cluster's
-IP access list has to admit the GitHub-hosted runner; otherwise the run fails
-at the first query with an SSL handshake error, which is how Atlas rejects an
-address that is not on the list. Until that is set up, run the command above
-from a host that is on the list, as the alpha's
-[live-evaluation.md](releases/v0.1.0-alpha.1/live-evaluation.md) did. The workflow
-fail-closes when required secrets are empty, the evaluator exits nonzero, or
-`evaluation/results.json` is missing/malformed (see `scripts/validate_live_evaluation.py`).
+`evaluation` environment to hold `OPENAI_API_KEY`, `MONGODB_URI`, and
+`MONGODB_DB`, plus an Atlas project API key with the "Project IP Access List
+Admin" role as `ATLAS_PUBLIC_KEY`, `ATLAS_PRIVATE_KEY`, and
+`ATLAS_PROJECT_ID`. GitHub-hosted runners have no fixed address and Atlas
+rejects any address that is not on the cluster's IP access list, so the job
+adds its own IP to that list before the evaluator runs and removes it
+afterwards, even on failure, through `scripts/atlas_access_list.sh`. The
+workflow fail-closes when required secrets are empty, the evaluator exits
+nonzero, or `evaluation/results.json` is missing/malformed (see
+`scripts/validate_live_evaluation.py`).
 
 The command prints the summary metrics and writes detailed answers to
 `evaluation/results.json`. That output is intentionally excluded from Git

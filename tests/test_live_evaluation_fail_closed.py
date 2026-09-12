@@ -6,13 +6,13 @@ import json
 
 import pytest
 
-from policy_assistant.rag.evaluation import (
+from scripts.validate_live_evaluation import main as validate_cli_main
+from sourcebook.rag.evaluation import (
     _validate_rate_metric,
     require_live_env,
     validate_results_file,
     validate_results_report,
 )
-from scripts.validate_live_evaluation import main as validate_cli_main
 
 
 def _valid_report(**overrides: object) -> dict:

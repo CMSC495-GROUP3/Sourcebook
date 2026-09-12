@@ -19,9 +19,9 @@ Fix this file in the same PR.
 
 | Layer | What | Where |
 |---|---|---|
-| API | FastAPI, uvicorn, slowapi rate limiting, JWT via python-jose, bcrypt | `policy_assistant/api/` |
-| RAG pipeline | OpenAI embeddings and chat, LangChain text splitters, pymongo | `policy_assistant/rag/` |
-| Storage | MongoDB Atlas (passages, document bodies, conversations, escalations, caches, query logs), S3 for raw documents | `policy_assistant/rag/mongo.py`, `policy_assistant/api/db.py` |
+| API | FastAPI, uvicorn, slowapi rate limiting, JWT via python-jose, bcrypt | `sourcebook/api/` |
+| RAG pipeline | OpenAI embeddings and chat, LangChain text splitters, pymongo | `sourcebook/rag/` |
+| Storage | MongoDB Atlas (passages, document bodies, conversations, escalations, caches, query logs), S3 for raw documents | `sourcebook/rag/mongo.py`, `sourcebook/api/db.py` |
 | Web app | React 19, TypeScript (strict, no unused locals), Vite, Tailwind 4, react-router, axios | `web/` |
 | Serving | Docker Compose, Nginx in front of the API, EC2 | `docker-compose.yml`, `Dockerfile`, `web/nginx.conf`, `scripts/` |
 | Tests | pytest with everything external stubbed; ~240 tests, a few seconds | `tests/` |
@@ -33,7 +33,7 @@ CI runs 3.11 through 3.14. Node 22 in CI, Node 26 in the image.
 ## Layout
 
 ```text
-policy_assistant/   the Python application, one package, absolute imports only
+sourcebook/   the Python application, one package, absolute imports only
   api/              FastAPI app. main.py mounts routes/; db.py binds collection handles at import
     routes/         one file per area: auth, chat, conversations, documents, escalations, projects
     tokens.py       JWT signing and verification; auth.py, routes/deps.py, and limiter.py all use it
@@ -59,9 +59,9 @@ Dockerfile          the API image; web/Dockerfile is the Nginx image
 .github/            workflows (ci, security, pr-checks, evaluation), templates, Dependabot, CODEOWNERS
 ```
 
-Imports are absolute: `from policy_assistant.rag.config import ...`. Run
-Python from the repo root as modules (`python -m policy_assistant.rag.embed_documents`,
-`uvicorn policy_assistant.api.main:app`). Running a file by path puts the wrong
+Imports are absolute: `from sourcebook.rag.config import ...`. Run
+Python from the repo root as modules (`python -m sourcebook.rag.embed_documents`,
+`uvicorn sourcebook.api.main:app`). Running a file by path puts the wrong
 directory on `sys.path` and the package import fails. Tests and the stub get the
 root on `sys.path` from `pythonpath` in `pyproject.toml` and from uvicorn.
 
@@ -79,7 +79,7 @@ No `.env`, keys, or cloud accounts are needed for that. The stub is
 quality cannot be judged in stub mode because the fake embeddings are noise.
 
 Real services need `.env` from `.env.example`, then
-`python -m policy_assistant.rag.seed_documents`, `... embed_documents`, and a vector index created by hand in the Atlas UI.
+`python -m sourcebook.rag.seed_documents`, `... embed_documents`, and a vector index created by hand in the Atlas UI.
 CONTRIBUTING.md walks through it.
 
 ## Check a change
@@ -124,10 +124,10 @@ gitleaks. PR checks enforce the title format and a filled-in description.
   (`tests/conftest.py`, `scripts/loadtest/server.py`) mark late imports with
   `# noqa: E402`. Keep the marker; ruff flags unused ones.
 - Type hints on function signatures. `datetime.UTC`, not `timezone.utc`.
-- New tuning knobs go in `policy_assistant/rag/config.py` as `NAME = type(os.getenv("NAME", default))`.
-- Vendor-specific code goes in `policy_assistant/rag/llm.py` only. A new provider is a subclass
+- New tuning knobs go in `sourcebook/rag/config.py` as `NAME = type(os.getenv("NAME", default))`.
+- Vendor-specific code goes in `sourcebook/rag/llm.py` only. A new provider is a subclass
   registered in `_PROVIDERS` and selected with `LLM_PROVIDER`.
-- No test-only branches in `policy_assistant/`. If something cannot be
+- No test-only branches in `sourcebook/`. If something cannot be
   stubbed from `tests/conftest.py`, fix the design, not the test.
 
 ### TypeScript
@@ -139,7 +139,7 @@ gitleaks. PR checks enforce the title format and a filled-in description.
   effect), and `react-refresh`.
 - Components live under `web/src/components/<Area>/`, hooks in `hooks/`
   with a `use` prefix, API calls through `web/src/api/client.ts`.
-- `web/src/config.ts` mirrors `policy_assistant/rag/config.py` for `APP_NAME` and
+- `web/src/config.ts` mirrors `sourcebook/rag/config.py` for `APP_NAME` and
   `ESCALATION_CONTACT`. Change both.
 
 ### Tests
@@ -187,13 +187,13 @@ cost someone time.
 
 | Change | File |
 |---|---|
-| a tuning knob | `policy_assistant/rag/config.py` |
-| the answer prompt | `policy_assistant/rag/rag_chain.py` `ANSWER_SYSTEM_PROMPT`, then `PROMPT_VERSION` |
-| retrieval or the grounding gate | `policy_assistant/rag/rag_chain.py` |
-| a model vendor | `policy_assistant/rag/llm.py` |
-| how a source format is parsed | `policy_assistant/rag/documents.py` |
-| an API endpoint | `policy_assistant/api/routes/<area>.py`, mounted in `policy_assistant/api/main.py` |
-| a collection or index | `policy_assistant/api/db.py` |
+| a tuning knob | `sourcebook/rag/config.py` |
+| the answer prompt | `sourcebook/rag/rag_chain.py` `ANSWER_SYSTEM_PROMPT`, then `PROMPT_VERSION` |
+| retrieval or the grounding gate | `sourcebook/rag/rag_chain.py` |
+| a model vendor | `sourcebook/rag/llm.py` |
+| how a source format is parsed | `sourcebook/rag/documents.py` |
+| an API endpoint | `sourcebook/api/routes/<area>.py`, mounted in `sourcebook/api/main.py` |
+| a collection or index | `sourcebook/api/db.py` |
 | the chat UI | `web/src/components/Chat/`, state in `web/src/hooks/useChat.ts` |
 | the sample corpus | `data/sample-policies/`, then re-run ingestion |
 | CI behaviour | `.github/workflows/ci.yml`; lint rules in `pyproject.toml` |

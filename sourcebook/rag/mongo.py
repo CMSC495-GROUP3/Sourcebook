@@ -1,6 +1,6 @@
 """Single shared MongoDB client for the whole application.
 
-Both the API (`policy_assistant/api/`) and the ingestion scripts (`policy_assistant/rag/`) get their
+Both the API (`sourcebook/api/`) and the ingestion scripts (`sourcebook/rag/`) get their
 collections from here. Before this module existed there were two independent
 `MongoClient` objects per process — one in `api/db.py` and one in
 `rag/rag_chain.py` — each with pymongo's default pool of 100 connections.
@@ -45,7 +45,7 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.database import Database
 
-from policy_assistant.rag.config import MONGO_MAX_POOL_SIZE
+from sourcebook.rag.config import MONGO_MAX_POOL_SIZE
 
 _client: MongoClient | None = None
 _lock = Lock()

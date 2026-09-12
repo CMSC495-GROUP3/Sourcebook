@@ -13,8 +13,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILES = (ROOT / "docker-compose.yml", ROOT / "docker-compose.acceptance.yml")
-API_IMAGE = "policy-assistant-api:acceptance"
-WEB_IMAGE = "policy-assistant-web:acceptance"
+API_IMAGE = "sourcebook-api:acceptance"
+WEB_IMAGE = "sourcebook-web:acceptance"
 CURL_IMAGE = "curlimages/curl:8.12.1"
 FORGED_PREFIX = "198.18.0."
 SECURITY_HEADERS = {
