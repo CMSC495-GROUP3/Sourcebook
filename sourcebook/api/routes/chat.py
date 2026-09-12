@@ -26,7 +26,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from sourcebook.api.analytics import log_query
@@ -40,7 +40,7 @@ from sourcebook.rag.cache import (
     put_cached_answer,
 )
 from sourcebook.rag.config import CHAT_RATE_LIMIT, HISTORY_TURNS, REFUSAL_MESSAGE
-from sourcebook.rag.llm import get_provider
+from sourcebook.rag.llm import ProviderBusyError, get_provider
 from sourcebook.rag.rag_chain import (
     build_messages,
     cited_sources,
@@ -53,6 +53,35 @@ from sourcebook.rag.rag_chain import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Saturation is retryable. Keep this copy distinct from the generic generation
+# failure so clients can tell a short-lived busy condition from a broken request.
+_PROVIDER_BUSY_RETRY_AFTER = "1"
+
+
+def _provider_busy_payload() -> dict[str, object]:
+    """JSON/SSE body for a retryable provider-saturation error."""
+    return {"error": ProviderBusyError.user_message, "retryable": True}
+
+
+def _provider_busy_json() -> JSONResponse:
+    """Non-stream HTTP 503 for provider saturation."""
+    return JSONResponse(
+        status_code=503,
+        content=_provider_busy_payload(),
+        headers={"Retry-After": _PROVIDER_BUSY_RETRY_AFTER},
+    )
+
+
+def _is_provider_busy_event(sse_line: str) -> bool:
+    """Return True when the first SSE event is a retryable busy payload."""
+    if not sse_line.startswith("data: "):
+        return False
+    try:
+        payload = json.loads(sse_line[len("data: ") :])
+    except json.JSONDecodeError:
+        return False
+    return payload.get("retryable") is True and "error" in payload
 
 
 class ChatRequest(BaseModel):
@@ -218,6 +247,9 @@ def chat(request: Request, body: ChatRequest):
     started = time.perf_counter()
     try:
         result = _answer(body.question, history)
+    except ProviderBusyError:
+        logger.warning("Provider saturated for session %s", body.session_id)
+        return _provider_busy_json()
     except Exception:
         logger.exception("Generation failed for session %s", body.session_id)
         return ChatResponse(
@@ -454,6 +486,12 @@ def _stream(body: ChatRequest):
             for delta in get_provider().stream(messages, role="answer", temperature=0):
                 state["answer"] += delta
                 yield _sse({"chunk": delta})
+        except ProviderBusyError:
+            logger.warning("Provider saturated for session %s", body.session_id)
+            # Discard any fragment so a busy reject is never persisted as an answer.
+            state["answer"] = ""
+            yield _sse(_provider_busy_payload())
+            return
         except Exception:
             logger.exception("Generation failed for session %s", body.session_id)
             # Discard the partial answer so a truncated response is never
@@ -486,8 +524,34 @@ def _stream(body: ChatRequest):
 @router.post("/chat/stream", dependencies=[Depends(require_auth)])
 @limiter.limit(CHAT_RATE_LIMIT)
 def chat_stream(request: Request, body: ChatRequest):
+    events = _stream(body)
+    try:
+        first = next(events)
+    except StopIteration:
+        first = None
+
+    # Saturation is known before the first token. Promote that first event to
+    # HTTP 503 so stream and non-stream share a retryable busy contract.
+    if first is not None and _is_provider_busy_event(first):
+        events.close()
+        return StreamingResponse(
+            iter((first,)),
+            status_code=503,
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Retry-After": _PROVIDER_BUSY_RETRY_AFTER,
+            },
+        )
+
+    def remaining():
+        if first is not None:
+            yield first
+        yield from events
+
     return StreamingResponse(
-        _stream(body),
+        remaining(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

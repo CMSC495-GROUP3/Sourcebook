@@ -66,8 +66,9 @@ def test_provider_capacity_fails_fast_instead_of_filling_app_pool(monkeypatch):
     provider._capacity.acquire()
     monkeypatch.setattr(llm, "OPENAI_CAPACITY_WAIT_SECONDS", 0)
 
-    with pytest.raises(RuntimeError, match="concurrency limit"), provider._request_slot():
+    with pytest.raises(llm.ProviderBusyError, match="concurrency limit"), provider._request_slot():
         pytest.fail("capacity-limited request unexpectedly acquired a slot")
+    assert not issubclass(llm.ProviderBusyError, RuntimeError)
 
 
 def test_stream_has_wall_clock_deadline_and_closes_response(monkeypatch):
