@@ -25,7 +25,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Literal
 
-from policy_assistant.rag.config import (
+from sourcebook.rag.config import (
     ESCALATION_CONTACT,
     OPENAI_CAPACITY_WAIT_SECONDS,
     OPENAI_MAX_CONCURRENT_REQUESTS,
@@ -348,7 +348,7 @@ def get_provider() -> LLMProvider:
     if provider_cls is None:
         raise RuntimeError(
             f"Unknown LLM_PROVIDER {key!r}. Available: {', '.join(sorted(_PROVIDERS))}. "
-            f"To add one, subclass LLMProvider in policy_assistant/rag/llm.py and register it in _PROVIDERS."
+            f"To add one, subclass LLMProvider in sourcebook/rag/llm.py and register it in _PROVIDERS."
         )
 
     _instance = provider_cls()

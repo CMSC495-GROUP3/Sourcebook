@@ -57,7 +57,7 @@ export interface DocumentBody {
 export type EscalationReason = 'refused' | 'unhelpful'
 export type EscalationStatus = 'open' | 'resolved'
 
-/** One hand-off of a question to a person. Mirrors the record in policy_assistant/api/routes/escalations.py. */
+/** One hand-off of a question to a person. Mirrors the record in sourcebook/api/routes/escalations.py. */
 export interface Escalation {
   escalation_id: string
   status: EscalationStatus

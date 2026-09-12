@@ -70,6 +70,8 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
 | [docs/README.md](docs/README.md) | the index of everything under `docs/` |
+| [docs/api.md](docs/api.md) | client walkthrough of every HTTP route, with stub request and response bodies |
+| [docs/openapi.json](docs/openapi.json) | committed OpenAPI document; regenerate with `make openapi` |
 | [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
 | [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
 | [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
@@ -212,7 +214,7 @@ it appended after the grounding instructions. That defeated the hallucination
 defence below by editing a JSON payload. Forged `sources` on a fabricated
 assistant turn also poisoned the citation list.
 
-`load_history()` in `policy_assistant/api/routes/chat.py` replays only `user`
+`load_history()` in `sourcebook/api/routes/chat.py` replays only `user`
 and `assistant` turns from the stored record, so exactly one system message ever
 reaches the model. The fix was also the smaller design: smaller payloads and
 less code.
@@ -221,7 +223,7 @@ less code.
 
 Every answer names its sources, and the system declines when retrieval is too
 weak to support one. The gate is `is_grounded()` in
-`policy_assistant/rag/rag_chain.py`:
+`sourcebook/rag/rag_chain.py`:
 
 ```python
 return max(p.get("score", 0.0) for p in passages) >= threshold
@@ -263,7 +265,7 @@ documents, and an optional note from the employee.
 Every stored assistant turn carries a `message_id`, minted before the first
 token streams, and the request names the turn by that id. A position in the
 conversation is accepted only for conversations stored before ids existed.
-`policy_assistant/api/routes/escalations.py` resolves the id against the
+`sourcebook/api/routes/escalations.py` resolves the id against the
 server-side record and copies the question from there rather than accepting
 text from the client. Same rule as the
 history handling, same reason: a client that could supply its own text could
@@ -296,7 +298,7 @@ webhook-fed channel.
 
 ### Vendor lock-in: one interface, one env var
 
-Every model call goes through `LLMProvider` in `policy_assistant/rag/llm.py`.
+Every model call goes through `LLMProvider` in `sourcebook/rag/llm.py`.
 No other module names a vendor or a model. The interface exposes two roles
 rather than model names:
 
@@ -411,14 +413,14 @@ rather than turning a working answer into an error.
 
 **Decomposition.** Ingestion, indexing, retrieval, and generation are separate
 stages with separate entry points. Ingestion (`seed_documents.py` and
-`embed_documents.py` in `policy_assistant/rag/`) runs offline and never at
+`embed_documents.py` in `sourcebook/rag/`) runs offline and never at
 query time.
 
 **Pattern recognition.** It happens in embedding space. "How many vacation days
 do I get" and "what is the PTO accrual rate" share almost no words but land
 near the same passage.
 
-**Abstraction.** `policy_assistant/rag/documents.py` reduces every source
+**Abstraction.** `sourcebook/rag/documents.py` reduces every source
 format to one shape, `{doc_id, title, category, owner, effective_date, body}`,
 which becomes one passage-and-metadata record per chunk, plus one record per
 document holding the body whole for the Policy Library to render. Supporting
@@ -489,8 +491,8 @@ password's sessions; the other password's sessions keep working.
 Replace them with real ones and the same commands apply.
 
 ```bash
-python -m policy_assistant.rag.seed_documents     # upload data/sample-policies/ to S3
-python -m policy_assistant.rag.embed_documents    # chunk, embed, store in Atlas
+python -m sourcebook.rag.seed_documents     # upload data/sample-policies/ to S3
+python -m sourcebook.rag.embed_documents    # chunk, embed, store in Atlas
 ```
 
 Re-ingestion keeps the current corpus available while the replacement is
@@ -531,7 +533,7 @@ collection:
 
 Create it in the Atlas UI or CLI. A search index is not a regular index and the
 driver cannot create it, so this is the step people forget. `ensure_indexes()`
-in `policy_assistant/api/db.py` creates every other index at API startup.
+in `sourcebook/api/db.py` creates every other index at API startup.
 
 ### 3. Run
 
@@ -544,7 +546,7 @@ Compose does not publish the API port; the interactive API docs are at
 <http://localhost:8000/docs> when the API runs outside Docker, as below.
 
 For web development with hot reload, run `make web` and start the API from the
-repo root with `uvicorn policy_assistant.api.main:app --reload`.
+repo root with `uvicorn sourcebook.api.main:app --reload`.
 
 ## Deployment
 
@@ -606,8 +608,8 @@ locally, plus one variable in `.env`.
    ```bash
    python3 -m venv .venv
    .venv/bin/pip install -r requirements/ingest.txt
-   .venv/bin/python -m policy_assistant.rag.seed_documents    # first time: upload data/sample-policies/ to S3
-   .venv/bin/python -m policy_assistant.rag.embed_documents
+   .venv/bin/python -m sourcebook.rag.seed_documents    # first time: upload data/sample-policies/ to S3
+   .venv/bin/python -m sourcebook.rag.embed_documents
    ```
 
    Run the embed command again whenever the documents in S3 change, and once
@@ -653,7 +655,7 @@ the next tick retries the same tip instead of treating the fast-forwarded
 
 | Changed path                                       | What happens                                                                 |
 | -------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `policy_assistant/`, `requirements/`, `Dockerfile` | rebuild and recreate `api`                                                   |
+| `sourcebook/`, `requirements/`, `Dockerfile` | rebuild and recreate `api`                                                   |
 | `web/`                                             | rebuild and recreate `web`                                                   |
 | `docker-compose.yml`                               | rebuild both images, `up` recreates whatever the file changed                |
 | `Caddyfile`                                        | `caddy reload` inside the running container; certificate and listeners stay  |
@@ -796,7 +798,7 @@ The suite runs the real application with its external services replaced, the
 same way the load-test server does. MongoDB is an in-memory fake from
 `scripts/loadtest/fakemongo.py`, the model is `LLM_PROVIDER=fake` with every
 delay set to zero, and vector search returns whatever a test hands it. Nothing
-in `policy_assistant/` has a test-only branch. No database, API key, or `.env`
+in `sourcebook/` has a test-only branch. No database, API key, or `.env`
 is needed, which is also why CI needs no secrets.
 
 Covered: the grounding gate and its best-not-mean rule, server-side history
@@ -814,8 +816,8 @@ which `tsc` and ESLint check but no test exercises.
 `make acceptance` needs Docker Compose 2.24 or later because
 `docker-compose.acceptance.yml` uses `!reset`. Older Compose fails to parse
 the override. The run intentionally leaves two image tags for build-cache
-reuse: `policy-assistant-api:acceptance` and
-`policy-assistant-web:acceptance`.
+reuse: `sourcebook-api:acceptance` and
+`sourcebook-web:acceptance`.
 
 | Workflow        | Runs on                            | What it does                                                                                                                                                       |
 | --------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -847,7 +849,7 @@ falls back to a readable form of the filename.
 ## Repository layout
 
 ```text
-policy_assistant/   the Python application, one package, absolute imports only
+sourcebook/   the Python application, one package, absolute imports only
   api/              FastAPI app
     main.py           app factory and lifespan; mounts routes/
     db.py             collection handles and index creation
@@ -895,7 +897,7 @@ Caddyfile           TLS termination and reverse proxy in front of Nginx
 ```
 
 The product name lives in three places: `APP_NAME` in
-`policy_assistant/rag/config.py` and `web/src/config.ts`, and the `<title>` in
+`sourcebook/rag/config.py` and `web/src/config.ts`, and the `<title>` in
 `web/index.html`. Change all three together to rebrand.
 
 ## Known limitations
@@ -920,7 +922,7 @@ The product name lives in three places: `APP_NAME` in
 - **Do not deploy under gunicorn `--preload`.** `MongoClient` is not fork-safe
   and the collection handles bind at import. `uvicorn --workers` is safe
   because each worker imports the app after forking. See
-  `policy_assistant/rag/mongo.py`.
+  `sourcebook/rag/mongo.py`.
 - **Re-ingestion is not atomic.** Passages are upserted one at a time, so for a
   few seconds a document whose chunk boundaries moved can be retrieved with an
   old chunk and its replacement side by side. Acceptable for a pilot; a staged
@@ -940,7 +942,7 @@ CMSC 495 Group 3. The project pitch assigned the three Unit 5 roles.
 
 | Role | Member | What the role owns here |
 | --- | --- | --- |
-| Lead Architect | Taylor Shahan ([@t-shahan](https://github.com/t-shahan)) | module boundaries in `policy_assistant/`, the split between the API and `web/`, the deployment shape, and the architecture diagrams |
+| Lead Architect | Taylor Shahan ([@t-shahan](https://github.com/t-shahan)) | module boundaries in `sourcebook/`, the split between the API and `web/`, the deployment shape, and the architecture diagrams |
 | Interface Designer | Daniel Tsang ([@DanielTsang26](https://github.com/DanielTsang26)) | the endpoint shapes, the streaming events, the `LLMProvider` interface, and the stored record shapes |
 | Integration Lead | Chris ([@threshi-art](https://github.com/threshi-art)) | evaluation, verifying merged work as one system, and the evidence behind any release claim |
 

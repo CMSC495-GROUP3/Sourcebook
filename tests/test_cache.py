@@ -2,8 +2,8 @@
 
 from conftest import FAKE_DB
 
-from policy_assistant.rag import cache
-from policy_assistant.rag.cache import (
+from sourcebook.rag import cache
+from sourcebook.rag.cache import (
     answer_cache_key,
     bump_corpus_version,
     embed_cached,

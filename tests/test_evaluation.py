@@ -5,7 +5,7 @@ from collections import Counter
 
 import pytest
 
-from policy_assistant.rag.evaluation import (
+from sourcebook.rag.evaluation import (
     EVALUATION_TIERS,
     SMOKE_CASE_COUNT,
     SMOKE_CATEGORY_MIX,

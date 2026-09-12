@@ -131,6 +131,9 @@ make setup && make stub
 With a `.env` holding real credentials, `docker compose up --build` at that
 checkout runs the full stack instead. The commit deployed on the pilot at any
 moment is `refs/deployed/main` on the host; the README's "Automatic deploys"
-section explains it. To show the pilot at the tagged version after `main` has
-moved, the operator checks out the tag on the host, runs `scripts/deploy.sh`,
-and records the date in [handoff.md](handoff.md).
+section explains it. The pilot is expected to move past the tag. Showing it at
+the tagged version is a by-hand procedure, written in
+[handoff.md](handoff.md): stop the auto-deploy timer, check out the tag on the
+host, build and start the stack with Compose, record the date, then re-enable
+the timer. `scripts/deploy.sh` does not do this; it only triggers the
+auto-deploy, which deploys `main`.

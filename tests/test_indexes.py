@@ -5,7 +5,7 @@ import pytest
 from conftest import FAKE_DB
 from pymongo.errors import OperationFailure
 
-from policy_assistant.api import db
+from sourcebook.api import db
 
 
 def test_ensure_indexes_explains_legacy_passage_index(monkeypatch):

@@ -8,9 +8,9 @@ from datetime import timedelta
 import pytest
 from starlette.requests import Request
 
-from policy_assistant.api import tokens
-from policy_assistant.api.limiter import _cred_claim, limiter
-from policy_assistant.api.routes.auth import (
+from sourcebook.api import tokens
+from sourcebook.api.limiter import _cred_claim, limiter
+from sourcebook.api.routes.auth import (
     PRIMARY_PASSWORD_HASH_VAR,
     create_access_token,
     credential_fingerprint,
@@ -136,7 +136,7 @@ def test_forged_cred_cannot_split_the_rate_limit_log_line(client, caplog):
     forged = f"Bearer {_token(cred=forged_cred)}"
     limiter.enabled = True
     limiter.reset()
-    with caplog.at_level(logging.WARNING, logger="policy_assistant.api.limiter"):
+    with caplog.at_level(logging.WARNING, logger="sourcebook.api.limiter"):
         statuses = [
             client.post(
                 "/api/auth/login", json={"password": "wrong"}, headers={"Authorization": forged}

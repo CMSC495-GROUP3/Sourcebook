@@ -5,9 +5,13 @@
 # Setup, once: create a repository environment named "evaluation" with the
 # secrets OPENAI_API_KEY, MONGODB_URI, and MONGODB_DB. Restricting the
 # environment to the main branch keeps fork PRs away from the secrets.
-# The Atlas cluster's IP access list must also admit the GitHub-hosted
-# runner, or pymongo fails the TLS handshake before the first query (run
-# 34546642552). The pilot host is on that list; runners are not by default.
+# Atlas only accepts connections from addresses on the cluster's IP access
+# list, and GitHub-hosted runners have no fixed address (run 34546642552 failed
+# its first query on that). So the job admits its own IP for the duration of
+# the run through scripts/atlas_access_list.sh, which needs a project API key
+# with the "Project IP Access List Admin" role in the same environment:
+# ATLAS_PUBLIC_KEY, ATLAS_PRIVATE_KEY, ATLAS_PROJECT_ID. The entry is removed
+# at the end even when the evaluator fails.
 #
 # The numbers this produces are measurements, not a gate. Read the "Metric
 # definitions" section of docs/evaluation.md before acting on them.
@@ -55,7 +59,7 @@ jobs:
           set -euo pipefail
           python - <<'PY' | tee selection.txt
           import os
-          from policy_assistant.rag.evaluation import load_cases, resolve_dataset
+          from sourcebook.rag.evaluation import load_cases, resolve_dataset
 
           tier, dataset = resolve_dataset(os.environ["EVAL_TIER"])
           cases = load_cases(dataset)
@@ -78,6 +82,16 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           MONGODB_DB: ${{ secrets.MONGODB_DB }}
         run: python scripts/validate_live_evaluation.py --check-env
+      - name: Admit this runner to the Atlas IP access list
+        id: atlas
+        env:
+          ATLAS_PUBLIC_KEY: ${{ secrets.ATLAS_PUBLIC_KEY }}
+          ATLAS_PRIVATE_KEY: ${{ secrets.ATLAS_PRIVATE_KEY }}
+          ATLAS_PROJECT_ID: ${{ secrets.ATLAS_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          ip=$(bash scripts/atlas_access_list.sh add)
+          echo "ip=$ip" >> "$GITHUB_OUTPUT"
       - name: Run the evaluation
         env:
           LLM_PROVIDER: openai
@@ -87,12 +101,20 @@ jobs:
           EVAL_TIER: ${{ inputs.tier }}
         run: |
           set -euo pipefail
-          python -m policy_assistant.rag.evaluation \
+          python -m sourcebook.rag.evaluation \
             --tier "$EVAL_TIER" \
             --yes \
             --output evaluation/results.json | tee evaluation-summary.txt
       - name: Validate evaluation results
         run: python scripts/validate_live_evaluation.py --results evaluation/results.json
+      - name: Remove this runner from the Atlas IP access list
+        if: always() && steps.atlas.outputs.ip != ''
+        env:
+          ATLAS_PUBLIC_KEY: ${{ secrets.ATLAS_PUBLIC_KEY }}
+          ATLAS_PRIVATE_KEY: ${{ secrets.ATLAS_PRIVATE_KEY }}
+          ATLAS_PROJECT_ID: ${{ secrets.ATLAS_PROJECT_ID }}
+          RUNNER_IP: ${{ steps.atlas.outputs.ip }}
+        run: bash scripts/atlas_access_list.sh remove "$RUNNER_IP"
       - name: Summary
         if: always()
         run: |

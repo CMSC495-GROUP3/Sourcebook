@@ -3,8 +3,8 @@
 import pytest
 from conftest import make_passages
 
-from policy_assistant.rag import config, rag_chain
-from policy_assistant.rag.rag_chain import (
+from sourcebook.rag import config, rag_chain
+from sourcebook.rag.rag_chain import (
     ANSWER_SYSTEM_PROMPT,
     build_citation_manifest,
     build_context,

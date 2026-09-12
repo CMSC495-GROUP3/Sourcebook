@@ -15,11 +15,11 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pymongo import ASCENDING, UpdateOne
 
-from policy_assistant.api.db import document_bodies_col, documents_col, meta_col, passages_col
-from policy_assistant.api.limiter import limiter
-from policy_assistant.api.routes.deps import require_auth
-from policy_assistant.rag.cache import bump_corpus_version, get_corpus_version
-from policy_assistant.rag.config import REINDEX_RATE_LIMIT
+from sourcebook.api.db import document_bodies_col, documents_col, meta_col, passages_col
+from sourcebook.api.limiter import limiter
+from sourcebook.api.routes.deps import require_auth
+from sourcebook.rag.cache import bump_corpus_version, get_corpus_version
+from sourcebook.rag.config import REINDEX_RATE_LIMIT
 
 router = APIRouter()
 

@@ -11,10 +11,10 @@ import pytest
 from conftest import FAKE_DB, make_passages
 from pymongo.errors import DuplicateKeyError
 
-from policy_assistant.api import notify
-from policy_assistant.api.limiter import limiter
-from policy_assistant.api.routes import escalations as escalations
-from policy_assistant.rag.config import ESCALATION_CONTACT
+from sourcebook.api import notify
+from sourcebook.api.limiter import limiter
+from sourcebook.api.routes import escalations as escalations
+from sourcebook.rag.config import ESCALATION_CONTACT
 
 
 @pytest.fixture
@@ -502,7 +502,7 @@ class TestDeliveryStatus:
         env["ESCALATION_WEBHOOK_LEASE_SECONDS"] = lease
 
         result = subprocess.run(
-            [sys.executable, "-c", "from policy_assistant.rag import config"],
+            [sys.executable, "-c", "from sourcebook.rag import config"],
             cwd=os.getcwd(),
             env=env,
             capture_output=True,

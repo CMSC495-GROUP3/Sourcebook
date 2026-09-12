@@ -2,7 +2,7 @@
  * Frontend configuration.
  *
  * APP_NAME is the product-name source of truth for the client. To rebrand,
- * change it here, in policy_assistant/rag/config.py on the Python side, and in
+ * change it here, in sourcebook/rag/config.py on the Python side, and in
  * the <title> tag in index.html.
  */
 export const APP_NAME = 'Sourcebook'
@@ -15,10 +15,10 @@ export const APP_TAGLINE =
   'Ask about company policy and get an answer with its source. If nothing matches, it says so instead of guessing.'
 
 /** localStorage key holding the JWT. */
-export const TOKEN_KEY = 'policy_assistant_token'
+export const TOKEN_KEY = 'sourcebook_token'
 
 /**
  * Who a refused or unhelpful answer is handed to. Mirrors ESCALATION_CONTACT
- * in policy_assistant/rag/config.py; change both together.
+ * in sourcebook/rag/config.py; change both together.
  */
 export const ESCALATION_CONTACT = 'Human Resources'
