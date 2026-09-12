@@ -9,7 +9,7 @@ vulnerability in [SECURITY.md](../SECURITY.md).
 | [design.md](design.md) | the paper-and-ink design system for `web/`: tokens, type, layout, motion, and the mark |
 | [evaluation.md](evaluation.md) | the labeled question sets in `evaluation/`, the metrics, and how to run the live evaluation |
 | [load-testing.md](load-testing.md) | synthetic throughput measurements from `scripts/loadtest/` and the `THREADPOOL_TOKENS` decision |
-| [releases/](releases/) | one folder per tagged release |
+| [releases/](releases/) | one folder per tagged release; `v1.0.0/` is a pre-tag scaffold, not a tag |
 
 ## Releases
 
@@ -20,6 +20,12 @@ the deployed system, and the evidence behind them.
 | Release | Handoff | Notes |
 | --- | --- | --- |
 | [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff.md](releases/v0.1.0-alpha.1/handoff.md) | [release-notes.md](releases/v0.1.0-alpha.1/release-notes.md) |
+
+## Planned, not tagged
+
+| Folder | What it is |
+| --- | --- |
+| [releases/v1.0.0/portfolio.md](releases/v1.0.0/portfolio.md) | Unit 8 grader table. Pre-tag scaffold for [#215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215). Not a GitHub release |
 
 ## Conventions
 
