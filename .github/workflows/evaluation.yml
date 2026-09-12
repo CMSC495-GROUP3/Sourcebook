@@ -16,9 +16,12 @@
 # The numbers this produces are measurements, not a gate. Read the "Metric
 # definitions" section of docs/evaluation.md before acting on them.
 #
-# Fail-closed: empty secrets, a nonzero evaluator exit, a missing results
-# file, or malformed metrics must fail the job (see issue #180 / run
-# 34100074696). Summary and artifact upload still run for diagnostics.
+# Fail-closed: empty or invalid MONGODB_DB, empty secrets, a nonzero
+# evaluator exit, a missing results file, or malformed metrics must fail
+# the job. #180 / #181 closed the original tee/pipefail hole; illegal
+# database names and always-on results validation close the remaining
+# false-green path. Summary and artifact upload still run for diagnostics
+# and do not by themselves make the job green.
 
 name: Live evaluation
 
@@ -106,6 +109,7 @@ jobs:
             --yes \
             --output evaluation/results.json | tee evaluation-summary.txt
       - name: Validate evaluation results
+        if: always()
         run: python scripts/validate_live_evaluation.py --results evaluation/results.json
       - name: Remove this runner from the Atlas IP access list
         if: always() && steps.atlas.outputs.ip != ''
