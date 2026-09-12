@@ -1,0 +1,13 @@
+# Public commit identities only. Every email below already appears in git log
+# on origin/main. Do not add private or undocumented addresses.
+#
+# Fold Taylor's Git name variants, and the Anthropic-authored commits that
+# issue #201 asks to count with Taylor. Fold Lokias to Chris. Fold RoNUO to
+# Rob. George Struder and Daniel Tsang already have one name each.
+
+Taylor Shahan <taylorshahan@gmail.com>
+Taylor Shahan <taylorshahan@gmail.com> Claude <noreply@anthropic.com>
+Chris <threshi@gmail.com>
+Chris <threshi@gmail.com> Lokias <threshi@gmail.com>
+Rob <snarks_scheme.8v@icloud.com>
+Rob <snarks_scheme.8v@icloud.com> RoNUO <snarks_scheme.8v@icloud.com>
