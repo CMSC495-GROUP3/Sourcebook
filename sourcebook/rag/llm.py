@@ -39,6 +39,24 @@ ModelRole = Literal["answer", "utility"]
 Message = dict  # {"role": "system" | "user" | "assistant", "content": str}
 
 
+class ProviderBusyError(Exception):
+    """Raised when a provider cannot accept more concurrent work.
+
+    This is an expected, retryable control-plane condition, not a generation
+    failure. Chat maps it to HTTP 503 and a retryable stream/JSON payload
+    instead of the generic error path used for unexpected provider faults.
+    """
+
+    retryable = True
+    user_message = "The model provider is busy. Please retry shortly."
+
+    def __init__(
+        self,
+        message: str = "The model provider is at its configured concurrency limit",
+    ) -> None:
+        super().__init__(message)
+
+
 class LLMProvider(ABC):
     """The contract every provider must satisfy.
 
@@ -149,7 +167,7 @@ class OpenAIProvider(LLMProvider):
         """Bound provider occupancy without tying up the whole app thread pool."""
         acquired = self._capacity.acquire(timeout=OPENAI_CAPACITY_WAIT_SECONDS)
         if not acquired:
-            raise RuntimeError("OpenAI provider is at its configured concurrency limit")
+            raise ProviderBusyError("OpenAI provider is at its configured concurrency limit")
         try:
             yield
         finally:
