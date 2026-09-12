@@ -6,6 +6,7 @@ legacy non-unique compound index, and creates the unique replacement.
 Do not run this against production without an explicit operations decision.
 """
 
+from dotenv import load_dotenv
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from sourcebook.rag.config import (
@@ -15,6 +16,10 @@ from sourcebook.rag.config import (
     PASSAGES_IDENTITY_INDEX,
 )
 from sourcebook.rag.mongo import get_collection
+
+# Same as the other entrypoints, so the documented command works on a host
+# whose settings live in .env. get_client reads MONGODB_URI lazily.
+load_dotenv()
 
 
 def _index_keys(index: dict) -> list[tuple]:
