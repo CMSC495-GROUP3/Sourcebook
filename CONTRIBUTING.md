@@ -263,7 +263,16 @@ Before migration:
    db.passages.getIndexes()
    ```
 
-Run the one-time migration from the repository root:
+Run the dry run first, from the repository root:
+
+```bash
+.venv/bin/python -m scripts.migrate_passage_index --dry-run
+```
+
+It prints one line per duplicated identity, naming the record it would
+keep and the `_id`s it would delete, then what it would do to the index,
+and changes nothing. Read those lines before going on. Then run it for
+real:
 
 ```bash
 .venv/bin/python -m scripts.migrate_passage_index
@@ -271,10 +280,24 @@ Run the one-time migration from the repository root:
 
 The migration:
 
-- reconciles duplicate `(source, chunk_index)` records deterministically;
-- drops the legacy non-unique compound index when present;
+- prints the same per-duplicate lines before each delete, so the job log
+  is the audit trail;
+- keeps the record with the greatest `_id` in each group and deletes the
+  rest;
+- drops the legacy compound index when present, non-unique or under
+  another name;
 - creates `source_1_chunk_index_1` with `unique: true`;
 - is safe to rerun after a successful migration.
+
+Two things to know at cutover:
+
+- Between the drop and the create there is a moment with no identity
+  index at all. If the script dies there, rerun it; it finds no index and
+  creates the unique one.
+- Once the unique index exists, the previous API image fails at startup
+  with `IndexOptionsConflict` (code 85), because it declares the same
+  keys without `unique`. Rolling back the image is blocked from that
+  point; roll back the database from the snapshot instead.
 
 The local FakeMongo used by the test suite does not enforce MongoDB index
 uniqueness. Tests therefore verify the unique index declaration, migration
@@ -286,8 +309,12 @@ After migration:
 1. Confirm no duplicate identities remain.
 2. Confirm `db.passages.getIndexes()` reports
    `source_1_chunk_index_1` with `unique: true`.
-3. Start the application and confirm normal startup succeeds.
-4. Smoke-test document retrieval and the Policy Library before returning the
+3. Re-run `scripts/embed_documents.py`. The migration keeps the greatest
+   `_id` in each duplicate group, and ingestion refreshed an arbitrary one
+   while duplicates existed, so the survivor can hold stale text and a
+   stale embedding. Re-embedding overwrites every passage from the source.
+4. Start the application and confirm normal startup succeeds.
+5. Smoke-test document retrieval and the Policy Library before returning the
    deployment to normal service.
 
 If migration fails, do not repeatedly modify the production collection by hand.
