@@ -86,6 +86,7 @@ make lint     # ruff on Python; ESLint and tsc on the web app
 make fmt      # fix what ruff can fix, then format; run before committing
 make build    # production web build
 make check    # test, lint, build; this is what the CI workflow runs
+make openapi  # rewrite docs/openapi.json from the live app; CI diffs this file
 make audit    # known vulnerabilities in both dependency trees (the Security workflow)
 ```
 
@@ -103,6 +104,7 @@ so they run on fork PRs too.
 | CI | Python lint and format | a `ruff check` finding, an unformatted file, or a lock that no longer matches its `.in` |
 | CI | Python tests (3.11 through 3.14) | a failing test, or coverage under 80% on any version |
 | CI | Evaluation dataset | `evaluation/questions.json` or `questions_full.json` that `load_cases` rejects |
+| CI | OpenAPI document | `make openapi` rewriting `docs/openapi.json` so it no longer matches the commit |
 | CI | Web lint, types, build | ESLint, `tsc -b`, or `vite build` |
 | CI | Docker images and Compose | either image failing to build, the API image failing to import `sourcebook.api.main`, an invalid `docker-compose.yml`, or `scripts/test_proxy_chain.py` failing the live Caddy → Nginx → Uvicorn client-IP / rate-limit check |
 | CI | Shell, Dockerfile, workflow lint | shellcheck on `scripts/*.sh`, hadolint on both Dockerfiles, actionlint on the workflows, or a `.env`, key, or build output that got committed |
@@ -230,7 +232,9 @@ covers `.env`; the rest is on you.
 ## Debugging
 
 - The OpenAPI console at `/docs` lets you call any endpoint with a token. Log in
-  at `POST /api/auth/login`, click Authorize, paste the token.
+  at `POST /api/auth/login`, click Authorize, paste the token. The committed
+  document and the client walkthrough are [docs/openapi.json](docs/openapi.json)
+  and [docs/api.md](docs/api.md).
 - SSE by hand:
   `curl -N -X POST localhost:8000/api/chat/stream -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"question":"How much PTO do I get?"}'`
 - Escalations queue: `GET /api/escalations?status=open`. Retry a failed webhook
