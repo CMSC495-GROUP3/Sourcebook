@@ -73,6 +73,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [docs/api.md](docs/api.md) | client walkthrough of every HTTP route, with stub request and response bodies |
 | [docs/openapi.json](docs/openapi.json) | committed OpenAPI document; regenerate with `make openapi` |
 | [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
+| [docs/ci-cd.md](docs/ci-cd.md) | CI, security, pull-request checks, releases, and the merge-to-pilot deployment path |
 | [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
 | [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
 | [docs/releases/v0.1.0-alpha.1/handoff.md](docs/releases/v0.1.0-alpha.1/handoff.md) | the Unit 5 alpha: submitted commit, scope map, verification status, evidence |
