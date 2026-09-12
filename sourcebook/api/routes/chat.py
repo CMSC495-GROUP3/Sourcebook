@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 from sourcebook.api.analytics import log_query
 from sourcebook.api.db import conversations_col
 from sourcebook.api.limiter import limiter
+from sourcebook.api.logutil import normalize_log_token
 from sourcebook.api.routes.deps import require_auth
 from sourcebook.rag.cache import (
     get_cached_answer,
@@ -219,7 +220,10 @@ def chat(request: Request, body: ChatRequest):
     try:
         result = _answer(body.question, history)
     except Exception:
-        logger.exception("Generation failed for session %s", body.session_id)
+        logger.exception(
+            "Generation failed for session",
+            extra={"session_id": normalize_log_token(body.session_id)},
+        )
         return ChatResponse(
             answer="Sorry, I encountered an error generating a response.",
             sources=[],
@@ -430,9 +434,9 @@ def _stream(body: ChatRequest):
         # Grounding gate — below the threshold we decline without generating.
         if not is_grounded(passages):
             logger.info(
-                "Refused: best score %.3f below threshold for session %s",
+                "Refused: best score %.3f below threshold for session",
                 max((p.get("score", 0.0) for p in passages), default=0.0),
-                body.session_id,
+                extra={"session_id": normalize_log_token(body.session_id)},
             )
             state.update(answer=REFUSAL_MESSAGE, refused=True, complete=True)
             yield _sse({"chunk": REFUSAL_MESSAGE})
@@ -455,7 +459,10 @@ def _stream(body: ChatRequest):
                 state["answer"] += delta
                 yield _sse({"chunk": delta})
         except Exception:
-            logger.exception("Generation failed for session %s", body.session_id)
+            logger.exception(
+                "Generation failed for session",
+                extra={"session_id": normalize_log_token(body.session_id)},
+            )
             # Discard the partial answer so a truncated response is never
             # persisted or cached as if it were complete.
             state["answer"] = ""

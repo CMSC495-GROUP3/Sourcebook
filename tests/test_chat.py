@@ -1,15 +1,25 @@
 """The chat routes: grounding gate, history handling, streaming protocol,
 caching, and the bookkeeping that must survive a dropped stream."""
 
+import inspect
 import logging
 
+import pytest
 from conftest import FAKE_DB, make_passages, sse_events
 
 from sourcebook.api.limiter import limiter
-from sourcebook.api.routes.chat import ChatRequest, _stream, load_history
+from sourcebook.api.routes.chat import ChatRequest, _stream, chat, load_history
 from sourcebook.rag import llm
 from sourcebook.rag.cache import get_cached_answer, get_corpus_version
 from sourcebook.rag.config import HISTORY_TURNS, REFUSAL_MESSAGE
+
+_INJECTED_SESSION_IDS = (
+    "abc\nINFO forged",
+    "abc\rINFO forged",
+    "abc\r\nINFO forged",
+    "abc\x00INFO forged",
+    "abc\x1bINFO forged",
+)
 
 FAKE_ANSWER = llm.FakeProvider.ANSWER
 
@@ -74,12 +84,13 @@ class TestChat:
             client.post("/api/chat", json={"question": "x" * 5001}, headers=auth).status_code == 422
         )
 
-    def test_rejects_session_id_with_newlines(self, client, auth):
-        """A newline in session_id would forge a second API log line."""
+    @pytest.mark.parametrize("session_id", _INJECTED_SESSION_IDS)
+    def test_rejects_injected_session_id(self, client, auth, session_id):
+        """CR/LF/controls in session_id must not reach a log sink over HTTP."""
         assert (
             client.post(
                 "/api/chat",
-                json={"question": "How much PTO?", "session_id": "abc\nINFO forged"},
+                json={"question": "How much PTO?", "session_id": session_id},
                 headers=auth,
             ).status_code
             == 422
@@ -170,6 +181,23 @@ class TestChat:
         assert body["answer"].startswith("Sorry")
         assert _messages(conversation) == []
 
+    def test_generation_failure_log_stays_one_line(self, retrieval, monkeypatch, caplog):
+        """Sink-level sanitizer: a constructed dirty session_id stays one log line."""
+
+        def broken(*args, **kwargs):
+            raise RuntimeError("provider down")
+
+        monkeypatch.setattr(llm.get_provider(), "complete", broken)
+        body = ChatRequest.model_construct(question="q", session_id="abc\nINFO forged")
+        with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.chat"):
+            inspect.unwrap(chat)(request=None, body=body)
+
+        records = [r for r in caplog.records if r.name == "sourcebook.api.routes.chat"]
+        assert records
+        for record in records:
+            assert "\n" not in record.getMessage() and "\r" not in record.getMessage()
+            assert record.session_id == "abcINFO forged"
+
     def test_follow_up_logs_the_condensed_query_like_stream(
         self, client, auth, retrieval, conversation, monkeypatch
     ):
@@ -237,6 +265,17 @@ def _ask(client, auth, question, session_id):
 
 
 class TestStream:
+    @pytest.mark.parametrize("session_id", _INJECTED_SESSION_IDS)
+    def test_rejects_injected_session_id(self, client, auth, session_id):
+        assert (
+            client.post(
+                "/api/chat/stream",
+                json={"question": "How much PTO?", "session_id": session_id},
+                headers=auth,
+            ).status_code
+            == 422
+        )
+
     def test_protocol_chunks_then_done_then_follow_ups(self, client, auth, retrieval, conversation):
         events = _ask(client, auth, "How much PTO?", conversation)
 
@@ -303,6 +342,36 @@ class TestStream:
         _ask(client, auth, "How much PTO?", conversation)
         _ask(client, auth, "How much PTO?", conversation)
         assert len(retrieval.calls) == 2
+
+    def test_refusal_log_stays_one_line(self, retrieval, caplog):
+        retrieval.passages = make_passages(0.30)
+        body = ChatRequest.model_construct(question="q", session_id="abc\r\nINFO forged")
+        with caplog.at_level(logging.INFO, logger="sourcebook.api.routes.chat"):
+            list(_stream(body))
+        records = [
+            r
+            for r in caplog.records
+            if r.name == "sourcebook.api.routes.chat" and r.getMessage().startswith("Refused:")
+        ]
+        assert records
+        for record in records:
+            assert "\n" not in record.getMessage() and "\r" not in record.getMessage()
+            assert record.session_id == "abcINFO forged"
+
+    def test_generation_error_log_stays_one_line(self, retrieval, monkeypatch, caplog):
+        def broken(*args, **kwargs):
+            yield "partial"
+            raise RuntimeError("provider down")
+
+        monkeypatch.setattr(llm.get_provider(), "stream", broken)
+        body = ChatRequest.model_construct(question="q", session_id="abc\nWARNING forged")
+        with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.chat"):
+            list(_stream(body))
+        records = [r for r in caplog.records if r.name == "sourcebook.api.routes.chat"]
+        assert records
+        for record in records:
+            assert "\n" not in record.getMessage() and "\r" not in record.getMessage()
+            assert record.session_id == "abcWARNING forged"
 
     def test_generation_error_persists_nothing(
         self, client, auth, retrieval, conversation, monkeypatch
