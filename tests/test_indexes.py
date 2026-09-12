@@ -57,24 +57,20 @@ def test_ensure_indexes_declares_unique_passage_identity(monkeypatch):
     ]
 
 
-def test_ensure_indexes_is_idempotent_on_restart(monkeypatch):
-    declared: list[tuple] = []
+def test_ensure_indexes_tolerates_an_index_that_already_exists(monkeypatch):
+    # pymongo returns the existing name and raises nothing when the index is
+    # already there with the same options, which is what a worker restart
+    # sees. The fake does the same, so a second call must not raise.
+    calls = 0
 
-    def record(*args, **kwargs):
-        declared.append((args, kwargs))
+    def existing(*args, **kwargs):
+        nonlocal calls
+        calls += 1
         return "source_1_chunk_index_1"
 
-    monkeypatch.setattr(FAKE_DB["passages"], "create_index", record)
+    monkeypatch.setattr(FAKE_DB["passages"], "create_index", existing)
 
     db.ensure_indexes()
     db.ensure_indexes()
 
-    expected = (
-        ([("source", 1), ("chunk_index", 1)],),
-        {
-            "name": "source_1_chunk_index_1",
-            "unique": True,
-        },
-    )
-
-    assert declared == [expected, expected]
+    assert calls == 2
