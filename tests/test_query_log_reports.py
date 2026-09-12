@@ -413,6 +413,17 @@ def sample_docs() -> list[dict[str, Any]]:
     ]
 
 
+@pytest.fixture
+def use_collection(monkeypatch):
+    """Point the module's shared-Mongo lookup at an in-memory collection."""
+
+    def _use(collection: SyntheticQueryLogs) -> SyntheticQueryLogs:
+        monkeypatch.setattr(reports, "get_collection", lambda name: collection)
+        return collection
+
+    return _use
+
+
 # ── Input validation ──────────────────────────────────────────────────────────
 
 
@@ -457,10 +468,10 @@ def test_pipelines_are_read_only_and_window_first():
 # ── Aggregation behaviour via synthetic collection ─────────────────────────────
 
 
-def test_empty_dataset_is_deterministic():
-    collection = SyntheticQueryLogs([])
-    first = reports.run_report(since=SINCE, until=UNTIL, collection=collection)
-    second = reports.run_report(since=SINCE, until=UNTIL, collection=collection)
+def test_empty_dataset_is_deterministic(use_collection):
+    collection = use_collection(SyntheticQueryLogs([]))
+    first = reports.run_report(since=SINCE, until=UNTIL)
+    second = reports.run_report(since=SINCE, until=UNTIL)
     assert first == second
     assert "(none)" in first
     assert "count=0" in first
@@ -468,9 +479,9 @@ def test_empty_dataset_is_deterministic():
     assert len(collection.aggregate_calls) == 6  # three pipelines x two runs
 
 
-def test_content_gaps_rank_refused_hashes_and_respect_window(sample_docs):
-    collection = SyntheticQueryLogs(sample_docs)
-    text = reports.run_report(since=SINCE, until=UNTIL, top=10, collection=collection)
+def test_content_gaps_rank_refused_hashes_and_respect_window(sample_docs, use_collection):
+    use_collection(SyntheticQueryLogs(sample_docs))
+    text = reports.run_report(since=SINCE, until=UNTIL, top=10)
 
     assert "hash-a" in text
     assert "hash-d" in text
@@ -480,11 +491,11 @@ def test_content_gaps_rank_refused_hashes_and_respect_window(sample_docs):
     assert text.index("hash-a") < text.index("hash-d")
 
 
-def test_faq_min_repeat_and_stable_tie_break_via_id(sample_docs):
+def test_faq_min_repeat_and_stable_tie_break_via_id(sample_docs, use_collection):
     # FAQ sees hash-hot=25, hash-a=3, hash-b=2, hash-d=2. Among count=2,
     # ascending _id puts hash-b before hash-d.
-    collection = SyntheticQueryLogs(sample_docs)
-    text = reports.run_report(since=SINCE, until=UNTIL, top=5, min_repeat=2, collection=collection)
+    use_collection(SyntheticQueryLogs(sample_docs))
+    text = reports.run_report(since=SINCE, until=UNTIL, top=5, min_repeat=2)
     faq_section = text.split("2. FAQ candidates", 1)[1].split("3. Answered", 1)[0]
 
     assert "hash-hot" in faq_section
@@ -494,9 +505,9 @@ def test_faq_min_repeat_and_stable_tie_break_via_id(sample_docs):
     assert "refused=" in faq_section
 
 
-def test_score_distribution_nulls_bins_and_perfect_one(sample_docs):
-    collection = SyntheticQueryLogs(sample_docs)
-    text = reports.run_report(since=SINCE, until=UNTIL, collection=collection)
+def test_score_distribution_nulls_bins_and_perfect_one(sample_docs, use_collection):
+    use_collection(SyntheticQueryLogs(sample_docs))
+    text = reports.run_report(since=SINCE, until=UNTIL)
 
     assert "null_scores=" in text
     assert "[0.9, 1.0]" in text  # perfect 1.0 lands in final bin
@@ -504,7 +515,7 @@ def test_score_distribution_nulls_bins_and_perfect_one(sample_docs):
     assert "answered:" in text and "refused:" in text
 
 
-def test_missing_sample_text_and_missing_hash_do_not_crash():
+def test_missing_sample_text_and_missing_hash_do_not_crash(use_collection):
     docs = [
         _doc(
             created_at=datetime(2026, 8, 15, tzinfo=UTC),
@@ -523,22 +534,23 @@ def test_missing_sample_text_and_missing_hash_do_not_crash():
             question_condensed="",
         ),
     ]
-    text = reports.run_report(since=SINCE, until=UNTIL, collection=SyntheticQueryLogs(docs))
+    use_collection(SyntheticQueryLogs(docs))
+    text = reports.run_report(since=SINCE, until=UNTIL)
     assert "(missing hash)" in text
     assert "(no sample text logged)" in text
 
 
-def test_large_counts_render_and_sort(sample_docs):
-    collection = SyntheticQueryLogs(sample_docs)
-    text = reports.run_report(since=SINCE, until=UNTIL, top=3, collection=collection)
+def test_large_counts_render_and_sort(sample_docs, use_collection):
+    use_collection(SyntheticQueryLogs(sample_docs))
+    text = reports.run_report(since=SINCE, until=UNTIL, top=3)
     faq_section = text.split("2. FAQ candidates", 1)[1].split("3. Answered", 1)[0]
     assert "count=25" in faq_section
     assert faq_section.index("hash-hot") < faq_section.index("hash-a")
 
 
-def test_report_path_only_calls_aggregate(sample_docs):
-    collection = SyntheticQueryLogs(sample_docs)
-    reports.run_report(since=SINCE, until=UNTIL, collection=collection)
+def test_report_path_only_calls_aggregate(sample_docs, use_collection):
+    collection = use_collection(SyntheticQueryLogs(sample_docs))
+    reports.run_report(since=SINCE, until=UNTIL)
     assert len(collection.aggregate_calls) == 3
     for pipeline in collection.aggregate_calls:
         assert pipeline[0]["$match"]["created_at"]["$gte"] == SINCE

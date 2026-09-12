@@ -342,18 +342,13 @@ def run_report(
     until: datetime,
     top: int = DEFAULT_TOP,
     min_repeat: int = DEFAULT_MIN_REPEAT,
-    collection: Any | None = None,
 ) -> str:
-    """Execute the three aggregations and return the formatted report text.
-
-    ``collection`` may be injected for tests; production callers omit it and
-    resolve ``query_logs`` via the shared Mongo helper.
-    """
+    """Execute the three aggregations and return the formatted report text."""
     validate_window(since, until)
     validate_top(top)
     validate_min_repeat(min_repeat)
 
-    col = collection if collection is not None else get_collection(QUERY_LOGS_COLLECTION)
+    col = get_collection(QUERY_LOGS_COLLECTION)
     content_gaps = list(col.aggregate(content_gap_pipeline(since, until, top)))
     faq = list(col.aggregate(faq_pipeline(since, until, top, min_repeat)))
     score_rows = list(col.aggregate(score_distribution_pipeline(since, until)))
