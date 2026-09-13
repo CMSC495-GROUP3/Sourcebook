@@ -137,6 +137,25 @@ jobs:
           PY
           cat "$GITHUB_STEP_SUMMARY"
 
+  openapi:
+    # The committed document is what a grader or client author reads on GitHub.
+    # Regenerating it here and failing on a diff keeps /docs from drifting.
+    name: OpenAPI document
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements/api.txt
+      - run: pip install -r requirements/api.txt
+      - name: Committed OpenAPI matches a fresh export
+        run: |
+          make openapi PY=python
+          git diff --exit-code -- docs/openapi.json
+
   web:
     name: Web lint, types, build
     runs-on: ubuntu-latest
@@ -263,6 +282,7 @@ jobs:
       - python-lint
       - python-tests
       - evaluation-dataset
+      - openapi
       - web
       - docker
       - repo-checks

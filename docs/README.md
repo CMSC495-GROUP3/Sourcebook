@@ -6,6 +6,8 @@ vulnerability in [SECURITY.md](../SECURITY.md).
 
 | Page | What it covers |
 | --- | --- |
+| [api.md](api.md) | client walkthrough of every HTTP route, with one stub request and response each |
+| [openapi.json](openapi.json) | committed OpenAPI document; `make openapi` rewrites it, CI fails if it drifts |
 | [design.md](design.md) | the paper-and-ink design system for `web/`: tokens, type, layout, motion, and the mark |
 | [evaluation.md](evaluation.md) | the labeled question sets in `evaluation/`, the metrics, and how to run the live evaluation |
 | [load-testing.md](load-testing.md) | synthetic throughput measurements from `scripts/loadtest/` and the `THREADPOOL_TOKENS` decision |
