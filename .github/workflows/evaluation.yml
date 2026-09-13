@@ -18,10 +18,13 @@
 #
 # Fail-closed: empty or invalid MONGODB_DB, empty secrets, a nonzero
 # evaluator exit, a missing results file, or malformed metrics must fail
-# the job. #180 / #181 closed the original tee/pipefail hole; illegal
-# database names and always-on results validation close the remaining
-# false-green path. Summary and artifact upload still run for diagnostics
-# and do not by themselves make the job green.
+# the job. #180 / #181 closed the tee/pipefail hole; #223 added the
+# database-name check so a bad secret fails at preflight instead of after
+# Atlas admission and the first paid calls. The results step runs with
+# `if: always()` so it fails explicitly instead of being skipped, and stays
+# a gate if `continue-on-error` is ever added to a step above it. Summary
+# and artifact upload still run for diagnostics and do not by themselves
+# make the job green.
 
 name: Live evaluation
 

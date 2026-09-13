@@ -18,6 +18,7 @@ import json
 import math
 import os
 import sys
+import traceback
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -62,6 +63,7 @@ SMOKE_CATEGORY_MIX = {
 REQUIRED_LIVE_ENV_VARS = ("OPENAI_API_KEY", "MONGODB_URI", "MONGODB_DB")
 # Characters MongoDB / PyMongo reject in a database name (pymongo.database._check_name).
 INVALID_MONGODB_DB_CHARS = (" ", ".", "$", "/", "\\", "\x00", '"')
+# The server limit is "fewer than 64 bytes", so 64 is already illegal.
 MONGODB_DB_MAX_LENGTH = 64
 # Keys ``score_results`` always emits; Actions postflight rejects anything else.
 REQUIRED_RESULT_METRIC_KEYS = (
@@ -87,21 +89,27 @@ _RATE_METRIC_KEYS = (
 def validate_mongodb_db_name(name: str) -> str:
     """Reject empty or illegal MongoDB database names before any client call.
 
-    Matches PyMongo's ``_check_name`` plus the 64-byte server limit so an
-    invalid ``MONGODB_DB`` secret fails closed at preflight instead of after
-    paid setup, or being treated as a successful empty run.
+    Checks the value exactly as ``get_db`` will hand it to PyMongo: no
+    trimming, because a padded secret such as ``" policy_assistant "`` passes a
+    trimmed check and then fails inside PyMongo after Atlas admission and after
+    the paid run has started. Matches PyMongo's ``_check_name`` plus the server
+    rule that a name is shorter than 64 bytes.
     """
-    cleaned = name.strip()
-    if not cleaned:
+    if not name.strip():
         raise ValueError("MONGODB_DB is empty")
-    if len(cleaned.encode("utf-8")) > MONGODB_DB_MAX_LENGTH:
-        raise ValueError(f"MONGODB_DB exceeds the {MONGODB_DB_MAX_LENGTH}-byte MongoDB name limit")
+    # PyMongo only rejects the space character, so a pasted secret with a
+    # trailing newline or tab would be accepted and select a different,
+    # empty database. Any whitespace is a mistake here.
+    if any(char.isspace() for char in name):
+        raise ValueError("MONGODB_DB contains whitespace")
+    if len(name.encode("utf-8")) >= MONGODB_DB_MAX_LENGTH:
+        raise ValueError(f"MONGODB_DB must be shorter than {MONGODB_DB_MAX_LENGTH} bytes")
     for invalid_char in INVALID_MONGODB_DB_CHARS:
-        if invalid_char in cleaned:
+        if invalid_char in name:
             raise ValueError(
                 f"MONGODB_DB is not a valid MongoDB database name (contains {invalid_char!r})"
             )
-    return cleaned
+    return name
 
 
 def require_live_env(environ: Mapping[str, str] | None = None) -> None:
@@ -586,8 +594,12 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 1
     except Exception as exc:
+        # This run just spent money; the full traceback is what a reader
+        # needs, and str(exc) alone is empty for argument-less exceptions.
+        traceback.print_exc()
         print(
-            "Live evaluation failed before trustworthy results were produced: " + str(exc),
+            "Live evaluation failed before trustworthy results were produced: "
+            f"{type(exc).__name__}: {exc}",
             file=sys.stderr,
         )
         return 1

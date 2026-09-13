@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
+import yaml
 
+import sourcebook.rag.evaluation as evaluation
 from scripts.validate_live_evaluation import main as validate_cli_main
 from sourcebook.rag.evaluation import (
     _validate_rate_metric,
     require_live_env,
+    validate_mongodb_db_name,
     validate_results_file,
     validate_results_report,
 )
+
+WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "evaluation.yml"
 
 
 def _valid_report(**overrides: object) -> dict:
@@ -177,3 +183,139 @@ def test_validate_results_file_and_cli(tmp_path, capsys, monkeypatch):
     bad = tmp_path / "bad.json"
     bad.write_text(json.dumps({"metrics": {"evaluated_cases": 0}, "results": []}) + "\n")
     assert validate_cli_main(["--results", str(bad)]) == 1
+
+
+def _complete_env(**overrides: str) -> dict[str, str]:
+    env = {
+        "OPENAI_API_KEY": "key",
+        "MONGODB_URI": "mongodb://example",
+        "MONGODB_DB": "policy_assistant",
+    }
+    env.update(overrides)
+    return env
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\n", "\t"])
+def test_empty_mongodb_db_fails_closed(blank: str):
+    with pytest.raises(ValueError, match="MONGODB_DB"):
+        require_live_env(_complete_env(MONGODB_DB=blank))
+
+
+@pytest.mark.parametrize(
+    "illegal",
+    [
+        "foo.bar",
+        "$admin",
+        "db/name",
+        "db\\name",
+        'say"hi',
+        "has space",
+        "has\ttab",
+        "nul\x00byte",
+        # Padding is checked as-is because get_db hands the raw value to PyMongo,
+        # and a trailing newline would silently select a different database.
+        " policy_assistant ",
+        "policy_assistant\n",
+        # The server rule is fewer than 64 bytes, so 64 is already illegal.
+        "a" * 64,
+        "a" * 65,
+    ],
+)
+def test_invalid_mongodb_db_name_fails_closed(illegal: str):
+    with pytest.raises(ValueError, match="MONGODB_DB"):
+        require_live_env(_complete_env(MONGODB_DB=illegal))
+    with pytest.raises(ValueError, match="MONGODB_DB"):
+        validate_mongodb_db_name(illegal)
+
+
+def test_legal_mongodb_db_name_is_returned_unchanged():
+    require_live_env(_complete_env(MONGODB_DB="policy_assistant"))
+    assert validate_mongodb_db_name("policy_assistant") == "policy_assistant"
+    assert validate_mongodb_db_name("a" * 63) == "a" * 63
+
+
+@pytest.mark.parametrize("bad", ["", "db.name", " policy_assistant "])
+def test_check_env_cli_rejects_bad_mongodb_db(
+    bad: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    for key, value in _complete_env(MONGODB_DB=bad).items():
+        monkeypatch.setenv(key, value)
+    assert validate_cli_main(["--check-env"]) == 1
+    assert "MONGODB_DB" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("bad", ["", "policy.assistant", " policy_assistant "])
+def test_evaluation_main_rejects_bad_mongodb_db_without_writing(
+    bad: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    for key, value in _complete_env(MONGODB_DB=bad).items():
+        monkeypatch.setenv(key, value)
+    output = tmp_path / "results.json"
+    assert evaluation.main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
+    assert not output.exists()
+    assert "MONGODB_DB" in capsys.readouterr().err
+
+
+def _run_main_with_live_env(monkeypatch: pytest.MonkeyPatch, output: Path) -> int:
+    for key, value in _complete_env().items():
+        monkeypatch.setenv(key, value)
+    return evaluation.main(["--tier", "smoke", "--yes", "--output", str(output)])
+
+
+def test_evaluation_main_reports_runner_failure_without_writing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    def explode(cases):
+        raise RuntimeError("provider exploded")
+
+    monkeypatch.setattr(evaluation, "run_evaluation", explode)
+    output = tmp_path / "results.json"
+    assert _run_main_with_live_env(monkeypatch, output) == 1
+    assert not output.exists()
+    err = capsys.readouterr().err
+    assert "Traceback" in err
+    assert "RuntimeError: provider exploded" in err
+
+
+def test_evaluation_main_names_argumentless_exception(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    def explode(cases):
+        raise RuntimeError()
+
+    monkeypatch.setattr(evaluation, "run_evaluation", explode)
+    output = tmp_path / "results.json"
+    assert _run_main_with_live_env(monkeypatch, output) == 1
+    assert not output.exists()
+    assert "RuntimeError" in capsys.readouterr().err
+
+
+def test_evaluation_main_rejects_unscoreable_report_without_writing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    empty_metrics = {**_valid_report()["metrics"], "evaluated_cases": 0}
+    monkeypatch.setattr(evaluation, "run_evaluation", lambda cases: [])
+    monkeypatch.setattr(evaluation, "score_results", lambda cases, results: empty_metrics)
+    output = tmp_path / "results.json"
+    assert _run_main_with_live_env(monkeypatch, output) == 1
+    assert not output.exists()
+    assert "at least 1" in capsys.readouterr().err
+
+
+def test_workflow_fail_closed_contract():
+    """The Actions job cannot go green without the env gate and the results gate."""
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["evaluate"]["steps"]
+    by_name = {step.get("name"): step for step in steps}
+
+    assert "--check-env" in by_name["Require live evaluation secrets"]["run"]
+    assert "set -euo pipefail" in by_name["Run the evaluation"]["run"]
+
+    results_step = by_name["Validate evaluation results"]
+    assert results_step["if"] == "always()"
+    assert "--results evaluation/results.json" in results_step["run"]
+
+    # A step that tolerates its own failure would turn the gates above into
+    # advisories. None may, so the always() on the results step stays defence
+    # in depth rather than load-bearing.
+    assert [step.get("name") for step in steps if "continue-on-error" in step] == []
