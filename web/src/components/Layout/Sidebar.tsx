@@ -142,7 +142,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
       <aside
         id="app-sidebar"
         aria-label="Navigation"
-        className="flex  h-svh w-15 shrink-0 flex-col items-center border-r border-rule bg-paper-2"
+        className="flex h-svh w-15 shrink-0 flex-col items-center border-r border-rule bg-paper-2"
       >
         <div className="flex h-15 w-full shrink-0 items-center justify-center border-b border-rule">
           <BrandMark size={28} />
