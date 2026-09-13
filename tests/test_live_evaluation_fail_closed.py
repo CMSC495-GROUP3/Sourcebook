@@ -287,7 +287,12 @@ def test_evaluation_main_names_argumentless_exception(
     output = tmp_path / "results.json"
     assert _run_main_with_live_env(monkeypatch, output) == 1
     assert not output.exists()
-    assert "RuntimeError" in capsys.readouterr().err
+    # The traceback alone ends in a bare "RuntimeError" line, so check the
+    # summary line specifically: it must name the type even with no message.
+    assert (
+        "Live evaluation failed before trustworthy results were produced: RuntimeError:"
+        in capsys.readouterr().err
+    )
 
 
 def test_evaluation_main_rejects_unscoreable_report_without_writing(
