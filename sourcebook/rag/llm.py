@@ -39,6 +39,17 @@ ModelRole = Literal["answer", "utility"]
 Message = dict  # {"role": "system" | "user" | "assistant", "content": str}
 
 
+class ProviderBusyError(Exception):
+    """The provider could not take another request within the capacity wait.
+
+    An expected, short-lived condition, not a generation failure: the chat
+    routes answer it with HTTP 503 and Retry-After so a client can try again,
+    and they keep the generic error path for anything unexpected. Deliberately
+    not a RuntimeError, so an `except RuntimeError` cannot swallow it by
+    accident.
+    """
+
+
 class LLMProvider(ABC):
     """The contract every provider must satisfy.
 
@@ -149,7 +160,7 @@ class OpenAIProvider(LLMProvider):
         """Bound provider occupancy without tying up the whole app thread pool."""
         acquired = self._capacity.acquire(timeout=OPENAI_CAPACITY_WAIT_SECONDS)
         if not acquired:
-            raise RuntimeError("OpenAI provider is at its configured concurrency limit")
+            raise ProviderBusyError("OpenAI provider is at its configured concurrency limit")
         try:
             yield
         finally:

@@ -24,9 +24,10 @@ import logging
 import time
 import uuid
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from sourcebook.api.analytics import log_query
@@ -40,8 +41,13 @@ from sourcebook.rag.cache import (
     is_cacheable_turn,
     put_cached_answer,
 )
-from sourcebook.rag.config import CHAT_RATE_LIMIT, HISTORY_TURNS, REFUSAL_MESSAGE
-from sourcebook.rag.llm import get_provider
+from sourcebook.rag.config import (
+    CHAT_RATE_LIMIT,
+    HISTORY_TURNS,
+    PROVIDER_BUSY_MESSAGE,
+    REFUSAL_MESSAGE,
+)
+from sourcebook.rag.llm import ProviderBusyError, get_provider
 from sourcebook.rag.rag_chain import (
     build_messages,
     cited_sources,
@@ -57,6 +63,38 @@ class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=5000)
     # Constrained so a newline cannot forge a second log line (CodeQL py/log-injection).
     session_id: str | None = Field(None, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+
+
+class RetryableError(BaseModel):
+    """Body of a 503 from either chat route: the provider is at capacity."""
+
+    error: str
+    retryable: Literal[True] = True
+
+
+# Seconds a client should wait before retrying after a 503. The provider slot
+# wait is OPENAI_CAPACITY_WAIT_SECONDS (default 1), so by the time a retry
+# arrives the request that held the slot has usually finished or failed.
+RETRY_AFTER_SECONDS = 1
+
+# Declared on both chat routes so /docs and docs/openapi.json carry the contract.
+PROVIDER_BUSY_RESPONSES = {
+    503: {
+        "model": RetryableError,
+        "description": (
+            "The model provider is at its concurrency limit. Retry after the "
+            "number of seconds in the Retry-After header."
+        ),
+    }
+}
+
+
+def _provider_busy_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content=RetryableError(error=PROVIDER_BUSY_MESSAGE).model_dump(),
+        headers={"Retry-After": str(RETRY_AFTER_SECONDS)},
+    )
 
 
 class ChatResponse(BaseModel):
@@ -219,7 +257,12 @@ def _answer(question: str, history: list[dict]) -> dict:
 # ── Non-streaming ─────────────────────────────────────────────────────────────
 
 
-@router.post("/chat", response_model=ChatResponse, dependencies=[Depends(require_auth)])
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    responses=PROVIDER_BUSY_RESPONSES,
+    dependencies=[Depends(require_auth)],
+)
 @limiter.limit(CHAT_RATE_LIMIT)
 def chat(request: Request, body: ChatRequest):
     """Non-streaming variant. Kept for testing and as a fallback; the UI uses
@@ -228,6 +271,11 @@ def chat(request: Request, body: ChatRequest):
     started = time.perf_counter()
     try:
         result = _answer(body.question, history)
+    except ProviderBusyError:
+        # Nothing is persisted or logged: the turn did not happen, and the
+        # client is told to try again rather than shown a broken answer.
+        logger.warning("Provider saturated for session %s", normalize_log_token(body.session_id))
+        return _provider_busy_response()
     except Exception:
         logger.exception("Generation failed for session %s", normalize_log_token(body.session_id))
         return ChatResponse(
@@ -439,6 +487,10 @@ def _stream(body: ChatRequest):
         # stores nothing, since state["answer"] is still empty.
         try:
             grounding = ground_question(body.question, history)
+        except ProviderBusyError:
+            # Before the first yield, so chat_stream still holds the request:
+            # it turns this into the 503 rather than a stream that opens and dies.
+            raise
         except Exception:
             logger.exception(
                 "Retrieval failed for session %s", normalize_log_token(body.session_id)
@@ -478,6 +530,20 @@ def _stream(body: ChatRequest):
             for delta in get_provider().stream(messages, role="answer", temperature=0):
                 state["answer"] += delta
                 yield _sse({"chunk": delta})
+        except ProviderBusyError:
+            # The slot is taken as the stream opens, so this normally surfaces
+            # before any token, still inside chat_stream's first next(): let it
+            # become the 503. After a token the headers are out, so the same
+            # message goes down the stream as a retryable error event instead.
+            if not state["answer"]:
+                raise
+            logger.warning(
+                "Provider saturated mid-stream for session %s",
+                normalize_log_token(body.session_id),
+            )
+            state["answer"] = ""
+            yield _sse({"error": PROVIDER_BUSY_MESSAGE, "retryable": True})
+            return
         except Exception:
             logger.exception(
                 "Generation failed for session %s", normalize_log_token(body.session_id)
@@ -509,11 +575,36 @@ def _stream(body: ChatRequest):
         _finalize(body, state, corpus_version, history, started)
 
 
-@router.post("/chat/stream", dependencies=[Depends(require_auth)])
+@router.post(
+    "/chat/stream", responses=PROVIDER_BUSY_RESPONSES, dependencies=[Depends(require_auth)]
+)
 @limiter.limit(CHAT_RATE_LIMIT)
 def chat_stream(request: Request, body: ChatRequest):
+    """SSE variant, the one the UI uses.
+
+    The generator's first event is produced here, before the response exists.
+    Everything that can hit provider capacity before a token (the rewrite, the
+    embeddings, opening the answer stream) runs inside that first next(), so a
+    saturated provider becomes an ordinary HTTP 503 with Retry-After, the same
+    contract as /chat, instead of a 200 whose stream opens and immediately
+    ends. The generator's finally still runs and stores nothing.
+    """
+    events = _stream(body)
+    try:
+        first = next(events)
+    except StopIteration:
+        first = None
+    except ProviderBusyError:
+        logger.warning("Provider saturated for session %s", normalize_log_token(body.session_id))
+        return _provider_busy_response()
+
+    def rest():
+        if first is not None:
+            yield first
+        yield from events
+
     return StreamingResponse(
-        _stream(body),
+        rest(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

@@ -32,7 +32,7 @@ from sourcebook.rag.config import (
     SIMILARITY_THRESHOLD,
     VECTOR_INDEX_NAME,
 )
-from sourcebook.rag.llm import get_provider
+from sourcebook.rag.llm import ProviderBusyError, get_provider
 from sourcebook.rag.mongo import get_collection
 
 load_dotenv()
@@ -272,6 +272,12 @@ def condense_question(query: str, chat_history: list[dict]) -> str:
             )
             .strip()
         )
+    except ProviderBusyError:
+        # A saturated provider is not a rewrite failure. The embeddings the
+        # next step needs would hit the same wall, so the turn ends here and
+        # the route answers with the retryable 503 rather than a degraded
+        # retrieval that hides the condition.
+        raise
     except Exception:
         # Retrieval on the raw question still usually works — better than
         # failing. Logged because the turn then takes the single-retrieval
@@ -304,6 +310,9 @@ def generate_follow_ups(query: str, answer: str) -> list[str]:
         lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
         return lines[:3]
     except Exception:
+        # Suggestions are optional; the answer has already been produced. Logged
+        # so a saturated or failing provider is visible on this path too.
+        logger.warning("Follow-up suggestions failed; answering without them", exc_info=True)
         return []
 
 

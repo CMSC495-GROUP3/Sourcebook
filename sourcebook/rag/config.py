@@ -94,6 +94,14 @@ REFUSAL_MESSAGE = (
     "this is something the handbook should cover, it's worth flagging to them."
 )
 
+# Shown when the model provider is at its concurrency limit
+# (OPENAI_MAX_CONCURRENT_REQUESTS) for longer than OPENAI_CAPACITY_WAIT_SECONDS.
+# A short-lived condition the user can retry, unlike a generation failure.
+PROVIDER_BUSY_MESSAGE = (
+    "The assistant is answering as many questions as it can right now. "
+    "Please try again in a moment."
+)
+
 # ── Concurrency ───────────────────────────────────────────────────────────────
 # Size of the thread pool FastAPI uses to run sync routes and to iterate the SSE
 # generator. Starlette calls next() on that generator through the pool, so a
