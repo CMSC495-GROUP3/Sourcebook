@@ -195,8 +195,9 @@ class TestChat:
         records = [r for r in caplog.records if r.name == "sourcebook.api.routes.chat"]
         assert records
         for record in records:
-            assert "\n" not in record.getMessage() and "\r" not in record.getMessage()
-            assert record.session_id == "abcINFO forged"
+            message = record.getMessage()
+            assert "\n" not in message and "\r" not in message
+            assert message.endswith("for session abcINFO forged")
 
     def test_follow_up_logs_the_condensed_query_like_stream(
         self, client, auth, retrieval, conversation, monkeypatch
@@ -355,8 +356,9 @@ class TestStream:
         ]
         assert records
         for record in records:
-            assert "\n" not in record.getMessage() and "\r" not in record.getMessage()
-            assert record.session_id == "abcINFO forged"
+            message = record.getMessage()
+            assert "\n" not in message and "\r" not in message
+            assert message.endswith("for session abcINFO forged")
 
     def test_generation_error_log_stays_one_line(self, retrieval, monkeypatch, caplog):
         def broken(*args, **kwargs):
@@ -370,8 +372,9 @@ class TestStream:
         records = [r for r in caplog.records if r.name == "sourcebook.api.routes.chat"]
         assert records
         for record in records:
-            assert "\n" not in record.getMessage() and "\r" not in record.getMessage()
-            assert record.session_id == "abcWARNING forged"
+            message = record.getMessage()
+            assert "\n" not in message and "\r" not in message
+            assert message.endswith("for session abcWARNING forged")
 
     def test_generation_error_persists_nothing(
         self, client, auth, retrieval, conversation, monkeypatch

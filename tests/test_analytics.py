@@ -102,9 +102,9 @@ def test_log_query_failure_keeps_injected_session_on_one_line(monkeypatch, caplo
     for record in records:
         message = record.getMessage()
         assert "\n" not in message and "\r" not in message
-        assert message.count("\n") == 0
-        assert record.session_id == "abcINFO forged"
-        assert "\n" not in record.session_id and "\r" not in record.session_id
+        # The sanitised id is in the line itself, where the default uvicorn
+        # formatter will print it, not tucked into a record attribute.
+        assert message.endswith("for session abcINFO forged")
 
 
 def test_log_query_stores_sanitized_session_id():
