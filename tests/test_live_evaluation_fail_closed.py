@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-import sourcebook.rag.evaluation as evaluation
 from scripts.validate_live_evaluation import main as validate_cli_main
 from sourcebook.rag.evaluation import (
     _validate_rate_metric,
+    main,
     require_live_env,
     validate_mongodb_db_name,
     validate_results_file,
@@ -259,7 +259,7 @@ def test_evaluation_main_rejects_bad_mongodb_db_without_writing(
 def _run_main_with_live_env(monkeypatch: pytest.MonkeyPatch, output: Path) -> int:
     for key, value in _complete_env().items():
         monkeypatch.setenv(key, value)
-    return evaluation.main(["--tier", "smoke", "--yes", "--output", str(output)])
+    return main(["--tier", "smoke", "--yes", "--output", str(output)])
 
 
 def test_evaluation_main_reports_runner_failure_without_writing(
