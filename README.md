@@ -939,8 +939,9 @@ The product name lives in three places: `APP_NAME` in
   source chips instead of the refusal card (#192), and an uncovered follow-up
   can clear the gate the same way (#189). The escalation link under the answer
   still works. See [above](#hallucination-refuse-rather-than-guess).
-- **Escalations have no handler UI.** The open-queue and resolve endpoints
-  exist; a page for Human Resources to work through them does not.
+- **Human Resources escalation queue.** Authenticated operators can review open
+  escalations in the web app, inspect request details, resolve or reopen requests,
+  and retry failed webhook delivery.
 - **The React components have no unit tests.** The backend suite is the safety
   net; `tsc` and ESLint check the web app.
 - **Document search uses `$regex`**, which does not use an index. Fine at this

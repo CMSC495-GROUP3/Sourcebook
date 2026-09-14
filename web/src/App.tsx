@@ -8,15 +8,18 @@ import { BrandMark, Wordmark } from './components/Layout/Brand'
 import { useSidebar } from './hooks/useSidebar'
 import ChatPage from './pages/ChatPage'
 import DocumentLibraryPage from './pages/DocumentLibraryPage'
+import EscalationsPage from './pages/EscalationsPage'
 
 /** True when localStorage holds a JWT that has not yet expired. */
 function readIsAuthenticated(): boolean {
   const token = localStorage.getItem(TOKEN_KEY)
   if (!token) return false
+
   if (isTokenExpired(token)) {
     localStorage.removeItem(TOKEN_KEY)
     return false
   }
+
   return true
 }
 
@@ -31,6 +34,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
         onToggle={sidebar.toggle}
         onNavigate={sidebar.isDesktop ? undefined : sidebar.close}
       />
+
       {!sidebar.isDesktop && sidebar.open && (
         <div
           className="fixed inset-0 z-30 bg-ink/35"
@@ -38,16 +42,22 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
           aria-hidden="true"
         />
       )}
+
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* On desktop the sidebar is always on screen, expanded or as a rail,
             so only phones need a bar to reach it from. */}
         {!sidebar.isDesktop && (
           <div className="flex h-13 shrink-0 items-center gap-2.5 border-b border-rule px-2">
-            <SidebarToggle kind="menu" open={sidebar.open} onToggle={sidebar.toggle} />
+            <SidebarToggle
+              kind="menu"
+              open={sidebar.open}
+              onToggle={sidebar.toggle}
+            />
             <BrandMark size={24} />
             <Wordmark className="text-[19px] leading-none" />
           </div>
         )}
+
         {children}
       </main>
     </div>
@@ -68,6 +78,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/chat" replace />} />
+
         <Route
           path="/chat"
           element={
@@ -76,6 +87,7 @@ export default function App() {
             </ProtectedLayout>
           }
         />
+
         <Route
           path="/documents"
           element={
@@ -84,6 +96,16 @@ export default function App() {
             </ProtectedLayout>
           }
         />
+
+        <Route
+          path="/escalations"
+          element={
+            <ProtectedLayout>
+              <EscalationsPage />
+            </ProtectedLayout>
+          }
+        />
+
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </BrowserRouter>
