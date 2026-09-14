@@ -15,8 +15,8 @@ need has to sit below both of them.
 import os
 import re
 
+import jwt
 from fastapi.security.utils import get_authorization_scheme_param
-from jose import JWTError, jwt
 
 _ALGORITHM = "HS256"
 
@@ -57,9 +57,9 @@ def decode_claims(token: str) -> dict | None:
     if not secret:
         return None
     try:
-        return jwt.decode(token, secret, algorithms=[_ALGORITHM], options={"require_exp": True})
-    except (JWTError, TypeError):
-        # TypeError: jose casts ``exp`` and ``nbf`` with int() and only catches
+        return jwt.decode(token, secret, algorithms=[_ALGORITHM], options={"require": ["exp"]})
+    except (jwt.PyJWTError, TypeError):
+        # TypeError: PyJWT casts ``exp`` and ``nbf`` with int() and only catches
         # ValueError, so a signed ``exp: null`` (or a list, or a dict) escapes
         # as TypeError rather than a claims error. Same answer: not a token.
         return None

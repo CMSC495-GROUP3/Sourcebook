@@ -19,7 +19,7 @@ Fix this file in the same PR.
 
 | Layer | What | Where |
 |---|---|---|
-| API | FastAPI, uvicorn, slowapi rate limiting, JWT via python-jose, bcrypt | `sourcebook/api/` |
+| API | FastAPI, uvicorn, slowapi rate limiting, JWT via PyJWT, bcrypt | `sourcebook/api/` |
 | RAG pipeline | OpenAI embeddings and chat, LangChain text splitters, pymongo | `sourcebook/rag/` |
 | Storage | MongoDB Atlas (passages, document bodies, conversations, escalations, caches, query logs), S3 for raw documents | `sourcebook/rag/mongo.py`, `sourcebook/api/db.py` |
 | Web app | React 19, TypeScript (strict, no unused locals), Vite, Tailwind 4, react-router, axios | `web/` |
