@@ -164,10 +164,13 @@ cost someone time.
 - **Chat history is server-side.** The client sends only the question and a
   session id; the server reads history from the conversation record. Never
   add a history field to the request, it reopens prompt injection.
-- **Refuse rather than guess.** The grounding gate in `rag_chain.py` uses the
-  best passage score, not the mean, against `SIMILARITY_THRESHOLD`. Tune the
-  threshold from `query_logs` (best_score on answered versus refused rows),
-  never from stub mode.
+- **Refuse rather than guess.** The grounding gate is `ground_question()` in
+  `rag_chain.py`: best passage score, not the mean, against
+  `SIMILARITY_THRESHOLD`, and on a follow-up both the rewrite and the question
+  as typed must clear it (#189). Both routes and the evaluation runner call it;
+  do not reimplement the check inline. Tune the threshold from `query_logs`
+  (best_score on answered versus refused rows; `raw_best_score` marks a
+  follow-up blocked on its own words), never from stub mode.
 - **Bump `PROMPT_VERSION`** in `config.py` whenever the answer prompt
   changes, or cached answers keep serving the old prompt.
 - **Changing a `*_TTL_SECONDS`** fails at startup on an existing database

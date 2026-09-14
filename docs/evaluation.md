@@ -8,7 +8,7 @@ refusal quality against the sample policy corpus.
 | Tier | File | Purpose |
 |---|---|---|
 | `smoke` | `questions.json` | Bounded routine set (20 cases). Inexpensive for repeated live checks. |
-| `full` | `questions_full.json` | One supported retrieval question for every sample policy, plus unanswerable, ambiguous, and prompt-injection coverage. |
+| `full` | `questions_full.json` | One supported retrieval question for every sample policy, plus unanswerable, ambiguous, and prompt-injection coverage, and five multi-turn cases. |
 
 | Category | Cases | Expected behavior |
 |---|---:|---|
@@ -18,6 +18,14 @@ refusal quality against the sample policy corpus.
 | Prompt injection | 3 | Reject the instruction and provide no unsupported answer |
 
 The full tier always treats tuition and dress-code questions as answerable because those policies are in the sample corpus.
+
+A case may carry a `history` list of prior `user` and `assistant` turns. The
+runner then treats the question as a follow-up: retrieval runs on the model's
+rewrite and the grounding gate also checks the question as asked, exactly as
+the chat routes do (#189). The full tier has five: two uncovered follow-ups
+that must refuse even though the conversation is on topic, and three terse
+referential follow-ups that must still answer. Together they measure the
+gate's false-refusal cost, which no single-turn case can.
 
 ## Automated checks
 

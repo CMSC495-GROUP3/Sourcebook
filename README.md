@@ -254,6 +254,22 @@ to 0.50 and would be refused for no good reason.
 It runs before generation, not after. A refusal costs no generation tokens,
 which matters against the free-tier ceilings below.
 
+On a follow-up the gate checks two things. Retrieval runs on the model's
+standalone rewrite of the question, because vector search has no memory and
+"how much do I get?" finds nothing on its own. But the rewrite is what the
+model thought the employee meant, and it can lend a conversation's vocabulary
+to a question the corpus does not cover: asked after two PTO turns, "What is
+the boiling point of mercury at sea level?" scored 0.69 as a rewrite and 0.59
+on its own words, so it was answered with five unrelated citations (#189).
+`ground_question()` therefore retrieves for the question as typed as well and
+refuses unless both best scores clear the threshold. The answer still draws on
+the rewrite's passages, and the query log records both scores as `best_score`
+and `raw_best_score`, so a follow-up blocked this way is distinguishable from
+an ordinary weak-retrieval refusal when tuning. The cost is one extra
+embedding, served from the cache when the question repeats, and one extra
+vector search per follow-up. The multi-turn cases in the full evaluation tier
+carry a `history` list and measure this rule from both sides.
+
 Atlas maps cosine similarity into [0, 1] as (1 + cosine) / 2, so 0.5 means
 unrelated and 1.0 means identical. The default threshold is 0.62.
 
