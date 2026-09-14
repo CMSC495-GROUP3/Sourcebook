@@ -267,9 +267,10 @@ The [query log](#learning-from-the-query-log) is where those scores come from.
 
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
-"that policy isn't loaded yet." The library shows each document as its
-rendered markdown; the source pane beside an answer shows the indexed passages
-instead, since that is what the citation is evidence of.
+"that policy isn't loaded yet." The library shows each document whole; the
+source pane beside an answer shows the indexed passages instead, each rendered
+from its markdown but cut where retrieval cut it, since those chunks are what
+the citation is evidence of.
 
 ### Refusals lead somewhere: escalation
 
