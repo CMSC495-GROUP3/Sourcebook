@@ -9,6 +9,10 @@ the same PR as the change that made it wrong.
 for coding agents: stack, layout, commands, conventions, and the rules that
 are easy to break. Keep the two in step.
 
+How we treat each other while doing all this, including how reviews are
+worded and how stalled branches get picked up, is in
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
 ## Ten minutes to a running app
 
 No cloud accounts, API keys, or `.env` needed. This runs the real application
@@ -86,6 +90,7 @@ make lint     # ruff on Python; ESLint and tsc on the web app
 make fmt      # fix what ruff can fix, then format; run before committing
 make build    # production web build
 make check    # test, lint, build; this is what the CI workflow runs
+make openapi  # rewrite docs/openapi.json from the live app; CI diffs this file
 make audit    # known vulnerabilities in both dependency trees (the Security workflow)
 ```
 
@@ -103,6 +108,7 @@ so they run on fork PRs too.
 | CI | Python lint and format | a `ruff check` finding, an unformatted file, or a lock that no longer matches its `.in` |
 | CI | Python tests (3.11 through 3.14) | a failing test, or coverage under 80% on any version |
 | CI | Evaluation dataset | `evaluation/questions.json` or `questions_full.json` that `load_cases` rejects |
+| CI | OpenAPI document | `make openapi` rewriting `docs/openapi.json` so it no longer matches the commit |
 | CI | Web lint, types, build | ESLint, `tsc -b`, or `vite build` |
 | CI | Docker images and Compose | either image failing to build, the API image failing to import `sourcebook.api.main`, an invalid `docker-compose.yml`, or `scripts/test_proxy_chain.py` failing the live Caddy → Nginx → Uvicorn client-IP / rate-limit check |
 | CI | Shell, Dockerfile, workflow lint | shellcheck on `scripts/*.sh`, hadolint on both Dockerfiles, actionlint on the workflows, or a `.env`, key, or build output that got committed |
@@ -227,10 +233,108 @@ covers `.env`; the rest is on you.
 - **The fake provider's embeddings are meaningless.** Never use `make stub` to
   judge retrieval quality or to tune `SIMILARITY_THRESHOLD`.
 
+## Passage identity index migration
+
+The `passages` collection requires a unique compound index on
+`(source, chunk_index)`. Older databases may still have the same index as
+non-unique and may also contain duplicate passage identities.
+
+Do not run this migration against production without an explicit operations
+decision and a current database backup/snapshot.
+
+Before migration:
+
+1. Stop or otherwise prevent passage ingestion/writers from changing the
+   collection during the migration.
+2. Confirm a current MongoDB Atlas backup/snapshot exists.
+3. Check for duplicate passage identities:
+
+   ```javascript
+   db.passages.aggregate([
+     {
+       $group: {
+         _id: { source: "$source", chunk_index: "$chunk_index" },
+         count: { $sum: 1 }
+       }
+     },
+     { $match: { count: { $gt: 1 } } }
+   ])
+   ```
+
+4. Inspect the current indexes:
+
+   ```javascript
+   db.passages.getIndexes()
+   ```
+
+Run the dry run first, from the repository root:
+
+```bash
+.venv/bin/python -m scripts.migrate_passage_index --dry-run
+```
+
+It prints one line per duplicated identity, naming the record it would
+keep and the `_id`s it would delete, then what it would do to the index,
+and changes nothing. Read those lines before going on. Then run it for
+real:
+
+```bash
+.venv/bin/python -m scripts.migrate_passage_index
+```
+
+The migration:
+
+- prints the same per-duplicate lines before each delete, so the job log
+  is the audit trail;
+- keeps the record with the greatest `_id` in each group and deletes the
+  rest;
+- drops the legacy compound index when present, non-unique or under
+  another name;
+- creates `source_1_chunk_index_1` with `unique: true`;
+- is safe to rerun after a successful migration.
+
+Two things to know at cutover:
+
+- Between the drop and the create there is a moment with no identity
+  index at all. If the script dies there, rerun it; it finds no index and
+  creates the unique one.
+- Once the unique index exists, the previous API image fails at startup
+  with `IndexOptionsConflict` (code 85), because it declares the same
+  keys without `unique`. Rolling back the image is blocked from that
+  point; roll back the database from the snapshot instead.
+
+The local FakeMongo used by the test suite does not enforce MongoDB index
+uniqueness. Tests therefore verify the unique index declaration, migration
+behavior, duplicate reconciliation, and failure handling without pretending
+that FakeMongo can reproduce MongoDB's duplicate-key enforcement.
+
+After migration:
+
+1. Confirm no duplicate identities remain.
+2. Confirm `db.passages.getIndexes()` reports
+   `source_1_chunk_index_1` with `unique: true`.
+3. Re-run `scripts/embed_documents.py`. The migration keeps the greatest
+   `_id` in each duplicate group, and ingestion refreshed an arbitrary one
+   while duplicates existed, so the survivor can hold stale text and a
+   stale embedding. Re-embedding overwrites every passage from the source.
+4. Start the application and confirm normal startup succeeds.
+5. Smoke-test document retrieval and the Policy Library before returning the
+   deployment to normal service.
+
+If migration fails, do not repeatedly modify the production collection by hand.
+Keep passage writers stopped, inspect the reported error and current indexes,
+and restore from the approved backup/snapshot if rollback is required.
+
+Prefer a forward-only recovery. Recreate the legacy non-unique index only if an
+explicit operations decision requires it; otherwise restore from the approved
+backup and investigate before retrying.
+
 ## Debugging
 
 - The OpenAPI console at `/docs` lets you call any endpoint with a token. Log in
-  at `POST /api/auth/login`, click Authorize, paste the token.
+  at `POST /api/auth/login`, click Authorize, paste the token. The committed
+  document and the client walkthrough are [docs/openapi.json](docs/openapi.json)
+  and [docs/api.md](docs/api.md).
 - SSE by hand:
   `curl -N -X POST localhost:8000/api/chat/stream -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"question":"How much PTO do I get?"}'`
 - Escalations queue: `GET /api/escalations?status=open`. Retry a failed webhook
@@ -238,7 +342,15 @@ covers `.env`; the rest is on you.
   yet.
 - Query analytics are in the `query_logs` collection: refused questions grouped
   by `question_hash` are the content gaps, and `best_score` on answered versus
-  refused rows is what the threshold should be tuned against.
+  refused rows is what the threshold should be tuned against. Run a read-only
+  offline report over a time window, on the EC2 host, since the cluster's IP
+  access list admits that host and anywhere else waits out `--timeout`
+  (default 10 s) and fails:
+  `python -m sourcebook.rag.query_log_reports --since 2026-08-01`.
+  `--until` defaults to now. Optional `--top` and `--min-repeat` bound the
+  ranked lists. Rows expire after 90 days (`QUERY_LOG_TTL_SECONDS`), so an
+  older window prints an empty report. Sample text comes from already-logged
+  truncated `question_raw` / `question_condensed` when present.
 - API logs go to stdout. In Compose: `docker compose logs -f api`.
 
 ## Load testing and deployment

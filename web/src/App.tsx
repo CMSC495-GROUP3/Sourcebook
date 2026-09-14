@@ -24,7 +24,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const sidebar = useSidebar()
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-svh w-full overflow-hidden">
       <Sidebar
         open={sidebar.open}
         isDesktop={sidebar.isDesktop}

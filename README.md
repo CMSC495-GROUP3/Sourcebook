@@ -65,20 +65,39 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 
 ## Documentation
 
-| Read | For |
+To run it, read [docs/install.md](docs/install.md). To change it, read
+[CONTRIBUTING.md](CONTRIBUTING.md). Everything under `docs/` is indexed in
+[docs/README.md](docs/README.md).
+
+### Running and contributing
+
+| Page | Covers |
 | --- | --- |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
-| [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
-| [docs/README.md](docs/README.md) | the index of everything under `docs/` |
-| [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
-| [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
-| [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
-| [docs/releases/v0.1.0-alpha.1/handoff.md](docs/releases/v0.1.0-alpha.1/handoff.md) | the Unit 5 alpha: submitted commit, scope map, verification status, evidence |
-| [docs/releases/v0.1.0-alpha.1/live-benchmark.md](docs/releases/v0.1.0-alpha.1/live-benchmark.md) | what the deployed pilot measured with real OpenAI and Atlas, and its limits |
-| [docs/releases/v0.1.0-alpha.1/live-evaluation.md](docs/releases/v0.1.0-alpha.1/live-evaluation.md) | answer quality on the smoke tier, this prompt against the one before #138 |
-| [docs/releases/v0.1.0-alpha.1/release-notes.md](docs/releases/v0.1.0-alpha.1/release-notes.md) | the v0.1.0-alpha.1 release body: scope, access, known defects, limitations |
-| [v0.1.0-alpha.1 release](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | the tagged Unit 5 alpha, `d7199f5`, with the notes above as its body |
-| [.agents/skills/sourcebook/SKILL.md](.agents/skills/sourcebook/SKILL.md) | the condensed version of all this for coding agents |
+| [docs/install.md](docs/install.md) | the live site, the offline stub, real services, deployment |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | checks, conventions, and the things that bite |
+| [SECURITY.md](SECURITY.md) | reporting a vulnerability; what the Security workflow scans |
+
+### Reference
+
+| Page | Covers |
+| --- | --- |
+| [docs/api.md](docs/api.md) | every HTTP route, with a stub request and response |
+| [docs/openapi.json](docs/openapi.json) | the committed OpenAPI document; `make openapi` regenerates it |
+| [docs/design.md](docs/design.md) | the paper-and-ink design system |
+| [docs/evaluation.md](docs/evaluation.md) | the labeled question sets and how to score the live system |
+| [docs/load-testing.md](docs/load-testing.md) | throughput measurements and `THREADPOOL_TOKENS` |
+
+### Releases
+
+Each tagged release has a folder under [docs/releases/](docs/releases/) with
+its handoff, release notes, live benchmark, live evaluation, and evidence.
+
+| Release | Handoff | Notes | Measured |
+| --- | --- | --- | --- |
+| [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](docs/releases/v0.1.0-alpha.1/handoff.md) | [release notes](docs/releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](docs/releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](docs/releases/v0.1.0-alpha.1/live-evaluation.md) |
+
+Coding agents get the condensed version of all of this in
+[.agents/skills/sourcebook/SKILL.md](.agents/skills/sourcebook/SKILL.md).
 
 ## Contents
 
@@ -398,6 +417,17 @@ That log is how the system improves from evidence rather than intuition.
 - The score distribution of answered versus refused questions is the only
   sound basis for tuning `SIMILARITY_THRESHOLD`, and there is no other way to
   collect it.
+
+Run a read-only report over a time window. Run it on the EC2 host. The
+cluster's IP access list admits that host, so anywhere else waits out
+`--timeout` (default 10 s) and then fails in a way that looks like a config
+typo.
+
+    python -m sourcebook.rag.query_log_reports --since 2026-08-01
+
+`--until` defaults to now. Optional `--top` and `--min-repeat` bound the ranked
+lists. `query_logs` rows expire after 90 days (`QUERY_LOG_TTL_SECONDS`), so a
+window that ends earlier than that prints an empty report rather than an error.
 
 This is deliberately not fine-tuning. Retraining on interaction data would
 contradict the reason RAG was chosen, and no pilot produces the volume it would
