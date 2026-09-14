@@ -45,11 +45,8 @@ from sourcebook.rag.llm import get_provider
 from sourcebook.rag.rag_chain import (
     build_messages,
     cited_sources,
-    condense_question,
-    confidence_score,
     generate_follow_ups,
-    is_grounded,
-    retrieve_passages,
+    ground_question,
 )
 
 logger = logging.getLogger(__name__)
@@ -162,8 +159,9 @@ def _persist(
 def _answer(question: str, history: list[dict]) -> dict:
     """Retrieve, gate, and generate. Shared by both chat routes.
 
-    Returns the result plus `passages`, `cache_hit`, and `condensed` for the
-    query log. `condensed` is the retrieval query (rewritten on follow-ups).
+    Returns the result plus `passages`, `cache_hit`, `condensed`, and
+    `raw_best_score` for the query log. `condensed` is the retrieval query
+    (rewritten on follow-ups); the gate itself lives in ground_question.
     """
     corpus_version = get_corpus_version()
 
@@ -171,17 +169,22 @@ def _answer(question: str, history: list[dict]) -> dict:
         cached = get_cached_answer(question, corpus_version)
         if cached is not None:
             # Cache hits are first-turn only, so raw and condensed are equal.
-            return {**cached, "passages": [], "cache_hit": "answer", "condensed": question}
+            return {
+                **cached,
+                "passages": [],
+                "cache_hit": "answer",
+                "condensed": question,
+                "raw_best_score": None,
+            }
 
-    retrieval_query = condense_question(question, history)
-    passages = retrieve_passages(retrieval_query)
-    confidence = confidence_score(passages)
+    grounding = ground_question(question, history)
+    passages = grounding.passages
 
-    if not is_grounded(passages):
+    if not grounding.grounded:
         result = {
             "answer": REFUSAL_MESSAGE,
             "sources": [],
-            "confidence": confidence,
+            "confidence": grounding.confidence,
             "follow_ups": [],
             "refused": True,
         }
@@ -194,7 +197,7 @@ def _answer(question: str, history: list[dict]) -> dict:
         result = {
             "answer": answer,
             "sources": cited_sources(passages),
-            "confidence": confidence,
+            "confidence": grounding.confidence,
             "follow_ups": generate_follow_ups(question, answer),
             "refused": False,
         }
@@ -204,7 +207,13 @@ def _answer(question: str, history: list[dict]) -> dict:
     if is_cacheable_turn(history):
         put_cached_answer(question, corpus_version, result)
 
-    return {**result, "passages": passages, "cache_hit": None, "condensed": retrieval_query}
+    return {
+        **result,
+        "passages": passages,
+        "cache_hit": None,
+        "condensed": grounding.condensed,
+        "raw_best_score": grounding.raw_best_score,
+    }
 
 
 # ── Non-streaming ─────────────────────────────────────────────────────────────
@@ -251,6 +260,7 @@ def chat(request: Request, body: ChatRequest):
         sources=result["sources"],
         cache_hit=result["cache_hit"],
         latency_ms=int((time.perf_counter() - started) * 1000),
+        raw_best_score=result["raw_best_score"],
     )
 
     return ChatResponse(
@@ -356,6 +366,7 @@ def _finalize(
         sources=state["sources"],
         cache_hit=state["cache_hit"],
         latency_ms=int((time.perf_counter() - started) * 1000),
+        raw_best_score=state["raw_best_score"],
     )
 
 
@@ -384,6 +395,7 @@ def _stream(body: ChatRequest):
         "passages": [],
         "cache_hit": None,
         "condensed": body.question,
+        "raw_best_score": None,
         "finalized": False,
         "complete": False,
         # Named before the first token so every `done` event can carry it and
@@ -422,17 +434,28 @@ def _stream(body: ChatRequest):
                     yield _sse({"follow_ups": cached["follow_ups"]})
                 return
 
-        retrieval_query = condense_question(body.question, history)
-        passages = retrieve_passages(retrieval_query)
-        state["condensed"] = retrieval_query
+        # Same boundary as generation below: a retrieval or embedding failure
+        # becomes one error event, not a dropped connection. _finalize then
+        # stores nothing, since state["answer"] is still empty.
+        try:
+            grounding = ground_question(body.question, history)
+        except Exception:
+            logger.exception(
+                "Retrieval failed for session %s", normalize_log_token(body.session_id)
+            )
+            yield _sse({"error": "An error occurred while generating the response."})
+            return
+        passages = grounding.passages
+        state["condensed"] = grounding.condensed
         state["passages"] = passages
-        state["confidence"] = confidence_score(passages)
+        state["confidence"] = grounding.confidence
+        state["raw_best_score"] = grounding.raw_best_score
 
         # Grounding gate — below the threshold we decline without generating.
-        if not is_grounded(passages):
+        if not grounding.grounded:
             logger.info(
                 "Refused: best score %.3f below threshold for session %s",
-                max((p.get("score", 0.0) for p in passages), default=0.0),
+                grounding.best_score,
                 normalize_log_token(body.session_id),
             )
             state.update(answer=REFUSAL_MESSAGE, refused=True, complete=True)

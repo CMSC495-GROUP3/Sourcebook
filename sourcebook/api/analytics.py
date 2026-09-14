@@ -47,6 +47,7 @@ def log_query(
     sources: list[str],
     cache_hit: str | None,
     latency_ms: int,
+    raw_best_score: float | None = None,
 ) -> None:
     """Record one chat request. Never raises.
 
@@ -68,6 +69,12 @@ def log_query(
                 # Groups repeats of the same question regardless of casing/spacing.
                 "question_hash": question_hash(condensed_question),
                 "best_score": max(scores) if scores else None,
+                # Best score for the question as asked when a follow-up ran a
+                # second retrieval, else None. A refused row whose best_score
+                # clears the threshold but whose raw_best_score does not was
+                # blocked by the gate on the question as asked (issue #189),
+                # not by weak retrieval; keep the two apart when tuning.
+                "raw_best_score": raw_best_score,
                 "mean_score": (sum(scores) / len(scores)) if scores else None,
                 "passage_count": len(passages),
                 "refused": refused,

@@ -38,6 +38,19 @@ def test_records_scores_and_outcome():
     assert record["question_hash"] == question_hash("how much  pto do i get?")
 
 
+def test_raw_best_score_is_recorded_when_a_follow_up_ran_two_retrievals():
+    _log(passages=make_passages(0.69, 0.60), refused=True, raw_best_score=0.59)
+    record = FAKE_DB["query_logs"].find_one({})
+    # A refused row whose best_score clears the threshold but whose
+    # raw_best_score does not was blocked by the gate on the question as asked.
+    assert record["best_score"] == 0.69 and record["raw_best_score"] == 0.59
+
+
+def test_raw_best_score_defaults_to_none_on_a_first_turn():
+    _log()
+    assert FAKE_DB["query_logs"].find_one({})["raw_best_score"] is None
+
+
 def test_cache_hits_have_no_scores():
     _log(passages=[], cache_hit="answer")
     record = FAKE_DB["query_logs"].find_one({})

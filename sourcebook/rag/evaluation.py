@@ -246,6 +246,24 @@ def validate_sources_against_corpus(
         )
 
 
+def _validate_history(case_id: str, history: Any) -> None:
+    """A multi-turn case carries prior turns shaped like the stored conversation.
+
+    Only user and assistant turns, each with text: the chat routes replay
+    exactly that (see load_history in the API), so a case cannot smuggle in a
+    system message or an empty turn the live app could never produce.
+    """
+    if not isinstance(history, list):
+        raise ValueError(f"Evaluation case {case_id} history must be a list of turns")
+    for turn in history:
+        if not isinstance(turn, dict) or turn.get("role") not in {"user", "assistant"}:
+            raise ValueError(
+                f"Evaluation case {case_id} history turns need a user or assistant role"
+            )
+        if not isinstance(turn.get("content"), str) or not turn["content"].strip():
+            raise ValueError(f"Evaluation case {case_id} history turns need non-empty content")
+
+
 def load_cases(
     path: str | Path,
     *,
@@ -291,6 +309,8 @@ def load_cases(
             raise ValueError(f"Evaluation case {case_id} has invalid expected sources")
         if not isinstance(case["expected_behavior"], str) or not case["expected_behavior"].strip():
             raise ValueError(f"Evaluation case {case_id} has empty expected behavior")
+        if "history" in case:
+            _validate_history(case_id, case["history"])
 
     if require_corpus_titles:
         validate_sources_against_corpus(cases, corpus_dir=corpus_dir)
@@ -359,22 +379,21 @@ def extract_answer_citations(answer: str, known_titles: Iterable[str]) -> list[s
 def run_live_case(case: dict[str, Any]) -> dict[str, Any]:
     """Execute one case through the configured retrieval and answer pipeline."""
     from sourcebook.rag.llm import get_provider
-    from sourcebook.rag.rag_chain import (
-        build_messages,
-        cited_sources,
-        confidence_score,
-        is_grounded,
-        retrieve_passages,
-    )
+    from sourcebook.rag.rag_chain import build_messages, cited_sources, ground_question
 
-    passages = retrieve_passages(case["question"], k=5)
+    # Same gate the chat routes run. A case with `history` is a follow-up: the
+    # retrieval query is the rewrite and the gate also checks the question as
+    # asked (issue #189); a case without one is a first turn.
+    history = case.get("history", [])
+    grounding = ground_question(case["question"], history)
+    passages = grounding.passages
     retrieved_sources = cited_sources(passages)
-    grounded = is_grounded(passages)
+    grounded = grounding.grounded
 
     answer = ""
     if grounded:
         answer = get_provider().complete(
-            build_messages(case["question"], passages, []),
+            build_messages(case["question"], passages, history),
             role="answer",
             temperature=0,
         )
@@ -391,7 +410,7 @@ def run_live_case(case: dict[str, Any]) -> dict[str, Any]:
         "retrieved_sources": retrieved_sources,
         "displayed_sources": displayed_sources,
         "cited_sources": answer_citations,
-        "confidence": confidence_score(passages),
+        "confidence": grounding.confidence,
         "refused": not grounded,
         "answer": answer,
     }
