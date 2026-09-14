@@ -225,6 +225,26 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "RetryableError": {
+        "description": "Body of a 503 from either chat route: the provider is at capacity.",
+        "properties": {
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "retryable": {
+            "const": true,
+            "default": true,
+            "title": "Retryable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "RetryableError",
+        "type": "object"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -428,6 +448,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryableError"
+                }
+              }
+            },
+            "description": "The model provider is at its concurrency limit. Retry after the number of seconds in the Retry-After header."
           }
         },
         "security": [
@@ -440,6 +470,7 @@
     },
     "/api/chat/stream": {
       "post": {
+        "description": "SSE variant, the one the UI uses.\n\nThe generator's first event is produced here, before the response exists.\nEverything that can hit provider capacity before a token (the rewrite, the\nembeddings, opening the answer stream) runs inside that first next(), so a\nsaturated provider becomes an ordinary HTTP 503 with Retry-After, the same\ncontract as /chat, instead of a 200 whose stream opens and immediately\nends. The generator's finally still runs and stores nothing.",
         "operationId": "chat_stream_api_chat_stream_post",
         "requestBody": {
           "content": {
@@ -469,6 +500,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryableError"
+                }
+              }
+            },
+            "description": "The model provider is at its concurrency limit. Retry after the number of seconds in the Retry-After header."
           }
         },
         "security": [

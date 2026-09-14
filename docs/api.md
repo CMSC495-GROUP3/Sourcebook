@@ -35,6 +35,14 @@ Missing bearer → `{"detail": "Not authenticated"}`. Bad or rotated token →
 `{"detail": "Invalid or expired token."}`. Wrong password →
 `{"detail": "Incorrect password."}`.
 
+Both chat routes answer HTTP 503 when the model provider is at its
+concurrency limit (`OPENAI_MAX_CONCURRENT_REQUESTS`, waited on for
+`OPENAI_CAPACITY_WAIT_SECONDS`). The body is
+`{"error": "<message>", "retryable": true}` and a `Retry-After` header says
+how many seconds to wait. Nothing is stored or logged for that turn, so a
+retry is a fresh question. This is distinct from a generation failure, which
+is not retryable and keeps the shapes below.
+
 ## Sign in
 
 `POST /api/auth/login`
@@ -104,6 +112,7 @@ Every event type:
 | refused | `{"done": true, "message_id": "…", "sources": [], "confidence": <int>, "refused": true}` after one `chunk` that is the refusal text |
 | suggestions | `{"follow_ups": ["…", "…", "…"]}` — omitted on refusal; may be skipped if the client hangs up after `done` |
 | generation failure | `{"error": "An error occurred while generating the response."}` |
+| provider busy after a token | `{"error": "<message>", "retryable": true}`; before the first token the whole response is the HTTP 503 above instead |
 
 `message_id` names the assistant turn for escalation. Do not use list position.
 
@@ -138,7 +147,8 @@ Content-Type: application/json
 A refusal returns `refused: true`, empty `sources` / `follow_ups`, and the
 fixed refusal text (it names Human Resources; see `REFUSAL_MESSAGE` in
 `sourcebook/rag/config.py`). `message_id` is null when the request had no
-session.
+session. A saturated provider returns the HTTP 503 described under the error
+envelope rather than a 200 with an error answer.
 
 ## Follow-up in a session
 
