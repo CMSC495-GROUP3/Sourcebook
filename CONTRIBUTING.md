@@ -9,6 +9,10 @@ the same PR as the change that made it wrong.
 for coding agents: stack, layout, commands, conventions, and the rules that
 are easy to break. Keep the two in step.
 
+How we treat each other while doing all this, including how reviews are
+worded and how stalled branches get picked up, is in
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
 ## Ten minutes to a running app
 
 No cloud accounts, API keys, or `.env` needed. This runs the real application
