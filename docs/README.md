@@ -1,20 +1,18 @@
 # Documentation
 
-Narrative docs live here. Start with [install.md](install.md) if you have
-never run the project. The [README](../README.md) explains what the system is
-and holds the longer real-services and deployment procedures, development is
-in [CONTRIBUTING.md](../CONTRIBUTING.md), and reporting a vulnerability is in
-[SECURITY.md](../SECURITY.md).
+Narrative docs live here. New to the project? Start with
+[install.md](install.md). The [README](../README.md) explains what the system
+is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
+[SECURITY.md](../SECURITY.md) covers reporting a vulnerability.
 
-| Page | What it covers |
+| Page | Covers |
 | --- | --- |
-| [install.md](install.md) | installing it: the offline stub, real services with every `.env` variable, and the pilot deployment |
-| [api.md](api.md) | client walkthrough of every HTTP route, with one stub request and response each |
-| [openapi.json](openapi.json) | committed OpenAPI document; `make openapi` rewrites it, CI fails if it drifts |
-| [design.md](design.md) | the paper-and-ink design system for `web/`: tokens, type, layout, motion, and the mark |
-| [evaluation.md](evaluation.md) | the labeled question sets in `evaluation/`, the metrics, and how to run the live evaluation |
-| [load-testing.md](load-testing.md) | synthetic throughput measurements from `scripts/loadtest/` and the `THREADPOOL_TOKENS` decision |
-| [releases/](releases/) | one folder per tagged release |
+| [install.md](install.md) | the live site, the offline stub, real services with every `.env` variable, deployment |
+| [api.md](api.md) | every HTTP route, with a stub request and response |
+| [openapi.json](openapi.json) | the committed OpenAPI document; `make openapi` regenerates it, CI fails if it drifts |
+| [design.md](design.md) | the paper-and-ink design system for `web/` |
+| [evaluation.md](evaluation.md) | the labeled question sets in `evaluation/` and how to run the live evaluation |
+| [load-testing.md](load-testing.md) | throughput measurements from `scripts/loadtest/` and the `THREADPOOL_TOKENS` decision |
 
 ## Releases
 
@@ -22,9 +20,9 @@ Each release folder holds the handoff that names the verified commit, the
 release notes used as the GitHub release body, the measurements taken against
 the deployed system, and the evidence behind them.
 
-| Release | Handoff | Notes |
-| --- | --- | --- |
-| [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff.md](releases/v0.1.0-alpha.1/handoff.md) | [release-notes.md](releases/v0.1.0-alpha.1/release-notes.md) |
+| Release | Handoff | Notes | Measured |
+| --- | --- | --- | --- |
+| [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](releases/v0.1.0-alpha.1/handoff.md) | [release notes](releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](releases/v0.1.0-alpha.1/live-evaluation.md) |
 
 ## Conventions
 
