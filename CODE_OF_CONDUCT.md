@@ -1,19 +1,17 @@
 # Code of conduct
 
 Sourcebook is built by CMSC 495 Group 3, seven students at UMGC working in one
-semester, with day jobs, across time zones, mostly asynchronously. Outside
-contributors are welcome through forks and pull requests. This page says how
-we treat each other while doing that. It is adapted from the Contributor
-Covenant, cut down to what applies to a team this size, and made specific to
-how this project actually runs.
+semester, with day jobs, across time zones, mostly asynchronously. This page
+says how we treat each other while doing that. It is adapted from the
+Contributor Covenant, cut down to what applies to a team this size, and made
+specific to how this project actually runs.
 
 ## Where it applies
 
 The GitHub repository (issues, pull requests, reviews, discussions, commit
 messages), the team's Discord server, the course classroom, and any place
 someone is speaking for the project, such as the pilot site or a class
-presentation. It applies to the seven members and to anyone who sends a pull
-request.
+presentation. It applies to the seven members.
 
 ## What we expect
 
