@@ -20,7 +20,8 @@ import bcrypt
 import pytest
 
 # main.py and llm.py read these at import, so they are set before either loads.
-os.environ["JWT_SECRET_KEY"] = "test-secret-not-for-real-use"
+# 32 bytes or more: PyJWT warns on shorter HMAC keys (RFC 7518 section 3.2).
+os.environ["JWT_SECRET_KEY"] = "test-secret-not-for-real-use-32b"
 os.environ["MONGODB_URI"] = "mongodb://stubbed-never-contacted"
 os.environ["LLM_PROVIDER"] = "fake"
 os.environ["FAKE_STREAM_DELAY_MS"] = "0"

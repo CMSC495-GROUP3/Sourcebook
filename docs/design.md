@@ -49,9 +49,9 @@ than the view. A new question scrolls to the top of the view; from the
 second turn on, the last turn is at least a viewport tall so it can.
 
 **Source pane.** Clicking a citation chip opens the cited document beside
-the answer as the indexed passages retrieval saw, set in the display face as
-quotations; it is the audit trail for the citation, and links to the library
-for the document whole. It docks as a 368px column in the right margin
+the answer as the indexed passages retrieval saw, each rendered from its
+markdown in the document prose style and set as a quotation; it is the audit
+trail for the citation, and links to the library for the document whole. It docks as a 368px column in the right margin
 whenever the page is wide enough to hold gutter, column, and pane without
 narrowing the column (1160px of main area), and slides over the thread
 otherwise. Escape closes it. Switching conversations closes it.

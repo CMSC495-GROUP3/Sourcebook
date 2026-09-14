@@ -120,7 +120,7 @@ def test_secret_is_read_at_call_time(monkeypatch):
     with pytest.raises(RuntimeError, match="JWT_SECRET_KEY"):
         tokens.encode_token({"sub": "user"})
 
-    monkeypatch.setenv("JWT_SECRET_KEY", "a-different-secret")
+    monkeypatch.setenv("JWT_SECRET_KEY", "a-different-secret-of-thirty-two-bytes")
     assert tokens.decode_claims(token) is None, (
         "a token signed under the old secret must not verify"
     )
