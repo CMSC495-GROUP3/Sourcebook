@@ -1,128 +1,109 @@
-# Contributor Covenant Code of Conduct
+# Code of conduct
 
-## Our Pledge
+Sourcebook is built by CMSC 495 Group 3, seven students at UMGC working in one
+semester, with day jobs, across time zones, mostly asynchronously. This page
+says how we treat each other while doing that. It is adapted from the
+Contributor Covenant, cut down to what applies to a team this size, and made
+specific to how this project actually runs.
 
-We as members, contributors, and leaders pledge to make participation in our
-community a harassment-free experience for everyone, regardless of age, body
-size, visible or invisible disability, ethnicity, sex characteristics, gender
-identity and expression, level of experience, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity
-and orientation.
+## Where it applies
 
-We pledge to act and interact in ways that contribute to an open, welcoming,
-diverse, inclusive, and healthy community.
+The GitHub repository (issues, pull requests, reviews, discussions, commit
+messages), the team's Discord server, the course classroom, and any place
+someone is speaking for the project, such as the pilot site or a class
+presentation. It applies to the seven members.
 
-## Our Standards
+## What we expect
 
-Examples of behavior that contributes to a positive environment for our
-community include:
+- Treat everyone as a colleague, whatever their age, disability, ethnicity,
+  gender identity or expression, experience level, nationality, appearance,
+  race, religion, or sexual orientation. Nobody has to earn baseline respect
+  by shipping first.
+- Review the work, not the person. "This branch returns 500 where the spec says
+  503" is a review comment. "You clearly didn't read the spec" is not. A request
+  for changes is a statement about the diff.
+- Say what you ran. A review that says "looks good" carries less weight than
+  one that says "ran `make check` and the fail-closed script, both pass". The
+  PR template asks for this from authors for the same reason.
+- Be clear about what blocks a merge and what does not. Blocking items get a
+  reason. Everything else is a suggestion the author may decline.
+- Expect delays and say so. This is a class, not a job. Nobody owes a reply
+  within the hour. If you will be away for a few days, drop a line in Discord
+  so a stalled review is not mistaken for silence.
+- Leave a trail. Decisions made in Discord that affect the code get a sentence
+  in the issue or PR, so a teammate who was asleep can follow them.
+- Credit stays with the person who did the work. Commit authorship and the
+  contributions evidence for the course are how that is recorded. Do not
+  rewrite someone else's commits into your own.
 
-* Demonstrating empathy and kindness toward other people
-* Being respectful of differing opinions, viewpoints, and experiences
-* Giving and gracefully accepting constructive feedback
-* Accepting responsibility and apologizing to those affected by our mistakes,
-  and learning from the experience
-* Focusing on what is best not just for us as individuals, but for the
-  overall community
+## Things specific to this project
 
-Examples of unacceptable behavior include:
+**Taking over stalled work.** Sometimes a branch stops moving and the deadline
+does not. Anyone may pick it up. Tell the author first, on the PR, keep their
+commits intact, add yours on top, and say in the description who did what.
+Nobody loses a contribution because they got busy.
 
-* The use of sexualized language or imagery, and sexual attention or
-  advances of any kind
-* Trolling, insulting or derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information, such as a physical or email
-  address, without their explicit permission
-* Other conduct which could reasonably be considered inappropriate in a
-  professional setting
+**Secrets and real policy documents.** A `.env`, an API key, a password hash,
+or a real employer's policy text never goes in the repository, an issue, a
+screenshot, or a Discord message. If one slips through, say so immediately in
+Discord so it can be rotated. Owning a mistake quickly is the expected
+behaviour; hiding one is the violation.
 
-## Enforcement Responsibilities
+**Coding agents.** Several of us use Claude Code and similar tools. That is
+fine. You own what you submit, you have read it, and you can explain it in
+review. A PR description that says an agent drafted part of it is normal. A
+PR the author cannot answer questions about is a problem regardless of who or
+what wrote it.
 
-Community leaders are responsible for clarifying and enforcing our standards of
-acceptable behavior and will take appropriate and fair corrective action in
-response to any behavior that they deem inappropriate, threatening, offensive,
-or harmful.
+**Escalations from the pilot.** The app forwards real questions from real
+people to Human Resources. Content in escalation records, logs, and the
+evaluation set is handled as confidential. It does not go in screenshots,
+issues, or chat.
 
-Community leaders have the right and responsibility to remove, edit, or reject
-comments, commits, code, wiki edits, issues, and other contributions that are
-not aligned to this Code of Conduct, and will communicate reasons for moderation
-decisions when appropriate.
+## What is not acceptable
 
-## Scope
+Harassment in any form. Sexualised language or attention. Insults, slurs, or
+attacks on a person rather than on work. Publishing anyone's private
+information. Repeatedly ignoring a request to stop. Retaliating against
+someone for raising a concern. Anything that would get you sent home from a
+professional workplace.
 
-This Code of Conduct applies within all community spaces, and also applies when
-an individual is officially representing the community in public spaces.
-Examples of representing our community include using an official e-mail address,
-posting via an official social media account, or acting as an appointed
-representative at an online or offline event.
+## Raising a concern
 
-## Enforcement
+Talk to the person directly if you can. If you cannot, or that did not work,
+contact any of these people. Pick whoever is not involved.
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-tshahan1@student.umgc.edu.
-All complaints will be reviewed and investigated promptly and fairly.
+- Taylor Shahan, project lead: tshahan1@student.umgc.edu
+- George Struder, owner of the Discord server: direct message on Discord
+- Christopher Davis, the course's primary instructor,
+  christopher.davis@faculty.umgc.edu, for anything the team cannot or should
+  not handle itself
 
-All community leaders are obligated to respect the privacy and security of the
-reporter of any incident.
+Reports stay private. Whoever receives one acknowledges it within two days,
+talks to the people involved, and tells the reporter what happened. Nobody is
+penalised for making a report in good faith.
 
-## Enforcement Guidelines
+## What happens
 
-Community leaders will follow these Community Impact Guidelines in determining
-the consequences for any action they deem in violation of this Code of Conduct:
+The response fits the situation, and small things stay small.
 
-### 1. Correction
+1. A private conversation and a clear ask to stop. This covers most cases.
+2. A written warning, with what changes and for how long. That may include no
+   contact with the people involved.
+3. Loss of write access to the repository or removal from the Discord server,
+   temporary or permanent. The rest of the team is told why, without details
+   that identify a reporter.
+4. Escalation to the instructor. Course-level consequences are theirs, not
+   ours, and UMGC's [Code of Student
+   Conduct](https://www.umgc.edu/administration/policies-and-reporting/policies/student-affairs/code-of-student-conduct)
+   applies to all of us regardless of anything on this page.
 
-**Community Impact**: Use of inappropriate language or other behavior deemed
-unprofessional or unwelcome in the community.
-
-**Consequence**: A private, written warning from community leaders, providing
-clarity around the nature of the violation and an explanation of why the
-behavior was inappropriate. A public apology may be requested.
-
-### 2. Warning
-
-**Community Impact**: A violation through a single incident or series
-of actions.
-
-**Consequence**: A warning with consequences for continued behavior. No
-interaction with the people involved, including unsolicited interaction with
-those enforcing the Code of Conduct, for a specified period of time. This
-includes avoiding interactions in community spaces as well as external channels
-like social media. Violating these terms may lead to a temporary or
-permanent ban.
-
-### 3. Temporary Ban
-
-**Community Impact**: A serious violation of community standards, including
-sustained inappropriate behavior.
-
-**Consequence**: A temporary ban from any sort of interaction or public
-communication with the community for a specified period of time. No public or
-private interaction with the people involved, including unsolicited interaction
-with those enforcing the Code of Conduct, is allowed during this period.
-Violating these terms may lead to a permanent ban.
-
-### 4. Permanent Ban
-
-**Community Impact**: Demonstrating a pattern of violation of community
-standards, including sustained inappropriate behavior,  harassment of an
-individual, or aggression toward or disparagement of classes of individuals.
-
-**Consequence**: A permanent ban from any sort of public interaction within
-the community.
+Removing or editing a comment, review, or commit that breaks this code is
+always available at any step, with a note saying it was done.
 
 ## Attribution
 
-This Code of Conduct is adapted from the [Contributor Covenant][homepage],
-version 2.0, available at
-https://www.contributor-covenant.org/version/2/0/code_of_conduct.html.
-
-Community Impact Guidelines were inspired by [Mozilla's code of conduct
-enforcement ladder](https://github.com/mozilla/diversity).
-
-[homepage]: https://www.contributor-covenant.org
-
-For answers to common questions about this code of conduct, see the FAQ at
-https://www.contributor-covenant.org/faq. Translations are available at
-https://www.contributor-covenant.org/translations.
+Adapted from the [Contributor Covenant](https://www.contributor-covenant.org),
+version 2.0, and its enforcement ladder, which came from
+[Mozilla's](https://github.com/mozilla/diversity). The project-specific
+sections are ours.

@@ -1,11 +1,14 @@
 # Documentation
 
-Narrative docs live here. Setup and usage are in the [README](../README.md),
-development in [CONTRIBUTING.md](../CONTRIBUTING.md), and reporting a
-vulnerability in [SECURITY.md](../SECURITY.md).
+Narrative docs live here. Start with [install.md](install.md) if you have
+never run the project. The [README](../README.md) explains what the system is
+and holds the longer real-services and deployment procedures, development is
+in [CONTRIBUTING.md](../CONTRIBUTING.md), and reporting a vulnerability is in
+[SECURITY.md](../SECURITY.md).
 
 | Page | What it covers |
 | --- | --- |
+| [install.md](install.md) | installing it: the offline stub, real services with every `.env` variable, and the pilot deployment |
 | [api.md](api.md) | client walkthrough of every HTTP route, with one stub request and response each |
 | [openapi.json](openapi.json) | committed OpenAPI document; `make openapi` rewrites it, CI fails if it drifts |
 | [design.md](design.md) | the paper-and-ink design system for `web/`: tokens, type, layout, motion, and the mark |
