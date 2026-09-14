@@ -15,7 +15,7 @@ anyio==4.15.1
     #   starlette
     #   watchfiles
 bcrypt==5.0.0
-    # via -r requirements/api.in
+    # via -r api.in
 click==8.5.0
     # via uvicorn
 deprecated==1.3.1
@@ -23,7 +23,7 @@ deprecated==1.3.1
 dnspython==2.8.0
     # via pymongo
 fastapi==0.141.1
-    # via -r requirements/api.in
+    # via -r api.in
 h11==0.16.0
     # via
     #   httpcore2
@@ -42,8 +42,8 @@ jiter==0.16.0
     # via openai
 limits==5.8.0
     # via slowapi
-openai==3.8.0
-    # via -r requirements/base.in
+openai==3.13.0
+    # via -r base.in
 packaging==26.3
     # via limits
 pydantic==2.13.5
@@ -53,17 +53,17 @@ pydantic==2.13.5
 pydantic-core==2.46.5
     # via pydantic
 pyjwt==2.14.0
-    # via -r requirements/api.in
-pymongo==4.18.0
-    # via -r requirements/base.in
+    # via -r api.in
+pymongo==4.18.1
+    # via -r base.in
 python-dotenv==1.2.3
     # via
-    #   -r requirements/base.in
+    #   -r base.in
     #   uvicorn
 pyyaml==6.0.3
     # via uvicorn
 slowapi==0.1.10
-    # via -r requirements/api.in
+    # via -r api.in
 sniffio==1.3.1
     # via openai
 starlette==1.6.0
@@ -88,7 +88,7 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
 uvicorn[standard]==0.52.4
-    # via -r requirements/api.in
+    # via -r api.in
 uvloop==0.22.1
     # via uvicorn
 watchfiles==1.2.0
