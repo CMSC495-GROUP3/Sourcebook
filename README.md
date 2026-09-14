@@ -70,7 +70,9 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 | [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
 | [docs/README.md](docs/README.md) | the index of everything under `docs/` |
-| [docs/install.md](docs/install.md) | stub, real-services, and deploy routes; every `.env` variable by name |
+| [docs/install.md](docs/install.md) | the one installation page: stub, real services, and deployment, with every `.env` variable |
+| [docs/api.md](docs/api.md) | client walkthrough of every HTTP route, with stub request and response bodies |
+| [docs/openapi.json](docs/openapi.json) | committed OpenAPI document; regenerate with `make openapi` |
 | [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
 | [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
 | [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
@@ -399,6 +401,17 @@ That log is how the system improves from evidence rather than intuition.
 - The score distribution of answered versus refused questions is the only
   sound basis for tuning `SIMILARITY_THRESHOLD`, and there is no other way to
   collect it.
+
+Run a read-only report over a time window. Run it on the EC2 host. The
+cluster's IP access list admits that host, so anywhere else waits out
+`--timeout` (default 10 s) and then fails in a way that looks like a config
+typo.
+
+    python -m sourcebook.rag.query_log_reports --since 2026-08-01
+
+`--until` defaults to now. Optional `--top` and `--min-repeat` bound the ranked
+lists. `query_logs` rows expire after 90 days (`QUERY_LOG_TTL_SECONDS`), so a
+window that ends earlier than that prints an empty report rather than an error.
 
 This is deliberately not fine-tuning. Retraining on interaction data would
 contradict the reason RAG was chosen, and no pilot produces the volume it would

@@ -27,7 +27,7 @@ FAKE_SCORE := $(if $(REFUSE),0.50,0.78)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup stub web test cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean lock
+.PHONY: help setup stub web test cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean lock openapi
 
 help: ## Show this list
 ifeq ($(OS),Windows_NT)
@@ -83,6 +83,9 @@ lock: ## Compile api, dev, and ingest .in files into their .txt locks (same comm
 
 build: ## Production build of the web app
 	cd $(WEB) && npm run -s build
+
+openapi: ## Write docs/openapi.json from app.openapi() (sorted keys, stable diff)
+	$(PY) scripts/export_openapi.py
 
 check: test lint build ## What the CI workflow runs on every PR (audit runs in Security)
 

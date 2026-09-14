@@ -1,0 +1,413 @@
+# API (for client authors)
+
+This page is the client walkthrough. The machine-readable contract is
+[openapi.json](openapi.json). Regenerate it with `make openapi`; CI fails if the
+committed file is stale. The live console is `/docs` while the API is running
+(`make stub` on :8000, password `dev`). Setup and the things that bite are in
+[CONTRIBUTING.md](../CONTRIBUTING.md).
+
+Send `Authorization: Bearer <access_token>` on every route except
+`/api/auth/login`, `/api/health`, and `/api/config`. History is stored on the
+server: the client sends a question and a `session_id`, never a `chat_history`
+array.
+
+Ids, timestamps, tokens, and `corpus_version` change on every request. The
+bodies below were taken from one stub run so the shapes are real.
+
+## Rate limits and the error envelope
+
+Errors use FastAPI's envelope: `{"detail": ...}`. `detail` is a string for
+application errors and a list of `{loc, msg, type, ...}` objects for
+validation (HTTP 422). A rate-limit response is HTTP 429 with
+`{"error": "Rate limit exceeded: N per 1 minute"}`.
+
+Limits are per remote address per API worker (slowapi's default store is
+in-process). Defaults:
+
+| Route | Limit |
+| --- | --- |
+| `POST /api/auth/login` | 10/minute |
+| `POST /api/chat`, `POST /api/chat/stream` | `CHAT_RATE_LIMIT` (default 30/minute) |
+| `POST /api/escalations`, `POST /api/escalations/{escalation_id}/retry-delivery` | 5/minute |
+| `POST /api/documents/reindex` | `REINDEX_RATE_LIMIT` (default 2/minute) |
+
+Missing bearer → `{"detail": "Not authenticated"}`. Bad or rotated token →
+`{"detail": "Invalid or expired token."}`. Wrong password →
+`{"detail": "Incorrect password."}`.
+
+## Sign in
+
+`POST /api/auth/login`
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{"password": "dev"}
+```
+
+```json
+{
+  "access_token": "<access_token>",
+  "token_type": "bearer"
+}
+```
+
+The live body is a JWT that lasts 24 hours; the example is a placeholder so
+the committed page does not look like a leaked token. Rotating the password
+hash revokes sessions bound to it. Paste a live token into `/docs` → Authorize
+to call the rest of the console.
+
+## Ask (SSE)
+
+The UI uses `POST /api/chat/stream`. `POST /api/chat` is the same grounding
+rule as a single JSON body, kept for tests and scripts.
+
+`question` is 1–5000 characters. `session_id` is optional; when present it must
+match `^[A-Za-z0-9_-]+$` (max 64). A newline in `session_id` is rejected.
+
+### Stream
+
+`POST /api/chat/stream` — `text/event-stream`. Each event is `data: <json>\n\n`.
+
+```http
+POST /api/chat/stream
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{"question": "Can I carry unused days?", "session_id": "7059759c-1f55-4812-852c-06a11bb5cc4b"}
+```
+
+The stub streams one chunk per word of the fake answer, then `done`, then
+`follow_ups`:
+
+```
+data: {"chunk": "Based"}
+
+data: {"chunk": " on"}
+
+data: {"chunk": " the"}
+
+…
+data: {"done": true, "message_id": "75fa3bcb15324c9cae08d61b9adcbc23", "sources": ["Paid Time Off (PTO) Policy"], "confidence": 75, "refused": false}
+
+data: {"follow_ups": ["How do I request time off?", "What happens to unused days when I leave?", "Do company holidays count against my balance?"]}
+```
+
+Every event type:
+
+| Event | Payload |
+| --- | --- |
+| token | `{"chunk": "<text>"}` |
+| finished | `{"done": true, "message_id": "<32 hex>", "sources": ["…"], "confidence": 75, "refused": false}` |
+| finished from cache | same as finished, plus `"cached": true` |
+| refused | `{"done": true, "message_id": "…", "sources": [], "confidence": <int>, "refused": true}` after one `chunk` that is the refusal text |
+| suggestions | `{"follow_ups": ["…", "…", "…"]}` — omitted on refusal; may be skipped if the client hangs up after `done` |
+| generation failure | `{"error": "An error occurred while generating the response."}` |
+
+`message_id` names the assistant turn for escalation. Do not use list position.
+
+### Non-streaming
+
+`POST /api/chat`
+
+```http
+POST /api/chat
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{"question": "How much PTO do I get?", "session_id": "7059759c-1f55-4812-852c-06a11bb5cc4b"}
+```
+
+```json
+{
+  "answer": "Based on the policy documents provided, full-time employees accrue 15 days of paid time off per year for the first two years of service, rising to 20 days from year three and 25 days from year six. Accrual begins on your first day and there is no waiting period before you may use it. You may carry a maximum of 10 unused days into the following calendar year; anything above that is forfeited on December 31. This is drawn from the Paid Time Off (PTO) Policy, effective 2026-01-01. For absences longer than five consecutive business days you will also need approval from Human Resources.",
+  "sources": ["Paid Time Off (PTO) Policy"],
+  "confidence": 75,
+  "follow_ups": [
+    "How do I request time off?",
+    "What happens to unused days when I leave?",
+    "Do company holidays count against my balance?"
+  ],
+  "refused": false,
+  "session_id": "7059759c-1f55-4812-852c-06a11bb5cc4b",
+  "message_id": "11f49d3989164c59be28882a2f9ce9fd"
+}
+```
+
+A refusal returns `refused: true`, empty `sources` / `follow_ups`, and the
+fixed refusal text (it names Human Resources; see `REFUSAL_MESSAGE` in
+`sourcebook/rag/config.py`). `message_id` is null when the request had no
+session.
+
+## Follow-up in a session
+
+Create a session, then send the next question with the same `session_id`. The
+server loads prior turns and may rewrite the retrieval query. There is no
+client-supplied history field and no free-text "follow-ups" route — suggested
+questions are just new `question` values.
+
+`POST /api/conversations` then the stream above is the usual order. To reopen:
+
+`GET /api/conversations/{session_id}`
+
+```http
+GET /api/conversations/7059759c-1f55-4812-852c-06a11bb5cc4b
+Authorization: Bearer <access_token>
+```
+
+```json
+{
+  "session_id": "7059759c-1f55-4812-852c-06a11bb5cc4b",
+  "title": "PTO questions",
+  "project_id": "1d91575f-a1d3-4bed-87db-3afe9af7cf60",
+  "messages": [],
+  "created_at": "2026-09-12T01:03:57.702699+00:00",
+  "updated_at": "2026-09-12T01:03:57.702699+00:00"
+}
+```
+
+After chat, `messages` holds the user turn and the assistant turn (with
+`message_id`, `sources`, `confidence`, `refused`, `follow_ups`).
+
+## Escalate
+
+`POST /api/escalations` copies the question from the stored conversation. Send
+`message_id` from `done` (or `message_index` only for turns persisted before
+ids existed). `reason` is `refused` or `unhelpful`.
+
+```http
+POST /api/escalations
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "session_id": "7059759c-1f55-4812-852c-06a11bb5cc4b",
+  "message_id": "11f49d3989164c59be28882a2f9ce9fd",
+  "reason": "unhelpful",
+  "note": "Need the carry-over rule in writing."
+}
+```
+
+```json
+{
+  "escalation_id": "da78161d307f40868c3b92db5e04223d",
+  "status": "open",
+  "reason": "unhelpful",
+  "contact": "Human Resources",
+  "session_id": "7059759c-1f55-4812-852c-06a11bb5cc4b",
+  "message_index": 1,
+  "message_id": "11f49d3989164c59be28882a2f9ce9fd",
+  "question": "How much PTO do I get?",
+  "answer_excerpt": "Based on the policy documents provided, full-time employees accrue 15 days of paid time off per year for the first two years of service, rising to 20 days from year three and 25 days from year six. Accrual begins on your first day and there is no waiting period before you may use it. You may carry a maximum of 10 unused days into the following calendar year; anything above that is forfeited on December 31. This is drawn from the Paid Time Off (PTO) Policy, effective 2026-01-01. For absences longer than five consecutive business days you will also need approval from Human Resources.",
+  "refused": false,
+  "confidence": 75,
+  "sources": ["Paid Time Off (PTO) Policy"],
+  "note": "Need the carry-over rule in writing.",
+  "resolution": null,
+  "created_at": "2026-09-12T01:04:16.973759+00:00",
+  "updated_at": "2026-09-12T01:04:16.973759+00:00",
+  "resolved_at": null,
+  "delivery_status": "pending",
+  "delivery_attempts": 0,
+  "delivery_last_attempt_at": null,
+  "delivery_claimed_at": null
+}
+```
+
+Escalating the same message twice returns the first record. Create never waits
+on the webhook.
+
+## Human Resources queue and resolve
+
+`GET /api/escalations?status=open` — newest first. Optional `session_id`,
+`limit` 1–200 (default 50).
+
+```http
+GET /api/escalations?status=open
+Authorization: Bearer <access_token>
+```
+
+```json
+{
+  "items": [
+    {
+      "escalation_id": "da78161d307f40868c3b92db5e04223d",
+      "status": "open",
+      "reason": "unhelpful",
+      "contact": "Human Resources",
+      "session_id": "7059759c-1f55-4812-852c-06a11bb5cc4b",
+      "message_index": 1,
+      "message_id": "11f49d3989164c59be28882a2f9ce9fd",
+      "question": "How much PTO do I get?",
+      "answer_excerpt": "Based on the policy documents provided, full-time employees accrue 15 days of paid time off per year for the first two years of service, rising to 20 days from year three and 25 days from year six. Accrual begins on your first day and there is no waiting period before you may use it. You may carry a maximum of 10 unused days into the following calendar year; anything above that is forfeited on December 31. This is drawn from the Paid Time Off (PTO) Policy, effective 2026-01-01. For absences longer than five consecutive business days you will also need approval from Human Resources.",
+      "refused": false,
+      "confidence": 75,
+      "sources": ["Paid Time Off (PTO) Policy"],
+      "note": "Need the carry-over rule in writing.",
+      "resolution": null,
+      "created_at": "2026-09-12T01:04:16.973759+00:00",
+      "updated_at": "2026-09-12T01:04:16.973759+00:00",
+      "resolved_at": null,
+      "delivery_status": "pending",
+      "delivery_attempts": 0,
+      "delivery_last_attempt_at": null,
+      "delivery_claimed_at": null
+    }
+  ],
+  "total": 1
+}
+```
+
+`GET /api/escalations/{escalation_id}` returns that same record as an object.
+
+`PATCH /api/escalations/{escalation_id}`
+
+```http
+PATCH /api/escalations/da78161d307f40868c3b92db5e04223d
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{"status": "resolved", "resolution": "Pointed them at the PTO policy carry-over section."}
+```
+
+```json
+{"status": "resolved", "resolution": "Pointed them at the PTO policy carry-over section.", "resolved_at": "2026-09-12T01:04:16.985959+00:00"}
+```
+
+(The live body is the full record with `status`, `resolution`, and `resolved_at`
+updated.)
+
+`POST /api/escalations/{escalation_id}/retry-delivery` re-sends a failed
+webhook. With no webhook configured the stub returns:
+
+```json
+{"detail": "Webhook delivery is not configured."}
+```
+
+## Query-log report
+
+There is no HTTP report route on this OpenAPI document. Every chat request
+writes one `query_logs` row (question hash, scores, refused, sources, cache
+hit, latency). How that log is used is in the README section
+[Learning from the query log](../README.md#learning-from-the-query-log). A
+weekly knowledge-gap report over that collection is tracked separately as
+[#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160).
+
+## Health and config
+
+`GET /api/health`
+
+```json
+{"status": "ok"}
+```
+
+`GET /api/config`
+
+```json
+{"app_name": "Sourcebook", "similarity_threshold": 0.62}
+```
+
+## Conversations
+
+`GET /api/conversations` — sidebar rows, no `messages`. Unresolved
+`project_id` values are returned as `null`.
+
+```json
+[
+  {
+    "session_id": "320b424b-a3a0-4686-941d-860aa8552c82",
+    "title": "PTO questions",
+    "project_id": "1d91575f-a1d3-4bed-87db-3afe9af7cf60",
+    "updated_at": "2026-09-12T01:03:57.702699+00:00"
+  }
+]
+```
+
+`POST /api/conversations`
+
+```http
+POST /api/conversations
+{"title": "PTO questions", "project_id": "1d91575f-a1d3-4bed-87db-3afe9af7cf60"}
+```
+
+```json
+{
+  "session_id": "320b424b-a3a0-4686-941d-860aa8552c82",
+  "title": "PTO questions",
+  "project_id": "1d91575f-a1d3-4bed-87db-3afe9af7cf60",
+  "messages": [],
+  "created_at": "2026-09-12T01:03:57.702699+00:00",
+  "updated_at": "2026-09-12T01:03:57.702699+00:00"
+}
+```
+
+`PATCH /api/conversations/{session_id}` with `{"title": "PTO follow-up"}` or
+`{"project_id": null}` to unassign → `{"ok": true}`.
+
+`DELETE /api/conversations/{session_id}` → `{"ok": true}`.
+
+Unknown session or project → `{"detail": "Conversation not found."}` or
+`{"detail": "Project not found."}`.
+
+## Documents
+
+`GET /api/documents` — `q` (title substring), `category`, `limit` (default 50,
+max 200), `skip`.
+
+```json
+{
+  "items": [
+    {
+      "source": "documents/pto-policy.md",
+      "doc_id": "pto-policy",
+      "title": "Paid Time Off (PTO) Policy",
+      "category": "Time Off & Leave",
+      "owner": "Human Resources",
+      "effective_date": "2026-01-01",
+      "passage_count": 1,
+      "preview": "Full-time employees accrue 15 days of PTO per year."
+    }
+  ],
+  "total": 1
+}
+```
+
+`GET /api/documents/categories` → `["Time Off & Leave"]`.
+
+`GET /api/documents/body?source=documents/pto-policy.md`
+
+```json
+{
+  "source": "documents/pto-policy.md",
+  "body": "## Overview\n\nFull-time employees accrue 15 days of paid time off per year."
+}
+```
+
+`GET /api/documents/passages?source=documents/pto-policy.md` → the ordered
+passage strings retrieval sees.
+
+`POST /api/documents/reindex` rebuilds the library and bumps the corpus
+version (that is what invalidates the answer cache):
+
+```json
+{"ok": true, "documents": 1, "corpus_version": "f971481377004fb3a3fce267dc5facd3"}
+```
+
+## Projects
+
+`GET /api/projects`
+
+```json
+[
+  {
+    "project_id": "1d91575f-a1d3-4bed-87db-3afe9af7cf60",
+    "name": "Onboarding",
+    "created_at": "2026-09-12T01:03:57.697874+00:00"
+  }
+]
+```
+
+`POST /api/projects` with `{"name": "Onboarding"}` returns one of those
+objects. `DELETE /api/projects/{project_id}` unassigns its conversations and
+returns `{"ok": true}`.

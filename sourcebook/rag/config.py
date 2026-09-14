@@ -25,6 +25,16 @@ S3_DOCUMENT_PREFIX = os.getenv("S3_DOCUMENT_PREFIX", "documents/")
 # proposal — it avoids pairing a vector store with a separate document store.
 PASSAGES_COLLECTION = os.getenv("PASSAGES_COLLECTION", "passages")
 
+# The unique identity index on that collection. api/db.py creates it at
+# startup and scripts/migrate_passage_index.py converges an older database to
+# it, so both read the same name and keys from here. 1 is pymongo.ASCENDING.
+PASSAGES_IDENTITY_INDEX = "source_1_chunk_index_1"
+PASSAGE_IDENTITY_KEYS = [("source", 1), ("chunk_index", 1)]
+
+# MongoDB's IndexOptionsConflict code, raised when an index with these keys
+# already exists under other options (non-unique, or another name).
+INDEX_OPTIONS_CONFLICT = 85
+
 # MongoDB collection holding one record per source document: its metadata and
 # the full parsed body. Passages are what retrieval sees; this is what a person
 # reads in the Policy Library. Chunks overlap, so the body cannot be rebuilt

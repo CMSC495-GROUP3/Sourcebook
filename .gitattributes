@@ -1,0 +1,3 @@
+# The committed OpenAPI document is compared byte-for-byte in CI.
+# Keep LF so `make openapi` does not fail `git diff` on Windows checkouts.
+docs/openapi.json text eol=lf
