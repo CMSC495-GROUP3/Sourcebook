@@ -51,10 +51,16 @@ second turn on, the last turn is at least a viewport tall so it can.
 **Source pane.** Clicking a citation chip opens the cited document beside
 the answer as the indexed passages retrieval saw, each rendered from its
 markdown in the document prose style and set as a quotation; it is the audit
-trail for the citation, and links to the library for the document whole. It docks as a 368px column in the right margin
-whenever the page is wide enough to hold gutter, column, and pane without
-narrowing the column (1160px of main area), and slides over the thread
-otherwise. Escape closes it. Switching conversations closes it.
+trail for the citation, and links to the library for the document whole. It
+docks as a 368px column in the right margin whenever the main area can hold
+the gutters, the pane, and a column of at least 560px (1000px of main area);
+the column flexes down from its 720px measure to make room. Narrower than
+that it slides over the thread as a dimmed drawer. Docked, it is the
+right-hand sidebar and carries a collapse chevron at its inner edge, pointing
+right, the mirror of the left sidebar's; as a drawer it closes with an X, like
+the phone drawer on the left. Escape closes it. Switching conversations
+closes it. The home page's facing page keeps the stricter 1160px rule, since
+it sits beside the full left page and there is nothing to read behind it.
 
 **Refusal.** A notice, not an answer. Ochre panel with a header row (label
 and match meter), the refusal text, one line explaining that nothing indexed
