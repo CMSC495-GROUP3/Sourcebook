@@ -55,6 +55,27 @@ The command prints the summary metrics and writes detailed answers to
 `evaluation/results.json`. That output is intentionally excluded from Git
 because results depend on the configured models, corpus, and retrieval index.
 
+## Atlas API key access
+
+Atlas normally binds an Administration API key to a list of source addresses.
+That list rejects `0.0.0.0/0`, and GitHub publishes 6,980 CIDR blocks for its
+hosted runners, so neither approach admits the job. The organization setting
+"Require IP Access List for the Atlas Administration API" is off for that
+reason, and the key pair alone authenticates the call.
+
+The key's role bounds what a leaked pair can do. `ATLAS_PUBLIC_KEY` and
+`ATLAS_PRIVATE_KEY` belong to a key holding only "Project IP Access List
+Admin". Someone with both could add an address to the cluster access list, or
+delete the pilot host's entry and take the deployed site down. Neither reads a
+document. That needs the credentials in `MONGODB_URI`, whose user must be
+read-only on the corpus database.
+
+Two things keep the pair out of reach. The `evaluation` environment is
+restricted to protected branches, so a fork pull request on this public
+repository never sees its secrets, and "Live evaluation" starts only from a
+`workflow_dispatch` by someone with write access. Delete the key when the
+project wraps.
+
 ## Metric definitions
 
 | Metric | Calculation |
