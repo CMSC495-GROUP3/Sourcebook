@@ -75,8 +75,9 @@ contact any of these people. Pick whoever is not involved.
 
 - Taylor Shahan, project lead: tshahan1@student.umgc.edu
 - George Struder, owner of the Discord server: direct message on Discord
-- The course instructor, through the UMGC classroom, for anything the team
-  cannot or should not handle itself
+- Christopher Davis, the course's primary instructor,
+  christopher.davis@faculty.umgc.edu, for anything the team cannot or should
+  not handle itself
 
 Reports stay private. Whoever receives one acknowledges it within two days,
 talks to the people involved, and tells the reporter what happened. Nobody is
@@ -93,7 +94,9 @@ The response fits the situation, and small things stay small.
    temporary or permanent. The rest of the team is told why, without details
    that identify a reporter.
 4. Escalation to the instructor. Course-level consequences are theirs, not
-   ours.
+   ours, and UMGC's [Code of Student
+   Conduct](https://www.umgc.edu/administration/policies-and-reporting/policies/student-affairs/code-of-student-conduct)
+   applies to all of us regardless of anything on this page.
 
 Removing or editing a comment, review, or commit that breaks this code is
 always available at any step, with a note saying it was done.
