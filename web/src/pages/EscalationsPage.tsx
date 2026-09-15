@@ -18,7 +18,9 @@ export default function EscalationsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const [resolution, setResolution] = useState('')
-  const [action, setAction] = useState<'resolve' | 'reopen' | 'retry' | null>(null)
+  const [action, setAction] = useState<
+    'resolve' | 'reopen' | 'retry' | null
+  >(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
   async function loadEscalations(currentStatus: EscalationStatus) {
@@ -36,10 +38,30 @@ export default function EscalationsPage() {
   }
 
   useEffect(() => {
-    setSelectedId(null)
-    setResolution('')
-    setActionError(null)
-    loadEscalations(status)
+    let cancelled = false
+
+    async function fetchEscalations() {
+      try {
+        const data = await getEscalations(status)
+
+        if (!cancelled) {
+          setEscalations(data.items)
+          setError(null)
+          setLoading(false)
+        }
+      } catch {
+        if (!cancelled) {
+          setError('Unable to load HR requests.')
+          setLoading(false)
+        }
+      }
+    }
+
+    void fetchEscalations()
+
+    return () => {
+      cancelled = true
+    }
   }, [status])
 
   const selectedEscalation =
@@ -51,6 +73,18 @@ export default function EscalationsPage() {
     setSelectedId(escalationId)
     setResolution('')
     setActionError(null)
+  }
+
+  function changeStatus(nextStatus: EscalationStatus) {
+    if (nextStatus === status) {
+      return
+    }
+
+    setSelectedId(null)
+    setResolution('')
+    setActionError(null)
+    setLoading(true)
+    setStatus(nextStatus)
   }
 
   async function handleResolve() {
@@ -148,7 +182,7 @@ export default function EscalationsPage() {
         <div className="mb-5 flex gap-2">
           <button
             type="button"
-            onClick={() => setStatus('open')}
+            onClick={() => changeStatus('open')}
             className={`cursor-pointer rounded-full border px-4 py-1.5 text-[13px] font-medium transition-colors ${
               status === 'open'
                 ? 'border-accent bg-accent text-white'
@@ -160,7 +194,7 @@ export default function EscalationsPage() {
 
           <button
             type="button"
-            onClick={() => setStatus('resolved')}
+            onClick={() => changeStatus('resolved')}
             className={`cursor-pointer rounded-full border px-4 py-1.5 text-[13px] font-medium transition-colors ${
               status === 'resolved'
                 ? 'border-accent bg-accent text-white'
@@ -281,7 +315,8 @@ export default function EscalationsPage() {
               </p>
 
               <p className="mt-2 text-[14px] leading-6 text-ink-2">
-                {selectedEscalation.answer_excerpt || 'No answer was provided.'}
+                {selectedEscalation.answer_excerpt ||
+                  'No answer was provided.'}
               </p>
             </div>
 
