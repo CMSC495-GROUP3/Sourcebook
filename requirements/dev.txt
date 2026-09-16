@@ -20,9 +20,9 @@ bcrypt==5.0.0
     # via -r api.in
 boolean-py==5.0
     # via license-expression
-boto3==1.43.89
+boto3==1.43.93
     # via -r ingest.in
-botocore==1.43.89
+botocore==1.43.95
     # via
     #   boto3
     #   s3transfer
@@ -114,7 +114,7 @@ mdurl==0.1.2
     # via markdown-it-py
 msgpack==1.2.2
     # via cachecontrol
-openai==3.8.0
+openai==3.13.0
     # via -r base.in
 orjson==3.12.0
     # via langsmith
@@ -160,7 +160,7 @@ pygments==2.21.0
     #   rich
 pyjwt==2.14.0
     # via -r api.in
-pymongo==4.18.0
+pymongo==4.18.1
     # via -r base.in
 pyparsing==3.3.2
     # via pip-requirements-parser
@@ -194,7 +194,7 @@ requests-toolbelt==1.0.0
     # via langsmith
 rich==15.0.0
     # via pip-audit
-ruff==0.16.6
+ruff==0.16.7
     # via -r lint.in
 s3transfer==0.19.2
     # via boto3
