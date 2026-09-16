@@ -42,7 +42,7 @@ jiter==0.16.0
     # via openai
 limits==5.8.0
     # via slowapi
-openai==3.8.0
+openai==3.13.0
     # via -r base.in
 packaging==26.3
     # via limits
@@ -54,7 +54,7 @@ pydantic-core==2.46.5
     # via pydantic
 pyjwt==2.14.0
     # via -r api.in
-pymongo==4.18.0
+pymongo==4.18.1
     # via -r base.in
 python-dotenv==1.2.3
     # via
