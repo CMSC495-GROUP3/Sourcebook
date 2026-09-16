@@ -76,10 +76,12 @@ fmt: ## Fix lint findings and format the Python code
 audit: ## Known vulnerabilities in the Python and npm dependency trees
 	./scripts/audit.sh
 
+# Runs inside requirements/ so the `# via -r` annotations come out the same as
+# Dependabot's, which compiles there too; CI checks with the same command.
 lock: ## Compile api, dev, and ingest .in files into their .txt locks (same command CI checks with)
-	$(VENV_BIN)/pip-compile --quiet -o requirements/api.txt requirements/api.in
-	$(VENV_BIN)/pip-compile --quiet -o requirements/dev.txt requirements/dev.in
-	$(VENV_BIN)/pip-compile --quiet -o requirements/ingest.txt requirements/ingest.in
+	cd requirements && $(abspath $(VENV_BIN))/pip-compile --quiet -o api.txt api.in
+	cd requirements && $(abspath $(VENV_BIN))/pip-compile --quiet -o dev.txt dev.in
+	cd requirements && $(abspath $(VENV_BIN))/pip-compile --quiet -o ingest.txt ingest.in
 
 build: ## Production build of the web app
 	cd $(WEB) && npm run -s build
