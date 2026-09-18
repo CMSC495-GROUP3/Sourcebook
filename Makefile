@@ -27,7 +27,7 @@ FAKE_SCORE := $(if $(REFUSE),0.50,0.78)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup stub web test cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean lock openapi
+.PHONY: help setup stub web test test-web cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean lock openapi
 
 help: ## Show this list
 ifeq ($(OS),Windows_NT)
@@ -56,6 +56,9 @@ web: ## Run the React app on :5173 with hot reload (proxies /api to :8000)
 
 test: ## Run the Python test suite (~1 second, nothing external)
 	$(PY) -m pytest
+
+test-web: ## Vitest + RTL coverage for critical web paths (fails under 80% on included files)
+	cd $(WEB) && npm test
 
 cov: ## Tests with a coverage report; CI fails under 80%
 	$(PY) -m pytest --cov --cov-report=term-missing
@@ -89,7 +92,7 @@ build: ## Production build of the web app
 openapi: ## Write docs/openapi.json from app.openapi() (sorted keys, stable diff)
 	$(PY) scripts/export_openapi.py
 
-check: test lint build ## What the CI workflow runs on every PR (audit runs in Security)
+check: test test-web lint build ## What the CI workflow runs on every PR (audit runs in Security)
 
 compose: ## Full stack in Docker against the real services in .env
 	docker compose up --build

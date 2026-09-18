@@ -55,6 +55,12 @@ function setTheme(theme: Theme) {
   listeners.forEach((listener) => listener())
 }
 
+/** Re-read storage and the system preference. Tests call this after clearing localStorage. */
+export function resetTheme() {
+  current = readStored() ?? systemTheme()
+  apply(current)
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
   return () => listeners.delete(listener)
