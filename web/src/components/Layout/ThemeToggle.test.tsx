@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ThemeToggle from './ThemeToggle'
+import { resetTheme } from '../../lib/theme'
 
 describe('ThemeToggle', () => {
+  afterEach(() => {
+    localStorage.removeItem('theme')
+    resetTheme()
+  })
+
   it('switches from light to dark and updates the accessible name', async () => {
     const user = userEvent.setup()
     render(<ThemeToggle />)

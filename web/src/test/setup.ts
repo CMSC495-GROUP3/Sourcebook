@@ -57,5 +57,4 @@ afterEach(() => {
   cleanup()
   localStorage.clear()
   darkScheme.matches = false
-  darkScheme.listeners.clear()
 })

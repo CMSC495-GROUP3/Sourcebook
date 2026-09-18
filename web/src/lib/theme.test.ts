@@ -1,12 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { renderHook } from '@testing-library/react'
-import { act } from 'react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { act, renderHook } from '@testing-library/react'
+import { resetTheme, useTheme } from './theme'
 import { darkScheme } from '../test/setup'
-
-async function loadTheme() {
-  vi.resetModules()
-  return import('./theme')
-}
 
 describe('useTheme', () => {
   afterEach(() => {
@@ -14,15 +9,15 @@ describe('useTheme', () => {
     document.querySelector('meta[name="theme-color"]')?.remove()
     localStorage.removeItem('theme')
     darkScheme.matches = false
-    darkScheme.listeners.clear()
+    resetTheme()
   })
 
-  it('defaults to light when the system is not dark and persists a toggle', async () => {
+  it('defaults to light when the system is not dark and persists a toggle', () => {
     const meta = document.createElement('meta')
     meta.setAttribute('name', 'theme-color')
     document.head.appendChild(meta)
+    resetTheme()
 
-    const { useTheme } = await loadTheme()
     const { result } = renderHook(() => useTheme())
     expect(result.current.theme).toBe('light')
 
@@ -42,9 +37,10 @@ describe('useTheme', () => {
     expect(meta.getAttribute('content')).toBe('#F9F6F1')
   })
 
-  it('follows the system until the user has chosen, then ignores further changes', async () => {
+  it('follows the system until the user has chosen, then ignores further changes', () => {
     darkScheme.matches = true
-    const { useTheme } = await loadTheme()
+    resetTheme()
+
     const { result } = renderHook(() => useTheme())
     expect(result.current.theme).toBe('dark')
 

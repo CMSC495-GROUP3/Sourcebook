@@ -9,7 +9,7 @@ export default defineConfig({
     css: false,
     coverage: {
       provider: 'v8',
-      reporter: ['text'],
+      reporter: ['text', 'json'],
       reportsDirectory: './node_modules/.tmp/coverage',
       include: [
         'src/hooks/useChat.ts',
