@@ -5,10 +5,13 @@
  * Two modes, because the two panes answer different questions. The library
  * shows the document as it is: the original markdown, rendered. The source
  * pane shows the stored passages, because it is the audit trail for a citation
- * and should display what retrieval actually saw. The library falls back to
- * passages in two cases: the corpus was indexed before bodies were stored, or
- * the body cannot be rendered (a pathological document must not blank the
- * page for everyone, since the library opens the first result on its own).
+ * and should display what retrieval actually saw: the same chunks, in order,
+ * with their boundaries. Each chunk is rendered as markdown too, since a
+ * reader who clicks a citation reads `##` and pipe tables as a broken page,
+ * not as evidence. The library falls back to passages in two cases: the
+ * corpus was indexed before bodies were stored, or the body cannot be
+ * rendered (a pathological document must not blank the page for everyone,
+ * since the library opens the first result on its own).
  */
 import { Component, type ComponentProps, type ReactNode, useState } from 'react'
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
@@ -132,15 +135,46 @@ class RenderBoundary extends Component<BoundaryProps, { failed: boolean }> {
   }
 }
 
+/**
+ * One passage rendered as markdown, in the document's prose style. A passage
+ * is a chunk cut at a character count, so it can start or end mid-table or
+ * mid-list, and the render shows that cut for what it is. rehype-slug is left
+ * out: the same heading recurs across overlapping chunks, and its id would
+ * also collide with the library's copy of the document. If the markdown
+ * cannot be rendered, the chunk is shown as plain text instead, so a bad
+ * chunk costs one blockquote rather than the whole pane.
+ */
+function Passage({ text }: { text: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <blockquote className="border-l-2 border-rule-strong pl-4 font-display text-[16.5px] leading-[1.6] whitespace-pre-line text-ink">
+        {text}
+      </blockquote>
+    )
+  }
+  // Typography's `.prose blockquote p` quote marks match paragraphs under any
+  // blockquote, this outer one included, so quotes are switched off here.
+  return (
+    <blockquote className="border-l-2 border-rule-strong pl-4 [quotes:none]">
+      <RenderBoundary onError={() => setFailed(true)}>
+        <div className={DOCUMENT_PROSE}>
+          <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS} skipHtml>
+            {text}
+          </ReactMarkdown>
+        </div>
+      </RenderBoundary>
+    </blockquote>
+  )
+}
+
 function PassageList({ passages }: { passages: string[] }) {
   return (
     <ol className="flex flex-col gap-6">
       {passages.map((passage, i) => (
         <li key={i} className="flex flex-col gap-2">
           <span className="caps text-[10.5px] text-ink-3">Passage {i + 1}</span>
-          <blockquote className="border-l-2 border-rule-strong pl-4 font-display text-[16.5px] leading-[1.6] whitespace-pre-line text-ink">
-            {passage}
-          </blockquote>
+          <Passage text={passage} />
         </li>
       ))}
     </ol>

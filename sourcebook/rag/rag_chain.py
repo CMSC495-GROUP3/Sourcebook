@@ -10,10 +10,14 @@ Two guarantees the rest of the application depends on:
 
 1. Every answer carries the source documents it was drawn from.
 2. If retrieval is too weak (see config.SIMILARITY_THRESHOLD), no model call is
-   made at all and the user gets an honest refusal instead of a guess.
+   made at all and the user gets an honest refusal instead of a guess. On a
+   follow-up the gate checks both the rewritten retrieval query and the
+   question as the employee typed it; see ground_question().
 """
 
+import logging
 import os
+from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
@@ -28,10 +32,12 @@ from sourcebook.rag.config import (
     SIMILARITY_THRESHOLD,
     VECTOR_INDEX_NAME,
 )
-from sourcebook.rag.llm import get_provider
+from sourcebook.rag.llm import ProviderBusyError, get_provider
 from sourcebook.rag.mongo import get_collection
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 ANSWER_SYSTEM_PROMPT = (
@@ -126,6 +132,79 @@ def confidence_score(passages: list[dict]) -> int:
     return round((sum(scores) / len(scores)) * 100) if scores else 0
 
 
+def best_score(passages: list[dict]) -> float:
+    """The strongest retrieval score in a set, 0.0 when nothing came back."""
+    return max((p.get("score", 0.0) for p in passages), default=0.0)
+
+
+@dataclass(frozen=True)
+class Grounding:
+    """What the gate decided for one turn, and the evidence it decided on."""
+
+    # The retrieval query: the question itself on a first turn, the model's
+    # standalone rewrite on a follow-up.
+    condensed: str
+    # Answer context and citations: the passages retrieved for `condensed`.
+    passages: list[dict]
+    grounded: bool
+    # Mean similarity, as a percentage, of the set the decision rested on: the
+    # answer context when answering, the weaker set when refusing.
+    confidence: int
+    # The score the gate compared against the threshold: the weaker of the two
+    # best scores on a follow-up, the only one on a first turn.
+    best_score: float
+    # Best score for the question as asked. None when no second retrieval ran.
+    raw_best_score: float | None
+
+
+def ground_question(
+    question: str,
+    chat_history: list[dict] | None = None,
+    threshold: float = SIMILARITY_THRESHOLD,
+) -> Grounding:
+    """Retrieve for a turn and decide whether it may be answered.
+
+    The retrieval query is the condensed rewrite, because vector search has no
+    memory and a bare follow-up finds nothing. But the rewrite is what the
+    model thought the employee meant, not what they typed, and it can drag an
+    uncovered question above the threshold by borrowing the conversation's
+    vocabulary: "What is the boiling point of mercury?" asked after two PTO
+    turns scored 0.69 as a rewrite and 0.59 on its own words (issue #189).
+    So on a follow-up both sets must clear the threshold. The answer context
+    stays the condensed set, since that is the one that read the conversation.
+
+    A first turn, or a follow-up whose rewrite came back unchanged, retrieves
+    once and behaves exactly as before.
+    """
+    chat_history = chat_history or []
+    condensed = condense_question(question, chat_history)
+    passages = retrieve_passages(condensed)
+    condensed_best = best_score(passages)
+
+    if condensed == question:
+        return Grounding(
+            condensed=condensed,
+            passages=passages,
+            grounded=is_grounded(passages, threshold),
+            confidence=confidence_score(passages),
+            best_score=condensed_best,
+            raw_best_score=None,
+        )
+
+    raw_passages = retrieve_passages(question)
+    raw_best = best_score(raw_passages)
+    grounded = is_grounded(passages, threshold) and is_grounded(raw_passages, threshold)
+    weaker = raw_passages if raw_best < condensed_best else passages
+    return Grounding(
+        condensed=condensed,
+        passages=passages,
+        grounded=grounded,
+        confidence=confidence_score(passages if grounded else weaker),
+        best_score=min(raw_best, condensed_best),
+        raw_best_score=raw_best,
+    )
+
+
 def cited_sources(passages: list[dict]) -> list[str]:
     """Distinct document titles behind a set of passages, order preserved."""
     return list(
@@ -193,8 +272,19 @@ def condense_question(query: str, chat_history: list[dict]) -> str:
             )
             .strip()
         )
+    except ProviderBusyError:
+        # A saturated provider is not a rewrite failure. The embeddings the
+        # next step needs would hit the same wall, so the turn ends here and
+        # the route answers with the retryable 503 rather than a degraded
+        # retrieval that hides the condition.
+        raise
     except Exception:
-        # Retrieval on the raw question still usually works — better than failing.
+        # Retrieval on the raw question still usually works — better than
+        # failing. Logged because the turn then takes the single-retrieval
+        # path and its query-log row is indistinguishable from a first turn.
+        logger.warning(
+            "Question rewrite failed; retrieving on the question as asked", exc_info=True
+        )
         return query
 
 
@@ -220,6 +310,9 @@ def generate_follow_ups(query: str, answer: str) -> list[str]:
         lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
         return lines[:3]
     except Exception:
+        # Suggestions are optional; the answer has already been produced. Logged
+        # so a saturated or failing provider is visible on this path too.
+        logger.warning("Follow-up suggestions failed; answering without them", exc_info=True)
         return []
 
 
@@ -277,14 +370,14 @@ def answer_question(query: str, chat_history: list[dict] | None = None) -> dict:
     """
     chat_history = chat_history or []
 
-    retrieval_query = condense_question(query, chat_history)
-    passages = retrieve_passages(retrieval_query)
+    grounding = ground_question(query, chat_history)
+    passages = grounding.passages
 
-    if not is_grounded(passages):
+    if not grounding.grounded:
         return {
             "answer": REFUSAL_MESSAGE,
             "sources": [],
-            "confidence": confidence_score(passages),
+            "confidence": grounding.confidence,
             "follow_ups": [],
             "refused": True,
         }
@@ -307,7 +400,7 @@ def answer_question(query: str, chat_history: list[dict] | None = None) -> dict:
     return {
         "answer": answer,
         "sources": cited_sources(passages),
-        "confidence": confidence_score(passages),
+        "confidence": grounding.confidence,
         "follow_ups": generate_follow_ups(query, answer),
         "refused": False,
     }

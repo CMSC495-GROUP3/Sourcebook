@@ -1,15 +1,25 @@
 """The chat routes: grounding gate, history handling, streaming protocol,
 caching, and the bookkeeping that must survive a dropped stream."""
 
+import inspect
 import logging
 
+import pytest
 from conftest import FAKE_DB, make_passages, sse_events
 
 from sourcebook.api.limiter import limiter
-from sourcebook.api.routes.chat import ChatRequest, _stream, load_history
+from sourcebook.api.routes.chat import ChatRequest, _stream, chat, load_history
 from sourcebook.rag import llm
 from sourcebook.rag.cache import get_cached_answer, get_corpus_version
 from sourcebook.rag.config import HISTORY_TURNS, REFUSAL_MESSAGE
+
+_INJECTED_SESSION_IDS = (
+    "abc\nINFO forged",
+    "abc\rINFO forged",
+    "abc\r\nINFO forged",
+    "abc\x00INFO forged",
+    "abc\x1bINFO forged",
+)
 
 FAKE_ANSWER = llm.FakeProvider.ANSWER
 
@@ -74,12 +84,13 @@ class TestChat:
             client.post("/api/chat", json={"question": "x" * 5001}, headers=auth).status_code == 422
         )
 
-    def test_rejects_session_id_with_newlines(self, client, auth):
-        """A newline in session_id would forge a second API log line."""
+    @pytest.mark.parametrize("session_id", _INJECTED_SESSION_IDS)
+    def test_rejects_injected_session_id(self, client, auth, session_id):
+        """CR/LF/controls in session_id must not reach a log sink over HTTP."""
         assert (
             client.post(
                 "/api/chat",
-                json={"question": "How much PTO?", "session_id": "abc\nINFO forged"},
+                json={"question": "How much PTO?", "session_id": session_id},
                 headers=auth,
             ).status_code
             == 422
@@ -129,6 +140,7 @@ class TestChat:
 
         log = FAKE_DB["query_logs"].find_one({})
         assert log["best_score"] == 0.80 and log["refused"] is False and log["cache_hit"] is None
+        assert log["raw_best_score"] is None  # first turn: one retrieval, nothing to compare
 
     def test_rate_limited_per_client(self, client, auth, retrieval, conversation, caplog):
         limiter.enabled = True
@@ -169,6 +181,57 @@ class TestChat:
         ).json()
         assert body["answer"].startswith("Sorry")
         assert _messages(conversation) == []
+
+    def test_generation_failure_log_stays_one_line(self, retrieval, monkeypatch, caplog):
+        """Sink-level sanitizer: a constructed dirty session_id stays one log line."""
+
+        def broken(*args, **kwargs):
+            raise RuntimeError("provider down")
+
+        monkeypatch.setattr(llm.get_provider(), "complete", broken)
+        body = ChatRequest.model_construct(question="q", session_id="abc\nINFO forged")
+        with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.chat"):
+            inspect.unwrap(chat)(request=None, body=body)
+
+        records = [r for r in caplog.records if r.name == "sourcebook.api.routes.chat"]
+        assert records
+        for record in records:
+            message = record.getMessage()
+            assert "\n" not in message and "\r" not in message
+            assert message.endswith("for session abcINFO forged")
+
+    def test_follow_up_is_gated_on_the_question_as_asked(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        """Issue #189: the rewrite scores 0.69, the question the employee typed
+        scores 0.59. The turn must refuse, cite nothing, show the raw score, and
+        never reach the answer model."""
+        rewrite = "What is the boiling point of mercury, given the PTO discussion?"
+        raw = "What is the boiling point of mercury at sea level?"
+        opener = client.post(
+            "/api/chat",
+            json={"question": "How much PTO?", "session_id": conversation},
+            headers=auth,
+        )
+        assert opener.json()["refused"] is False
+        FAKE_DB["query_logs"]._docs.clear()
+        # Armed only now: the opener above needed the answer model.
+        _rewrite_follow_ups_to(monkeypatch, rewrite, forbid_answer=True)
+        retrieval.by_query = {rewrite: make_passages(0.69, 0.60), raw: make_passages(0.59, 0.51)}
+
+        body = client.post(
+            "/api/chat", json={"question": raw, "session_id": conversation}, headers=auth
+        ).json()
+        assert body["refused"] is True and body["answer"] == REFUSAL_MESSAGE
+        assert body["sources"] == [] and body["confidence"] == 55
+
+        log = FAKE_DB["query_logs"].find_one({})
+        assert log["refused"] is True
+        assert log["best_score"] == 0.69 and log["raw_best_score"] == 0.59
+        assert log["question_condensed"] == rewrite
+
+        stored = _messages(conversation)[-1]
+        assert stored["refused"] is True and stored["sources"] == []
 
     def test_follow_up_logs_the_condensed_query_like_stream(
         self, client, auth, retrieval, conversation, monkeypatch
@@ -214,7 +277,9 @@ class TestChat:
         )
         _ask(client, auth, follow_up, stream_session)
 
-        assert retrieval.calls[-2:] == [condensed, condensed]
+        # Each follow-up retrieves twice: the rewrite for the answer context and
+        # the question as asked for the gate (issue #189).
+        assert retrieval.calls[-4:] == [condensed, follow_up, condensed, follow_up]
 
         chat_log, stream_log = list(FAKE_DB["query_logs"].find({}))
         assert chat_log["question_raw"] == follow_up
@@ -227,6 +292,23 @@ class TestChat:
 # ── Streaming ─────────────────────────────────────────────────────────────────
 
 
+def _rewrite_follow_ups_to(monkeypatch, rewrite: str, *, forbid_answer: bool = False):
+    """Make the fake provider return `rewrite` for the condense call. With
+    `forbid_answer`, an answer-model call fails the test."""
+    provider = llm.get_provider()
+    original = provider.complete
+
+    def complete(messages, *, role="utility", **kwargs):
+        if forbid_answer:
+            assert role != "answer", "the answer model must not run on a refusal"
+        content = messages[0]["content"] if messages else ""
+        if role == "utility" and "Rewrite the follow-up question" in content:
+            return rewrite
+        return original(messages, role=role, **kwargs)
+
+    monkeypatch.setattr(provider, "complete", complete)
+
+
 def _ask(client, auth, question, session_id):
     response = client.post(
         "/api/chat/stream", json={"question": question, "session_id": session_id}, headers=auth
@@ -237,6 +319,17 @@ def _ask(client, auth, question, session_id):
 
 
 class TestStream:
+    @pytest.mark.parametrize("session_id", _INJECTED_SESSION_IDS)
+    def test_rejects_injected_session_id(self, client, auth, session_id):
+        assert (
+            client.post(
+                "/api/chat/stream",
+                json={"question": "How much PTO?", "session_id": session_id},
+                headers=auth,
+            ).status_code
+            == 422
+        )
+
     def test_protocol_chunks_then_done_then_follow_ups(self, client, auth, retrieval, conversation):
         events = _ask(client, auth, "How much PTO?", conversation)
 
@@ -302,7 +395,89 @@ class TestStream:
     def test_follow_up_turns_bypass_the_cache(self, client, auth, retrieval, conversation):
         _ask(client, auth, "How much PTO?", conversation)
         _ask(client, auth, "How much PTO?", conversation)
-        assert len(retrieval.calls) == 2
+        # One retrieval for the first turn; the follow-up retrieves for its
+        # rewrite and for the question as asked, and neither is served from cache.
+        assert len(retrieval.calls) == 3
+
+    def test_follow_up_is_gated_on_the_question_as_asked(
+        self, client, auth, retrieval, conversation, monkeypatch, caplog
+    ):
+        """Same gate on the streaming route: one refusal chunk, no sources, the raw score."""
+        rewrite = "What is the boiling point of mercury, given the PTO discussion?"
+        raw = "What is the boiling point of mercury at sea level?"
+        opener = _ask(client, auth, "How much PTO?", conversation)
+        assert next(e for e in opener if e.get("done"))["refused"] is False
+        FAKE_DB["query_logs"]._docs.clear()
+        # Armed only now: the opener above needed the answer model.
+        _rewrite_follow_ups_to(monkeypatch, rewrite, forbid_answer=True)
+        retrieval.by_query = {rewrite: make_passages(0.69, 0.60), raw: make_passages(0.59, 0.51)}
+
+        with caplog.at_level(logging.INFO, logger="sourcebook.api.routes.chat"):
+            events = _ask(client, auth, raw, conversation)
+        assert events[0] == {"chunk": REFUSAL_MESSAGE}
+        done = events[1]
+        assert done["refused"] is True and done["sources"] == [] and done["confidence"] == 55
+        assert retrieval.calls[-2:] == [rewrite, raw]
+        # The log line names the score the gate refused on, not the rewrite's.
+        refused_line = next(
+            r.getMessage() for r in caplog.records if r.getMessage().startswith("Refused:")
+        )
+        assert refused_line.startswith("Refused: best score 0.590")
+
+        stored = _messages(conversation)[-1]
+        assert stored["refused"] is True and stored["sources"] == []
+
+        log = FAKE_DB["query_logs"].find_one({})
+        assert log["refused"] is True
+        assert log["best_score"] == 0.69 and log["raw_best_score"] == 0.59
+
+    def test_refusal_log_stays_one_line(self, retrieval, caplog):
+        retrieval.passages = make_passages(0.30)
+        body = ChatRequest.model_construct(question="q", session_id="abc\r\nINFO forged")
+        with caplog.at_level(logging.INFO, logger="sourcebook.api.routes.chat"):
+            list(_stream(body))
+        records = [
+            r
+            for r in caplog.records
+            if r.name == "sourcebook.api.routes.chat" and r.getMessage().startswith("Refused:")
+        ]
+        assert records
+        for record in records:
+            message = record.getMessage()
+            assert "\n" not in message and "\r" not in message
+            assert message.endswith("for session abcINFO forged")
+
+    def test_generation_error_log_stays_one_line(self, retrieval, monkeypatch, caplog):
+        def broken(*args, **kwargs):
+            yield "partial"
+            raise RuntimeError("provider down")
+
+        monkeypatch.setattr(llm.get_provider(), "stream", broken)
+        body = ChatRequest.model_construct(question="q", session_id="abc\nWARNING forged")
+        with caplog.at_level(logging.ERROR, logger="sourcebook.api.routes.chat"):
+            list(_stream(body))
+        records = [r for r in caplog.records if r.name == "sourcebook.api.routes.chat"]
+        assert records
+        for record in records:
+            message = record.getMessage()
+            assert "\n" not in message and "\r" not in message
+            assert message.endswith("for session abcWARNING forged")
+
+    def test_retrieval_error_is_one_error_event_and_persists_nothing(
+        self, client, auth, conversation, monkeypatch
+    ):
+        """A vector search or embedding failure gets the same boundary as a
+        generation failure: one error event, no done event, nothing stored."""
+        from sourcebook.rag import rag_chain
+
+        def broken(query, k=5):
+            raise RuntimeError("atlas down")
+
+        monkeypatch.setattr(rag_chain, "retrieve_passages", broken)
+        events = _ask(client, auth, "q", conversation)
+        assert events == [{"error": "An error occurred while generating the response."}]
+        assert _messages(conversation) == []
+        assert FAKE_DB["query_logs"].count_documents({}) == 0
 
     def test_generation_error_persists_nothing(
         self, client, auth, retrieval, conversation, monkeypatch
