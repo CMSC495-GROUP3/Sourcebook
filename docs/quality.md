@@ -22,25 +22,28 @@ Every pull request also runs [PR checks](https://github.com/CMSC495-GROUP3/Sourc
 
 ### Counts on current `main`
 
-Snapshot against [`7d028ef`](https://github.com/CMSC495-GROUP3/Sourcebook/commit/7d028efd37ca738cff51bf001961021a1ff6ef90) on 2026-09-12, from `gh` search on `CMSC495-GROUP3/Sourcebook`:
+Snapshot against [`88e8a13`](https://github.com/CMSC495-GROUP3/Sourcebook/commit/88e8a134d16e092b2307c51b4e2a5fd7a9af39be) on 2026-09-17, from `gh` search on `CMSC495-GROUP3/Sourcebook`:
 
 | Signal | Count | Source |
 | --- | ---: | --- |
-| Pull requests (all states, first 128 returned by `gh pr list`) | 128 | `gh pr list --state all` |
-| Merged pull requests in that list | 101 | same list, `state == MERGED` |
-| Merged PRs authored by @t-shahan | 47 | `author:t-shahan is:merged` |
-| Merged PRs authored by @threshi-art | 36 | `author:threshi-art is:merged` |
-| Merged PRs authored by dependabot | 15 | `author:app/dependabot is:merged` |
-| Merged PRs authored by @Lazzy-dev | 2 | `author:Lazzy-dev is:merged` |
-| Merged PRs authored by @RoNUO | 1 | `author:RoNUO is:merged` |
-| PRs reviewed by @t-shahan | 45 | `reviewed-by:t-shahan` |
+| Pull requests (all states) | 147 | `is:pr` |
+| Merged pull requests | 122 | `is:pr is:merged` |
+| Newest 128 PRs from `gh pr list --state all --limit 128` | 128 | that list (repo has 147; this window is #251–#20) |
+| Merged pull requests in that 128 window | 107 | same list, `state == MERGED` |
+| Merged PRs authored by @t-shahan | 57 | `author:t-shahan is:merged` |
+| Merged PRs authored by @threshi-art | 41 | `author:threshi-art is:merged` |
+| Merged PRs authored by dependabot | 18 | `author:app/dependabot is:merged` |
+| Merged PRs authored by @Lazzy-dev | 3 | `author:Lazzy-dev is:merged` |
+| Merged PRs authored by @RoNUO | 2 | `author:RoNUO is:merged` |
+| Merged PRs authored by @DanielTsang26 | 1 | `author:DanielTsang26 is:merged` |
+| PRs reviewed by @t-shahan | 55 | `reviewed-by:t-shahan` |
 | PRs reviewed by @threshi-art | 6 | `reviewed-by:threshi-art` |
+| PRs reviewed by @Lazzy-dev | 3 | `reviewed-by:Lazzy-dev` |
 | PRs reviewed by @RoNUO | 2 | `reviewed-by:RoNUO` |
-| PRs reviewed by @Lazzy-dev | 2 | `reviewed-by:Lazzy-dev` |
 | PRs reviewed by @DanielTsang26 | 1 | `reviewed-by:DanielTsang26` |
 | PRs reviewed by @gavinwathen or @fudgepop01 | 0 | same search, no hits |
 
-These are GitHub search totals, not a hand-counted review-event ledger. [Issue #201](https://github.com/CMSC495-GROUP3/Sourcebook/issues/201) earlier cited 100 merged PRs and 73 human reviews; this page uses the 2026-09-12 query instead of repeating that older pair.
+These are GitHub search totals, not a hand-counted review-event ledger. The 2026-09-12 snapshot on [`7d028ef`](https://github.com/CMSC495-GROUP3/Sourcebook/commit/7d028efd37ca738cff51bf001961021a1ff6ef90) used the first 128 PRs (101 merged in that list). [Issue #201](https://github.com/CMSC495-GROUP3/Sourcebook/issues/201) earlier cited 100 merged PRs and 73 human reviews; this page uses the 2026-09-17 query instead of repeating those older pairs.
 
 ### Threads where review changed the code
 
@@ -48,7 +51,7 @@ These are GitHub search totals, not a hand-counted review-event ledger. [Issue #
 | --- | --- | --- |
 | httpx lock outage | The API lock installs `httpx2` via OpenAI and does not install the `httpx` import [PR #163](https://github.com/CMSC495-GROUP3/Sourcebook/pull/163) used for timeouts. Taylor reproduced `ModuleNotFoundError: No module named 'httpx'` in a fresh 3.12 venv from `requirements/api.lock.txt` and the fix stopped importing `httpx` directly. [PR #164](https://github.com/CMSC495-GROUP3/Sourcebook/pull/164) then constructed the provider inside the built image so CI sees the same failure mode. | [#163](https://github.com/CMSC495-GROUP3/Sourcebook/pull/163), [#164](https://github.com/CMSC495-GROUP3/Sourcebook/pull/164) |
 | Grounding-gate / clarify prompt | On [PR #138](https://github.com/CMSC495-GROUP3/Sourcebook/pull/138) Taylor's review rewrote the clarifying-question rules, stopped labelling the server's own citation titles as untrusted, dropped hard-coded `PROMPT_VERSION == v3` asserts, and set the default to `v2`. Chris applied those on `d15a348`. | [#138](https://github.com/CMSC495-GROUP3/Sourcebook/pull/138) |
-| Passage index | [PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176) is still open. Taylor's reviews required a merge of the `sourcebook` package rename and called out migration evidence; George stated he will copy the database before approving. Review is blocking merge, not rubber-stamping it. | [#176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176), [#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) |
+| Passage index | [PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176) merged on 2026-09-12 (`cd4e64a`). Before merge, Taylor's reviews required a merge of the `sourcebook` package rename and called out migration evidence; George stated he would copy the database before approving. Review blocked merge until that landed, rather than rubber-stamping it. | [#176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176), [#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) |
 | pip-compile names and lock check | On [PR #157](https://github.com/CMSC495-GROUP3/Sourcebook/pull/157) Taylor's review asked for a `pip-compile` staleness check and a Makefile `lock` target that survives the #135 venv rewrite. Those landed as follow-up commits on that PR (`31d36f1`). [PR #178](https://github.com/CMSC495-GROUP3/Sourcebook/pull/178) then named inputs `.in` and outputs `.txt` so Dependabot recompiles locks. | [#157](https://github.com/CMSC495-GROUP3/Sourcebook/pull/157), [#178](https://github.com/CMSC495-GROUP3/Sourcebook/pull/178) |
 | Live-evaluation NaN | On [PR #181](https://github.com/CMSC495-GROUP3/Sourcebook/pull/181) Rob requested changes: `_validate_rate_metric` accepted `NaN`. The follow-up rejected non-finite rates; Rob approved after re-review. | [#181](https://github.com/CMSC495-GROUP3/Sourcebook/pull/181) |
 
@@ -60,15 +63,15 @@ CI runs pytest with `--cov-fail-under=80` on Python 3.11 through 3.14 ([`.github
 
 The 3.12 job writes a markdown table into the Actions job summary and uploads `coverage.xml` for 14 days. Those artifacts expire with the run. Nothing on `main` commits that table. [Issue #210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210) is the follow-up that will copy the **tagged final** table into `docs/releases/v1.0.0/evidence/coverage.md`. This page will cite that file when it exists; it does not pretend the file is here.
 
-Latest green CI on this snapshot: [run 34653615835](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34653615835) at `7d028ef`. Open that run's Python-test job summary for the table from that SHA. Do not treat the badge as a coverage number.
+Latest green CI on this snapshot: [run 35039401655](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/35039401655) at `88e8a13`. Open that run's Python-test job summary for the table from that SHA. Do not treat the badge as a coverage number.
 
 ### What the suite covers, and what it does not
 
 From the README [Tests and CI](../README.md#tests-and-ci) section, which matches `tests/` on `main`:
 
-**Covered (stubbed suite):** the grounding gate and its best-not-mean rule, server-side history filtering, the SSE protocol, first-turn caching and invalidation, query logging, escalations end to end, ingestion without real services, the labeled evaluation set and its metrics, and bookkeeping after a client hangs up mid-stream.
+**Covered (stubbed suite):** the grounding gate and its best-not-mean rule, server-side history filtering, the SSE protocol, first-turn caching and invalidation, query logging, query-log analysis reports ([PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171), `tests/test_query_log_reports.py`), escalations end to end, ingestion without real services, the labeled evaluation set and its metrics, and bookkeeping after a client hangs up mid-stream.
 
-**Not covered:** live calls to AWS, Atlas, or OpenAI, and the React components. `tsc` and ESLint check `web/`; there are no component unit tests until [issue #211](https://github.com/CMSC495-GROUP3/Sourcebook/issues/211).
+**Not covered:** live calls to AWS, Atlas, or OpenAI, and the React components. `tsc` and ESLint check `web/`; there are still no component unit tests on `main` ([issue #211](https://github.com/CMSC495-GROUP3/Sourcebook/issues/211) is open). This page does not cite a web-coverage artifact because that file is not on `main`.
 
 The suite is the real application with Mongo, the model, and vector search replaced (`tests/conftest.py`, `scripts/loadtest/fakemongo.py`). A green `make check` does not measure retrieval quality.
 
@@ -79,8 +82,8 @@ The suite is the real application with Mongo, the model, and vector search repla
 | Synthetic chat throughput | Thread-pool ceiling with fake model, in-memory Mongo, canned retrieval, limiter off. 40 tokens → 14.9 req/s; 320 tokens → 98.7 req/s; refusal path ~700 req/s; cache hits 210–522 req/s. | Deployed-pilot latency, real OpenAI/Atlas, or the 10,000-user claim under live load. | [docs/load-testing.md](load-testing.md) |
 | Alpha live benchmark | Bounded public-URL run on 2026-09-10 against the pilot with real OpenAI and Atlas. Operator-agreed targets (generated TTFT p50 ≤ 4.0s, generated total max ≤ 30s, cached TTFT max ≤ 1.5s, refused total max ≤ 3.0s, error rate 0). Status on that page: **run performed, every target met.** Sample is eight chat requests. | 10,000 concurrent users, p95, or a beta/final repeat. | [live-benchmark.md](releases/v0.1.0-alpha.1/live-benchmark.md), [results JSON](releases/v0.1.0-alpha.1/live-benchmark-results.json) |
 | Deployed load run | Not on `main`. | — | [issue #212](https://github.com/CMSC495-GROUP3/Sourcebook/issues/212) |
-| Alpha smoke evaluation | Two host runs of the 20-case smoke tier (`9871e3e` vs `4e90382`). Recall@5, citation correctness, and grounded-answer rate are 100% of 12 answerable cases on both commits. Unsupported-refusal handling and prompt-injection grounding-gate refusal are **0%** of their cases on both commits. | A product-quality PASS. The zeros are [issue #192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192). The full tier has not been run ([issue #213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)). | [live-evaluation.md](releases/v0.1.0-alpha.1/live-evaluation.md), [results JSON](releases/v0.1.0-alpha.1/live-evaluation-results.json), [docs/evaluation.md](evaluation.md) |
-| Live evaluation workflow | Manual Actions job against real secrets. The workflow and `scripts/validate_live_evaluation.py` are the measuring instrument. Fail-closed repairs for empty or illegal `MONGODB_DB` are tracked in [issue #223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) / [PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226) and [PR #229](https://github.com/CMSC495-GROUP3/Sourcebook/pull/229) and are **not merged** on this snapshot. Until that lands, treat a green workflow badge as execution status, not answer quality. | Refusal-quality PASS. [Issue #192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) remains open. | [evaluation.yml](https://github.com/CMSC495-GROUP3/Sourcebook/blob/main/.github/workflows/evaluation.yml), [PR #181](https://github.com/CMSC495-GROUP3/Sourcebook/pull/181) |
+| Alpha smoke evaluation | Two host runs of the 20-case smoke tier (`9871e3e` vs `4e90382`). Recall@5, citation correctness, and grounded-answer rate are 100% of 12 answerable cases on both commits. Unsupported-refusal handling and prompt-injection grounding-gate refusal are **0%** of their cases on both commits. | A product-quality PASS. The zeros are [issue #192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), which is still open. [Issue #189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) (follow-ups scored only the rewrite) was closed by [PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245); that does not close #192. The full tier has not been run ([issue #213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)). | [live-evaluation.md](releases/v0.1.0-alpha.1/live-evaluation.md), [results JSON](releases/v0.1.0-alpha.1/live-evaluation-results.json), [docs/evaluation.md](evaluation.md) |
+| Live evaluation workflow | Manual Actions job against real secrets. [PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226) merged on 2026-09-13 (`112c96e`) and closed [issue #223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223): `scripts/validate_live_evaluation.py` and [evaluation.yml](https://github.com/CMSC495-GROUP3/Sourcebook/blob/main/.github/workflows/evaluation.yml) fail-close on empty or illegal `MONGODB_DB`, empty secrets, a nonzero evaluator exit, and missing or malformed results. CI also runs the synthetic checks in `scripts/test_live_evaluation_fail_closed.sh`. [PR #229](https://github.com/CMSC495-GROUP3/Sourcebook/pull/229) was closed as a duplicate of #226 and was not merged. A green workflow means the instrument recorded a trustworthy results file, not that refusals passed. Latest successful run: [run 34801818927](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34801818927) at `534a661` (after #245). | Refusal-quality PASS. [Issue #192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) remains open. | [evaluation.yml](https://github.com/CMSC495-GROUP3/Sourcebook/blob/main/.github/workflows/evaluation.yml), [PR #181](https://github.com/CMSC495-GROUP3/Sourcebook/pull/181), [PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226) |
 | Lighthouse | Not run. | — | [issue #214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214) |
 | Beta / final live-benchmark.md | Not on `main`. Alpha is the only committed live-benchmark folder. | — | [issue #203](https://github.com/CMSC495-GROUP3/Sourcebook/issues/203), [issue #215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215) |
 
@@ -97,4 +100,4 @@ make audit    # pip-audit and npm audit; accepted advisories in scripts/audit.sh
 
 ## What this page will gain later
 
-When #210 commits the tagged coverage table, replace the floor-only paragraph with that number and the run link. When #212, #213, and #214 produce artifacts, add rows to the table above. When #223 / #226 merge, drop the fail-closed caveat if the merged workflow actually fail-closes on the empty-database case. None of those replacements are this PR.
+When #210 commits the tagged coverage table, replace the floor-only paragraph with that number and the run link. When #212, #213, and #214 produce artifacts, add rows to the table above. When #211 lands React component tests on `main`, cite that suite; `tsc` and ESLint are not those tests. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open. None of those replacements are this PR.
