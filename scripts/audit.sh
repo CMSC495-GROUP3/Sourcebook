@@ -7,17 +7,15 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Advisories accepted for now. Each entry needs a reason and a way out.
-IGNORED_ADVISORIES=(
-  # ecdsa < 0.19.3 is a transitive dependency of python-jose. The advisory is a
-  # timing side channel in signing; the app only verifies JWTs it signed with
-  # HS256, which never touches ecdsa. Upstream has stated they will not fix it.
-  # Way out: replace python-jose with PyJWT (now confined to sourcebook/api/tokens.py), which does not depend on ecdsa.
-  PYSEC-2026-1325
-)
+# Advisories accepted for now. Each entry needs a reason and a way out. The
+# list is empty since python-jose (and its unfixable ecdsa advisory,
+# PYSEC-2026-1325) was replaced with PyJWT.
+IGNORED_ADVISORIES=()
 
+# ${arr[@]+"${arr[@]}"} expands to nothing for an empty array without
+# tripping `set -u` on the bash 3.2 that macOS ships.
 ignore_flags=()
-for advisory in "${IGNORED_ADVISORIES[@]}"; do
+for advisory in ${IGNORED_ADVISORIES[@]+"${IGNORED_ADVISORIES[@]}"}; do
   ignore_flags+=(--ignore-vuln "$advisory")
 done
 
@@ -29,7 +27,7 @@ fi
 echo "== Python"
 "$pip_audit" \
   -r requirements/dev.txt \
-  --progress-spinner off "${ignore_flags[@]}"
+  --progress-spinner off ${ignore_flags[@]+"${ignore_flags[@]}"}
 
 echo "== npm"
 (cd web && npm audit --audit-level=high)

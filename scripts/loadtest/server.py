@@ -175,7 +175,7 @@ cache.get_collection = mongo.get_collection
 
 from sourcebook.api import main  # noqa: E402
 from sourcebook.api.limiter import limiter  # noqa: E402
-from sourcebook.api.routes import chat as chat_routes  # noqa: E402
+from sourcebook.rag import rag_chain  # noqa: E402
 
 
 def _startup() -> None:
@@ -195,10 +195,9 @@ def _startup() -> None:
 # Index creation would try to reach a real cluster during startup.
 main.ensure_indexes = _startup
 
-# routes/chat.py binds these names at import, so patch them there rather than
-# on the modules they came from. Vector search is the one thing the fake cannot
-# emulate, so it is replaced outright.
-chat_routes.retrieve_passages = _fake_retrieve
+# Vector search is the one thing the fake cannot emulate, so it is replaced
+# outright, on rag_chain: ground_question there is the only caller.
+rag_chain.retrieve_passages = _fake_retrieve
 
 # The load-test client fires every request from 127.0.0.1. Leave production
 # CHAT_RATE_LIMIT / REINDEX_RATE_LIMIT intact; only this synthetic stub opts out,

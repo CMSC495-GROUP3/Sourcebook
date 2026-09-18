@@ -3,7 +3,7 @@
 
 Used by ``.github/workflows/evaluation.yml`` before and after the paid runner:
 
-* ``--check-env`` rejects missing/blank live secrets (especially ``MONGODB_DB``)
+* ``--check-env`` rejects missing/blank live secrets and illegal ``MONGODB_DB`` names
 * ``--results PATH`` rejects absent or malformed ``evaluation/results.json``
 
 These checks are intentionally free of provider/network access so CI and
@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check-env",
         action="store_true",
-        help="Require non-empty OPENAI_API_KEY, MONGODB_URI, and MONGODB_DB",
+        help="Require non-empty OPENAI_API_KEY and MONGODB_URI, and a legal MONGODB_DB name",
     )
     parser.add_argument(
         "--results",

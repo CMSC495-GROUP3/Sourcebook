@@ -40,8 +40,19 @@ const STARTER_PROMPTS = [
 const PANE_WIDTH = 368
 /** Left gutter + reading column + right gutter: the left page, as wide as the thread's when the pane is docked. */
 const LEFT_PAGE_WIDTH = 48 + 720 + 24
-/** Left page + pane: the room the docked layout needs without touching the column. */
-const DOCK_MIN_WIDTH = LEFT_PAGE_WIDTH + PANE_WIDTH
+/** Left page + pane: the room the home page's facing page needs without touching the column. */
+const FACING_PAGE_MIN_WIDTH = LEFT_PAGE_WIDTH + PANE_WIDTH
+/**
+ * The narrowest the answer column may go to keep the pane docked. Below the
+ * full 720 the column simply flexes; below this it would stop reading well, so
+ * the pane slides over the thread instead. A window that is 1320 wide with
+ * the sidebar open lands between the two limits, which is why the pane used
+ * to turn into a dimmed dialog there while the same window docked it with
+ * the sidebar collapsed.
+ */
+const MIN_READING_COLUMN = 560
+/** Gutters + narrowest column + pane: the room the docked pane needs beside a thread. */
+const DOCK_MIN_WIDTH = 48 + MIN_READING_COLUMN + 24 + PANE_WIDTH
 
 interface HomeProps {
   onAsk: (question: string) => void
@@ -125,6 +136,7 @@ export default function ChatPage() {
   // nor the facing page renders, so nothing jumps between them.
   const measured = pageWidth > 0
   const docked = pageWidth >= DOCK_MIN_WIDTH
+  const facingPage = pageWidth >= FACING_PAGE_MIN_WIDTH
 
   const { messages, loading, streaming, sendMessage, markEscalated } = useChat({
     sessionId,
@@ -163,7 +175,7 @@ export default function ChatPage() {
   if (!hasMessages) {
     return (
       <div ref={pageRef} className="relative flex min-h-0 flex-1">
-        <Home onAsk={sendMessage} busy={busy} docked={measured ? docked : null} />
+        <Home onAsk={sendMessage} busy={busy} docked={measured ? facingPage : null} />
       </div>
     )
   }

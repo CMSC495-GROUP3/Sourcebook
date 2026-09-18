@@ -1,5 +1,7 @@
 """The retrieval side of the pipeline: grounding gate, scoring, prompt assembly."""
 
+from typing import ClassVar
+
 import pytest
 from conftest import make_passages
 
@@ -13,6 +15,7 @@ from sourcebook.rag.rag_chain import (
     condense_question,
     confidence_score,
     generate_follow_ups,
+    ground_question,
     is_grounded,
 )
 
@@ -35,6 +38,105 @@ class TestGroundingGate:
         passages = make_passages(0.9)
         del passages[0]["score"]
         assert is_grounded(passages, threshold=0.62) is False
+
+
+class TestGroundQuestion:
+    """The gate on a whole turn (issue #189). `retrieval` is the conftest stub
+    on rag_chain.retrieve_passages; `by_query` gives the rewrite and the raw
+    question different scores."""
+
+    HISTORY: ClassVar[list[dict]] = [{"role": "user", "content": "How much PTO do I get?"}]
+    RAW = "What is the boiling point of mercury?"
+    REWRITE = "What is the boiling point of mercury, in the context of PTO?"
+
+    @pytest.fixture(autouse=True)
+    def _rewrite(self, monkeypatch):
+        # The rewrite is a model call; pin it so the test owns both query strings.
+        monkeypatch.setattr(
+            rag_chain, "condense_question", lambda q, history: self.REWRITE if history else q
+        )
+
+    def test_first_turn_retrieves_once_and_gates_on_that_set(self, retrieval):
+        grounding = ground_question(self.RAW, [])
+        assert retrieval.calls == [self.RAW]
+        assert grounding.condensed == self.RAW
+        assert grounding.grounded is True
+        assert grounding.best_score == 0.80 and grounding.raw_best_score is None
+        assert grounding.confidence == 75
+
+    def test_unchanged_rewrite_retrieves_once(self, retrieval, monkeypatch):
+        # condense_question returns the raw question when the provider fails.
+        monkeypatch.setattr(rag_chain, "condense_question", lambda q, history: q)
+        grounding = ground_question(self.RAW, self.HISTORY)
+        assert retrieval.calls == [self.RAW]
+        assert grounding.raw_best_score is None
+
+    def test_follow_up_refuses_when_the_question_as_asked_misses(self, retrieval):
+        """The #189 case: the rewrite clears the threshold, the raw question does not."""
+        retrieval.by_query = {
+            self.REWRITE: make_passages(0.69, 0.60),
+            self.RAW: make_passages(0.59, 0.51),
+        }
+        grounding = ground_question(self.RAW, self.HISTORY, threshold=0.62)
+        assert retrieval.calls == [self.REWRITE, self.RAW]
+        assert grounding.grounded is False
+        # The badge shows what a fresh conversation would show for this question.
+        assert grounding.best_score == 0.59 and grounding.raw_best_score == 0.59
+        assert grounding.confidence == 55
+
+    def test_follow_up_refuses_when_the_rewrite_misses(self, retrieval):
+        """Both sets must clear: the rewrite is the answer context, so it cannot be weak either."""
+        retrieval.by_query = {
+            self.REWRITE: make_passages(0.59, 0.51),
+            self.RAW: make_passages(0.69, 0.60),
+        }
+        grounding = ground_question(self.RAW, self.HISTORY, threshold=0.62)
+        assert grounding.grounded is False
+        assert grounding.best_score == 0.59 and grounding.raw_best_score == 0.69
+        assert grounding.confidence == 55
+
+    def test_follow_up_answers_from_the_rewrite_when_both_clear(self, retrieval):
+        retrieval.by_query = {
+            self.REWRITE: make_passages(0.80, 0.70, title="Rewrite set"),
+            self.RAW: make_passages(0.65, 0.63, title="Raw set"),
+        }
+        grounding = ground_question(self.RAW, self.HISTORY, threshold=0.62)
+        assert grounding.grounded is True
+        assert {p["title"] for p in grounding.passages} == {"Rewrite set"}
+        # Confidence describes the answer context, the set the citations come from.
+        assert grounding.confidence == 75
+        assert grounding.best_score == 0.65 and grounding.raw_best_score == 0.65
+
+    def test_raw_question_exactly_at_threshold_passes(self, retrieval):
+        retrieval.by_query = {self.REWRITE: make_passages(0.80), self.RAW: make_passages(0.62)}
+        assert ground_question(self.RAW, self.HISTORY, threshold=0.62).grounded is True
+
+    def test_follow_up_with_nothing_for_the_raw_question_refuses(self, retrieval):
+        retrieval.by_query = {self.REWRITE: make_passages(0.80), self.RAW: []}
+        grounding = ground_question(self.RAW, self.HISTORY, threshold=0.62)
+        assert grounding.grounded is False
+        assert grounding.confidence == 0 and grounding.raw_best_score == 0.0
+
+    def test_library_entry_point_refuses_a_blocked_follow_up(self, retrieval, monkeypatch):
+        """answer_question is the documented library call; it runs the same gate."""
+        monkeypatch.setattr(config, "SIMILARITY_THRESHOLD", 0.62)
+        retrieval.by_query = {
+            self.REWRITE: make_passages(0.69, 0.60),
+            self.RAW: make_passages(0.59, 0.51),
+        }
+        result = rag_chain.answer_question(self.RAW, self.HISTORY)
+        assert result["refused"] is True and result["sources"] == []
+        assert result["answer"] == config.REFUSAL_MESSAGE
+        assert result["confidence"] == 55 and result["follow_ups"] == []
+
+    def test_library_entry_point_answers_from_the_rewrite_when_both_clear(self, retrieval):
+        retrieval.by_query = {
+            self.REWRITE: make_passages(0.80, 0.70, title="Rewrite set"),
+            self.RAW: make_passages(0.65, 0.63, title="Raw set"),
+        }
+        result = rag_chain.answer_question(self.RAW, self.HISTORY)
+        assert result["refused"] is False
+        assert result["sources"] == ["Rewrite set"] and result["confidence"] == 75
 
 
 class TestConfidence:
