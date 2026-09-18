@@ -6,6 +6,7 @@ fastapi
 uvicorn[standard]>=0.52.4
 slowapi
 
-# Auth — JWT tokens + password hashing
-python-jose[cryptography]
+# Auth — JWT tokens + password hashing. HS256 only, so PyJWT needs no
+# extras; python-jose was dropped for its unfixable ecdsa advisory (GHSA-wj6h-64fc-37mp).
+PyJWT
 bcrypt

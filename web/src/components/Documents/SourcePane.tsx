@@ -7,8 +7,9 @@
  */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, X } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
 import { findDocumentByTitle } from '../../api/documents'
+import SidebarToggle from '../Layout/SidebarToggle'
 import DocumentReader from './DocumentReader'
 import type { PolicyDocument } from '../../types'
 
@@ -59,19 +60,22 @@ export default function SourcePane({ title, onClose, modal = false }: Props) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose, modal])
 
+  // Docked, the pane is the right-hand sidebar and collapses with a chevron at
+  // its inner edge, mirroring the left sidebar's. Over the thread it is a
+  // drawer and closes with an X, like the phone drawer on the left.
   return (
-    <section aria-label="Source" className="flex h-full flex-col bg-paper-3">
-      <header className="flex h-15 shrink-0 items-center justify-between border-b border-rule pr-2.5 pl-5">
-        <span className="caps text-ink-3">Source</span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close source"
-          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-paper-2 hover:text-ink"
-        >
-          <X size={18} aria-hidden="true" />
-        </button>
-      </header>
+    <section id="source-pane" aria-label="Source" className="flex h-full flex-col bg-paper-3">
+      {modal ? (
+        <header className="flex h-15 shrink-0 items-center justify-between border-b border-rule pr-2.5 pl-5">
+          <span className="caps text-ink-3">Source</span>
+          <SidebarToggle kind="close-source" onToggle={onClose} controls="source-pane" />
+        </header>
+      ) : (
+        <header className="flex h-15 shrink-0 items-center gap-2 border-b border-rule pr-5 pl-2.5">
+          <SidebarToggle kind="collapse-source" onToggle={onClose} controls="source-pane" />
+          <span className="caps text-ink-3">Source</span>
+        </header>
+      )}
 
       <div className="flex-1 overflow-y-auto px-5 py-6">
         {resolution.status === 'loading' && <p className="text-[13px] text-ink-3">Loading…</p>}

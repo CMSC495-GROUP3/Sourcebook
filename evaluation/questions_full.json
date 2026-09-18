@@ -533,5 +533,109 @@
     "expected_sources": [],
     "expected_outcome": "refuse",
     "expected_behavior": "Refuse to invent a policy and provide no unsupported entitlement."
+  },
+  {
+    "id": "followup_unanswerable_01",
+    "category": "unanswerable",
+    "history": [
+      {
+        "role": "user",
+        "content": "How many PTO days do I get in my first year?"
+      },
+      {
+        "role": "assistant",
+        "content": "Full-time employees with 0 through 2 years of service accrue 15 days of PTO per year, per the Paid Time Off (PTO) Policy."
+      },
+      {
+        "role": "user",
+        "content": "Can I carry unused days into next year?"
+      },
+      {
+        "role": "assistant",
+        "content": "You may carry a maximum of 10 unused days into the following calendar year; anything above 10 days on December 31 is forfeited, per the Paid Time Off (PTO) Policy."
+      }
+    ],
+    "question": "What is the boiling point of mercury at sea level?",
+    "expected_sources": [],
+    "expected_outcome": "refuse",
+    "expected_behavior": "Refuse before any model call. The PTO conversation must not carry an unrelated question over the grounding threshold (issue #189)."
+  },
+  {
+    "id": "followup_unanswerable_02",
+    "category": "unanswerable",
+    "history": [
+      {
+        "role": "user",
+        "content": "How much paid parental leave does a non-birthing parent get?"
+      },
+      {
+        "role": "assistant",
+        "content": "A non-birthing parent gets 8 weeks paid at 100% of base salary, per the Parental Leave Policy."
+      }
+    ],
+    "question": "Who won the World Cup the year my child was born?",
+    "expected_sources": [],
+    "expected_outcome": "refuse",
+    "expected_behavior": "Refuse. The parental leave context must not ground a sports question."
+  },
+  {
+    "id": "followup_answerable_01",
+    "category": "answerable",
+    "history": [
+      {
+        "role": "user",
+        "content": "How many PTO days do I get in my first year?"
+      },
+      {
+        "role": "assistant",
+        "content": "Full-time employees with 0 through 2 years of service accrue 15 days of PTO per year, per the Paid Time Off (PTO) Policy."
+      }
+    ],
+    "question": "And after five years of service?",
+    "expected_sources": [
+      "Paid Time Off (PTO) Policy"
+    ],
+    "expected_outcome": "answer",
+    "expected_behavior": "Answer 20 days for 3 through 5 years of service (25 from year 6) and cite the PTO policy. A terse referential follow-up must still be answered."
+  },
+  {
+    "id": "followup_answerable_02",
+    "category": "answerable",
+    "history": [
+      {
+        "role": "user",
+        "content": "How much paid parental leave does a birthing parent get?"
+      },
+      {
+        "role": "assistant",
+        "content": "The birthing parent gets 16 weeks paid at 100% of base salary, per the Parental Leave Policy."
+      }
+    ],
+    "question": "Does it have to be taken all at once?",
+    "expected_sources": [
+      "Parental Leave Policy"
+    ],
+    "expected_outcome": "answer",
+    "expected_behavior": "Answer that leave may be taken in up to three blocks of at least two weeks each within 12 months of the birth or placement, and cite the Parental Leave Policy."
+  },
+  {
+    "id": "followup_answerable_03",
+    "category": "answerable",
+    "history": [
+      {
+        "role": "user",
+        "content": "Which days must hybrid employees work in the office?"
+      },
+      {
+        "role": "assistant",
+        "content": "Tuesday and Wednesday are company-wide anchor days and the team chooses a third day, per the Remote and Hybrid Work Policy."
+      }
+    ],
+    "question": "Can I work from another location for a few weeks?",
+    "expected_sources": [
+      "Remote and Hybrid Work Policy"
+    ],
+    "expected_outcome": "answer",
+    "expected_behavior": "Answer that up to 20 business days per calendar year from another location need only manager notification, and cite the Remote and Hybrid Work Policy."
   }
 ]

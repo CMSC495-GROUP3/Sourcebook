@@ -65,21 +65,39 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 
 ## Documentation
 
-| Read | For |
+To run it, read [docs/install.md](docs/install.md). To change it, read
+[CONTRIBUTING.md](CONTRIBUTING.md). Everything under `docs/` is indexed in
+[docs/README.md](docs/README.md).
+
+### Running and contributing
+
+| Page | Covers |
 | --- | --- |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | running against real services, checks, conventions, and the things that bite |
-| [SECURITY.md](SECURITY.md) | reporting a vulnerability and what the Security workflow scans |
-| [docs/README.md](docs/README.md) | the index of everything under `docs/` |
-| [docs/quality.md](docs/quality.md) | code review, the coverage floor, and performance evidence with links to the artifacts |
-| [docs/design.md](docs/design.md) | the paper-and-ink design system: tokens, type, layout, motion, the mark |
-| [docs/evaluation.md](docs/evaluation.md) | smoke and full-corpus labeled sets and how to score the live system |
-| [docs/load-testing.md](docs/load-testing.md) | throughput measurements and the reasoning behind `THREADPOOL_TOKENS` |
-| [docs/releases/v0.1.0-alpha.1/handoff.md](docs/releases/v0.1.0-alpha.1/handoff.md) | the Unit 5 alpha: submitted commit, scope map, verification status, evidence |
-| [docs/releases/v0.1.0-alpha.1/live-benchmark.md](docs/releases/v0.1.0-alpha.1/live-benchmark.md) | what the deployed pilot measured with real OpenAI and Atlas, and its limits |
-| [docs/releases/v0.1.0-alpha.1/live-evaluation.md](docs/releases/v0.1.0-alpha.1/live-evaluation.md) | answer quality on the smoke tier, this prompt against the one before #138 |
-| [docs/releases/v0.1.0-alpha.1/release-notes.md](docs/releases/v0.1.0-alpha.1/release-notes.md) | the v0.1.0-alpha.1 release body: scope, access, known defects, limitations |
-| [v0.1.0-alpha.1 release](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | the tagged Unit 5 alpha, `d7199f5`, with the notes above as its body |
-| [.agents/skills/sourcebook/SKILL.md](.agents/skills/sourcebook/SKILL.md) | the condensed version of all this for coding agents |
+| [docs/install.md](docs/install.md) | the live site, the offline stub, real services, deployment |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | checks, conventions, and the things that bite |
+| [SECURITY.md](SECURITY.md) | reporting a vulnerability; what the Security workflow scans |
+
+### Reference
+
+| Page | Covers |
+| --- | --- |
+| [docs/api.md](docs/api.md) | every HTTP route, with a stub request and response |
+| [docs/openapi.json](docs/openapi.json) | the committed OpenAPI document; `make openapi` regenerates it |
+| [docs/design.md](docs/design.md) | the paper-and-ink design system |
+| [docs/evaluation.md](docs/evaluation.md) | the labeled question sets and how to score the live system |
+| [docs/load-testing.md](docs/load-testing.md) | throughput measurements and `THREADPOOL_TOKENS` |
+
+### Releases
+
+Each tagged release has a folder under [docs/releases/](docs/releases/) with
+its handoff, release notes, live benchmark, live evaluation, and evidence.
+
+| Release | Handoff | Notes | Measured |
+| --- | --- | --- | --- |
+| [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](docs/releases/v0.1.0-alpha.1/handoff.md) | [release notes](docs/releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](docs/releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](docs/releases/v0.1.0-alpha.1/live-evaluation.md) |
+
+Coding agents get the condensed version of all of this in
+[.agents/skills/sourcebook/SKILL.md](.agents/skills/sourcebook/SKILL.md).
 
 ## Contents
 
@@ -236,6 +254,22 @@ to 0.50 and would be refused for no good reason.
 It runs before generation, not after. A refusal costs no generation tokens,
 which matters against the free-tier ceilings below.
 
+On a follow-up the gate checks two things. Retrieval runs on the model's
+standalone rewrite of the question, because vector search has no memory and
+"how much do I get?" finds nothing on its own. But the rewrite is what the
+model thought the employee meant, and it can lend a conversation's vocabulary
+to a question the corpus does not cover: asked after two PTO turns, "What is
+the boiling point of mercury at sea level?" scored 0.69 as a rewrite and 0.59
+on its own words, so it was answered with five unrelated citations (#189).
+`ground_question()` therefore retrieves for the question as typed as well and
+refuses unless both best scores clear the threshold. The answer still draws on
+the rewrite's passages, and the query log records both scores as `best_score`
+and `raw_best_score`, so a follow-up blocked this way is distinguishable from
+an ordinary weak-retrieval refusal when tuning. The cost is one extra
+embedding, served from the cache when the question repeats, and one extra
+vector search per follow-up. The multi-turn cases in the full evaluation tier
+carry a `history` list and measure this rule from both sides.
+
 Atlas maps cosine similarity into [0, 1] as (1 + cosine) / 2, so 0.5 means
 unrelated and 1.0 means identical. The default threshold is 0.62.
 
@@ -249,9 +283,10 @@ The [query log](#learning-from-the-query-log) is where those scores come from.
 
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
-"that policy isn't loaded yet." The library shows each document as its
-rendered markdown; the source pane beside an answer shows the indexed passages
-instead, since that is what the citation is evidence of.
+"that policy isn't loaded yet." The library shows each document whole; the
+source pane beside an answer shows the indexed passages instead, each rendered
+from its markdown but cut where retrieval cut it, since those chunks are what
+the citation is evidence of.
 
 ### Refusals lead somewhere: escalation
 
@@ -399,6 +434,17 @@ That log is how the system improves from evidence rather than intuition.
 - The score distribution of answered versus refused questions is the only
   sound basis for tuning `SIMILARITY_THRESHOLD`, and there is no other way to
   collect it.
+
+Run a read-only report over a time window. Run it on the EC2 host. The
+cluster's IP access list admits that host, so anywhere else waits out
+`--timeout` (default 10 s) and then fails in a way that looks like a config
+typo.
+
+    python -m sourcebook.rag.query_log_reports --since 2026-08-01
+
+`--until` defaults to now. Optional `--top` and `--min-repeat` bound the ranked
+lists. `query_logs` rows expire after 90 days (`QUERY_LOG_TTL_SECONDS`), so a
+window that ends earlier than that prints an empty report rather than an error.
 
 This is deliberately not fine-tuning. Retraining on interaction data would
 contradict the reason RAG was chosen, and no pilot produces the volume it would
