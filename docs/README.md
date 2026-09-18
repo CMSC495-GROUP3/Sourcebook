@@ -5,9 +5,16 @@ Narrative docs live here. New to the project? Start with
 is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
 [SECURITY.md](../SECURITY.md) covers reporting a vulnerability.
 
+### Running
+
 | Page | Covers |
 | --- | --- |
 | [install.md](install.md) | the live site, the offline stub, real services with every `.env` variable, deployment |
+
+### Reference
+
+| Page | Covers |
+| --- | --- |
 | [api.md](api.md) | every HTTP route, with a stub request and response |
 | [openapi.json](openapi.json) | the committed OpenAPI document; `make openapi` regenerates it, CI fails if it drifts |
 | [design.md](design.md) | the paper-and-ink design system for `web/` |
@@ -16,13 +23,23 @@ is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
 
 ## Releases
 
-Each release folder holds the handoff that names the verified commit, the
-release notes used as the GitHub release body, the measurements taken against
-the deployed system, and the evidence behind them.
+Each tagged release has a folder under [releases/](releases/) with its
+handoff, release notes, live benchmark, live evaluation, and evidence.
 
 | Release | Handoff | Notes | Measured |
 | --- | --- | --- | --- |
 | [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](releases/v0.1.0-alpha.1/handoff.md) | [release notes](releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](releases/v0.1.0-alpha.1/live-evaluation.md) |
+
+## Planned, not tagged
+
+`v1.0.0` is a folder, not a GitHub release. It does not belong in the tagged
+table above. Do not add index rows for `ci-cd.md`, `team.md`, or `quality.md`
+until those files exist on `main`. The merge order is in
+[releases/v1.0.0/handoff.md](releases/v1.0.0/handoff.md).
+
+| Folder | What it is |
+| --- | --- |
+| [releases/v1.0.0/portfolio.md](releases/v1.0.0/portfolio.md) | Unit 8 grader table. Pre-tag scaffold for [#215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215). Not a GitHub release |
 
 ## Conventions
 
@@ -31,3 +48,4 @@ the deployed system, and the evidence behind them.
   its `evidence/` folder, numbered in the order the steps ran.
 - Brand source images live in `../assets/brand/`; the served copies are in
   `web/public/`.
+- Link only pages that exist on `main`. A draft pull request is not a page.

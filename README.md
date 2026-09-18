@@ -96,6 +96,17 @@ its handoff, release notes, live benchmark, live evaluation, and evidence.
 | --- | --- | --- | --- |
 | [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](docs/releases/v0.1.0-alpha.1/handoff.md) | [release notes](docs/releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](docs/releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](docs/releases/v0.1.0-alpha.1/live-evaluation.md) |
 
+### Planned, not tagged
+
+`v1.0.0` is a folder, not a GitHub release. It does not belong in the tagged
+table above. Rows for CI/CD, team, and quality wait until those pages exist
+on `main`; the merge order is in
+[docs/releases/v1.0.0/handoff.md](docs/releases/v1.0.0/handoff.md).
+
+| Folder | What it is |
+| --- | --- |
+| [docs/releases/v1.0.0/portfolio.md](docs/releases/v1.0.0/portfolio.md) | Unit 8 grader table. Pre-tag scaffold for [#215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215). Not the submitted version |
+
 Coding agents get the condensed version of all of this in
 [.agents/skills/sourcebook/SKILL.md](.agents/skills/sourcebook/SKILL.md).
 
@@ -953,9 +964,10 @@ The product name lives in three places: `APP_NAME` in
 - **The similarity threshold is untuned** against a real corpus, and on the
   sample corpus it does not separate covered questions from uncovered ones on
   nearby topics. Such a question gets a prose decline under a score badge and
-  source chips instead of the refusal card (#192), and an uncovered follow-up
-  can clear the gate the same way (#189). The escalation link under the answer
-  still works. See [above](#hallucination-refuse-rather-than-guess).
+  source chips instead of the refusal card (#192). Follow-ups are gated on
+  both the rewrite and the question as typed (#189, closed in PR #245). The
+  escalation link under the answer still works. See
+  [above](#hallucination-refuse-rather-than-guess).
 - **Escalations have no handler UI.** The open-queue and resolve endpoints
   exist; a page for Human Resources to work through them does not.
 - **The React components have no unit tests.** The backend suite is the safety
