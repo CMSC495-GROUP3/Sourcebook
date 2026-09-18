@@ -13,6 +13,7 @@ This folder follows that alpha pattern
 one addition, `portfolio.md`. `live-benchmark.md` and `live-evaluation.md`
 are deliberately absent until the three checks are re-run against the
 deployed candidate. Copy the alpha pages then; do not invent numbers.
+`evidence/` is empty for the same reason.
 
 ## The submitted version
 
@@ -30,11 +31,28 @@ deployed candidate. Copy the alpha pages then; do not invent numbers.
 
 - **See it running.** The pilot is at <https://sourcebook.duckdns.org>. The
   reviewer password comes through the course channel, not this repository.
-- **Run it yourself.** `git clone`, then `make setup && make stub`. Fake
-  model, in-memory database, no accounts. Do not check out `v1.0.0`.
+- **Run it yourself.** [docs/install.md](../../install.md), or `git clone`
+  then `make setup && make stub`. Fake model, in-memory database, no
+  accounts. Do not check out `v1.0.0`.
 - **Read the code.** The [README](../../../README.md) walks one question
   through retrieval, the grounding gate, and streaming.
+  [docs/api.md](../../api.md) and [docs/openapi.json](../../openapi.json)
+  are the committed HTTP contract.
   [CONTRIBUTING.md](../../../CONTRIBUTING.md) covers the development setup.
+
+## Required merge order (this PR is last)
+
+This pull request is the documentation-index integrator, not an advance
+placeholder. It currently links only pages that exist on `origin/main`. Do
+not add README or `docs/README.md` rows for files that live only on draft
+branches.
+
+1. [PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228) merges and lands `docs/ci-cd.md` ([#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207)).
+2. [PR #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) merges and lands `.mailmap` plus `docs/team.md` ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)).
+3. [PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232) merges and lands `docs/quality.md` ([#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208)).
+4. Then this PR merges current `main` again and adds those grouped index
+   links. Until step 4, those filenames stay in backticks in
+   [portfolio.md](portfolio.md).
 
 ## Blockers before anyone tags
 
@@ -44,29 +62,24 @@ is the order.
 
 | Blocker | State |
 | --- | --- |
-| [#203](https://github.com/CMSC495-GROUP3/Sourcebook/issues/203) cut `v0.2.0-beta.1` | Open. Blocked on #189, #192, #158 / [PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176), #160 / [PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171), #118 / [PR #225](https://github.com/CMSC495-GROUP3/Sourcebook/pull/225), #174. Optional #197 |
-| [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) and [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), refusal card follows the model's own decline | Open. [PR #222](https://github.com/CMSC495-GROUP3/Sourcebook/pull/222) draft; [PR #227](https://github.com/CMSC495-GROUP3/Sourcebook/pull/227) open. Alpha smoke-tier refusal metrics are 0% |
-| Documentation pages #204–#209 | Open. Draft [PR #221](https://github.com/CMSC495-GROUP3/Sourcebook/pull/221) (#204), draft [PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228) (#207). #205, #206, #208, #209 have no merged page on `main` |
-| [#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) Live evaluation fail-closed | Open. [PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226). Until it lands, a green evaluation badge is not evidence |
+| [#203](https://github.com/CMSC495-GROUP3/Sourcebook/issues/203) cut `v0.2.0-beta.1` | Open. Remaining correctness blocker is [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192). Closed since the scaffold was first written: [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) ([PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)), [#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) ([PR #247](https://github.com/CMSC495-GROUP3/Sourcebook/pull/247)), [#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) ([PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176)), [#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160) ([PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171)), [#174](https://github.com/CMSC495-GROUP3/Sourcebook/issues/174), [#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) ([PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226)) |
+| [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), refusal card follows the model's own decline | Open. [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) is closed. Alpha smoke-tier refusal metrics are 0% and remain the last committed measurement |
+| Documentation pages #204–#209 | [#204](https://github.com/CMSC495-GROUP3/Sourcebook/issues/204) and [#205](https://github.com/CMSC495-GROUP3/Sourcebook/issues/205) are on `main` ([docs/api.md](../../api.md), [docs/openapi.json](../../openapi.json), [docs/install.md](../../install.md)). Still open: [#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206), [#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207) / draft [PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228), [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208) / draft [PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232), [#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) / draft [PR #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) |
 | Re-run the three checks on the deployed candidate (browser pass, bounded benchmark, smoke-tier evaluation) | Not started for `v1.0.0`. Do not copy alpha numbers into new files and call them final |
 | `live-benchmark.md`, `live-evaluation.md`, and `evidence/` filled from those checks | Not written |
 | Video link | [#216](https://github.com/CMSC495-GROUP3/Sourcebook/issues/216), recorded after the tag |
 | A commit on `main` after the work above, CI and Security green, then tag | Not chosen |
 
 Hands-off elsewhere, still open, and not implemented from this folder:
-[#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) /
-[PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176),
-[#218](https://github.com/CMSC495-GROUP3/Sourcebook/issues/218) /
-[PR #219](https://github.com/CMSC495-GROUP3/Sourcebook/pull/219),
-[#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) once an owner
-is driving it, [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142),
-[#159](https://github.com/CMSC495-GROUP3/Sourcebook/issues/159),
-[#174](https://github.com/CMSC495-GROUP3/Sourcebook/issues/174).
+[#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142),
+[#159](https://github.com/CMSC495-GROUP3/Sourcebook/issues/159).
 
 ## Known defects and limitations
 
 See [release-notes.md](release-notes.md). The alpha tables remain the last
-filled record. Do not mark #189 or #192 fixed because a pull request exists.
+filled record. Do not mark [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192)
+fixed because a pull request exists. Do not reopen [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189)
+in the notes; it closed in [PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245).
 
 ## What this page does not establish
 

@@ -27,6 +27,7 @@ import logging
 from datetime import UTC, datetime
 
 from sourcebook.api.db import query_logs_col
+from sourcebook.api.logutil import normalize_log_token
 from sourcebook.rag.cache import question_hash
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ def log_query(
     sources: list[str],
     cache_hit: str | None,
     latency_ms: int,
+    raw_best_score: float | None = None,
 ) -> None:
     """Record one chat request. Never raises.
 
@@ -53,17 +55,26 @@ def log_query(
     be reported — that number is what makes the cost projection in
     docs/load-testing.md defensible.
     """
+    # Sanitised once, up front, so the stored record and the failure log line
+    # below carry the same value. A missing session stays None in Mongo.
+    safe_session = None if session_id is None else normalize_log_token(session_id)
     try:
         scores = [p.get("score", 0.0) for p in passages]
         query_logs_col.insert_one(
             {
                 "created_at": datetime.now(UTC),
-                "session_id": session_id,
+                "session_id": safe_session,
                 "question_raw": question[:MAX_QUESTION_LENGTH],
                 "question_condensed": condensed_question[:MAX_QUESTION_LENGTH],
                 # Groups repeats of the same question regardless of casing/spacing.
                 "question_hash": question_hash(condensed_question),
                 "best_score": max(scores) if scores else None,
+                # Best score for the question as asked when a follow-up ran a
+                # second retrieval, else None. A refused row whose best_score
+                # clears the threshold but whose raw_best_score does not was
+                # blocked by the gate on the question as asked (issue #189),
+                # not by weak retrieval; keep the two apart when tuning.
+                "raw_best_score": raw_best_score,
                 "mean_score": (sum(scores) / len(scores)) if scores else None,
                 "passage_count": len(passages),
                 "refused": refused,
@@ -73,4 +84,4 @@ def log_query(
             }
         )
     except Exception:
-        logger.exception("Failed to write query log for session %s", session_id)
+        logger.exception("Failed to write query log for session %s", safe_session or "-")

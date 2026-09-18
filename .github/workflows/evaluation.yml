@@ -16,9 +16,15 @@
 # The numbers this produces are measurements, not a gate. Read the "Metric
 # definitions" section of docs/evaluation.md before acting on them.
 #
-# Fail-closed: empty secrets, a nonzero evaluator exit, a missing results
-# file, or malformed metrics must fail the job (see issue #180 / run
-# 34100074696). Summary and artifact upload still run for diagnostics.
+# Fail-closed: empty or invalid MONGODB_DB, empty secrets, a nonzero
+# evaluator exit, a missing results file, or malformed metrics must fail
+# the job. #180 / #181 closed the tee/pipefail hole; #223 added the
+# database-name check so a bad secret fails at preflight instead of after
+# Atlas admission and the first paid calls. The results step runs with
+# `if: always()` so it fails explicitly instead of being skipped, and stays
+# a gate if `continue-on-error` is ever added to a step above it. Summary
+# and artifact upload still run for diagnostics and do not by themselves
+# make the job green.
 
 name: Live evaluation
 
@@ -99,6 +105,7 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           MONGODB_DB: ${{ secrets.MONGODB_DB }}
           EVAL_TIER: ${{ inputs.tier }}
+          CACHE_ENABLED: "0"
         run: |
           set -euo pipefail
           python -m sourcebook.rag.evaluation \
@@ -106,6 +113,7 @@ jobs:
             --yes \
             --output evaluation/results.json | tee evaluation-summary.txt
       - name: Validate evaluation results
+        if: always()
         run: python scripts/validate_live_evaluation.py --results evaluation/results.json
       - name: Remove this runner from the Atlas IP access list
         if: always() && steps.atlas.outputs.ip != ''

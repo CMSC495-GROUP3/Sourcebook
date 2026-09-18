@@ -18,6 +18,7 @@ import json
 import math
 import os
 import sys
+import traceback
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -60,6 +61,10 @@ SMOKE_CATEGORY_MIX = {
 
 # Live Actions / paid CLI must refuse empty secrets before any provider call.
 REQUIRED_LIVE_ENV_VARS = ("OPENAI_API_KEY", "MONGODB_URI", "MONGODB_DB")
+# Characters MongoDB / PyMongo reject in a database name (pymongo.database._check_name).
+INVALID_MONGODB_DB_CHARS = (" ", ".", "$", "/", "\\", "\x00", '"')
+# The server limit is "fewer than 64 bytes", so 64 is already illegal.
+MONGODB_DB_MAX_LENGTH = 64
 # Keys ``score_results`` always emits; Actions postflight rejects anything else.
 REQUIRED_RESULT_METRIC_KEYS = (
     "evaluated_cases",
@@ -81,11 +86,39 @@ _RATE_METRIC_KEYS = (
 )
 
 
-def require_live_env(environ: Mapping[str, str] | None = None) -> None:
-    """Fail closed when required live-evaluation env values are missing or blank.
+def validate_mongodb_db_name(name: str) -> str:
+    """Reject empty or illegal MongoDB database names before any client call.
 
-    Empty strings count as missing. GitHub environment secrets that exist but
-    hold no value therefore cannot reach PyMongo as ``InvalidName``.
+    Checks the value exactly as ``get_db`` will hand it to PyMongo: no
+    trimming, because a padded secret such as ``" policy_assistant "`` passes a
+    trimmed check and then fails inside PyMongo after Atlas admission and after
+    the paid run has started. Matches PyMongo's ``_check_name`` plus the server
+    rule that a name is shorter than 64 bytes.
+    """
+    if not name.strip():
+        raise ValueError("MONGODB_DB is empty")
+    # PyMongo only rejects the space character, so a pasted secret with a
+    # trailing newline or tab would be accepted and select a different,
+    # empty database. Any whitespace is a mistake here.
+    if any(char.isspace() for char in name):
+        raise ValueError("MONGODB_DB contains whitespace")
+    if len(name.encode("utf-8")) >= MONGODB_DB_MAX_LENGTH:
+        raise ValueError(f"MONGODB_DB must be shorter than {MONGODB_DB_MAX_LENGTH} bytes")
+    for invalid_char in INVALID_MONGODB_DB_CHARS:
+        if invalid_char in name:
+            raise ValueError(
+                f"MONGODB_DB is not a valid MongoDB database name (contains {invalid_char!r})"
+            )
+    return name
+
+
+def require_live_env(environ: Mapping[str, str] | None = None) -> None:
+    """Fail closed when required live-evaluation env values are missing or invalid.
+
+    Empty strings count as missing. ``MONGODB_DB`` must also be a legal MongoDB
+    database name so GitHub secrets that exist but hold ``""`` or an illegal
+    value cannot reach PyMongo as ``InvalidName`` or green a run with no
+    trustworthy results.
     """
     env = os.environ if environ is None else environ
     missing = [name for name in REQUIRED_LIVE_ENV_VARS if not str(env.get(name, "")).strip()]
@@ -93,6 +126,7 @@ def require_live_env(environ: Mapping[str, str] | None = None) -> None:
         raise ValueError(
             "Live evaluation requires non-empty environment values for: " + ", ".join(missing)
         )
+    validate_mongodb_db_name(str(env.get("MONGODB_DB", "")))
 
 
 def _validate_rate_metric(name: str, value: Any) -> None:
@@ -212,6 +246,24 @@ def validate_sources_against_corpus(
         )
 
 
+def _validate_history(case_id: str, history: Any) -> None:
+    """A multi-turn case carries prior turns shaped like the stored conversation.
+
+    Only user and assistant turns, each with text: the chat routes replay
+    exactly that (see load_history in the API), so a case cannot smuggle in a
+    system message or an empty turn the live app could never produce.
+    """
+    if not isinstance(history, list):
+        raise ValueError(f"Evaluation case {case_id} history must be a list of turns")
+    for turn in history:
+        if not isinstance(turn, dict) or turn.get("role") not in {"user", "assistant"}:
+            raise ValueError(
+                f"Evaluation case {case_id} history turns need a user or assistant role"
+            )
+        if not isinstance(turn.get("content"), str) or not turn["content"].strip():
+            raise ValueError(f"Evaluation case {case_id} history turns need non-empty content")
+
+
 def load_cases(
     path: str | Path,
     *,
@@ -257,6 +309,8 @@ def load_cases(
             raise ValueError(f"Evaluation case {case_id} has invalid expected sources")
         if not isinstance(case["expected_behavior"], str) or not case["expected_behavior"].strip():
             raise ValueError(f"Evaluation case {case_id} has empty expected behavior")
+        if "history" in case:
+            _validate_history(case_id, case["history"])
 
     if require_corpus_titles:
         validate_sources_against_corpus(cases, corpus_dir=corpus_dir)
@@ -325,22 +379,21 @@ def extract_answer_citations(answer: str, known_titles: Iterable[str]) -> list[s
 def run_live_case(case: dict[str, Any]) -> dict[str, Any]:
     """Execute one case through the configured retrieval and answer pipeline."""
     from sourcebook.rag.llm import get_provider
-    from sourcebook.rag.rag_chain import (
-        build_messages,
-        cited_sources,
-        confidence_score,
-        is_grounded,
-        retrieve_passages,
-    )
+    from sourcebook.rag.rag_chain import build_messages, cited_sources, ground_question
 
-    passages = retrieve_passages(case["question"], k=5)
+    # Same gate the chat routes run. A case with `history` is a follow-up: the
+    # retrieval query is the rewrite and the gate also checks the question as
+    # asked (issue #189); a case without one is a first turn.
+    history = case.get("history", [])
+    grounding = ground_question(case["question"], history)
+    passages = grounding.passages
     retrieved_sources = cited_sources(passages)
-    grounded = is_grounded(passages)
+    grounded = grounding.grounded
 
     answer = ""
     if grounded:
         answer = get_provider().complete(
-            build_messages(case["question"], passages, []),
+            build_messages(case["question"], passages, history),
             role="answer",
             temperature=0,
         )
@@ -357,7 +410,7 @@ def run_live_case(case: dict[str, Any]) -> dict[str, Any]:
         "retrieved_sources": retrieved_sources,
         "displayed_sources": displayed_sources,
         "cited_sources": answer_citations,
-        "confidence": confidence_score(passages),
+        "confidence": grounding.confidence,
         "refused": not grounded,
         "answer": answer,
     }
@@ -530,6 +583,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    try:
+        require_live_env()
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
     # Argparse owns CLI exclusivity; resolve_dataset still rejects both for
     # library callers and defaults to the smoke tier when neither is set.
     tier, dataset = resolve_dataset(args.tier, args.dataset)
@@ -540,21 +599,29 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        require_live_env()
+        results = run_evaluation(cases)
+        metrics = score_results(cases, results)
+        report = {
+            "tier": tier,
+            "dataset": str(dataset),
+            "metrics": metrics,
+            "results": results,
+        }
+        # Fail closed locally the same way Actions postflight does.
+        validate_results_report(report)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-
-    results = run_evaluation(cases)
-    metrics = score_results(cases, results)
-    report = {
-        "tier": tier,
-        "dataset": str(dataset),
-        "metrics": metrics,
-        "results": results,
-    }
-    # Fail closed locally the same way Actions postflight does.
-    validate_results_report(report)
+    except Exception as exc:
+        # This run just spent money; the full traceback is what a reader
+        # needs, and str(exc) alone is empty for argument-less exceptions.
+        traceback.print_exc()
+        print(
+            "Live evaluation failed before trustworthy results were produced: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return 1
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

@@ -25,8 +25,12 @@ the answer streams back with the policies it drew on and a match score.
 That is the product promise. The alpha recorded that the gate does not yet
 keep the promise on HR-adjacent uncovered questions or on follow-ups
 ([#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192),
-[#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189)). Those issues
-are still open. This skeleton does not claim they are fixed.
+[#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189)). Follow-ups
+are now gated on both the rewrite and the question as typed
+([#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) closed in
+[PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)).
+[#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) is still
+open. This skeleton does not claim it is fixed.
 
 ## What shipped since the beta
 
@@ -35,19 +39,33 @@ cuts `v0.2.0-beta.1`._ The beta folder does not exist yet. Do not invent a
 delta from a tag that has not been cut. The last published notes are
 [v0.1.0-alpha.1/release-notes.md](../v0.1.0-alpha.1/release-notes.md).
 
-In flight on `main`'s open pull requests, and **not** in this skeleton as
-shipped: the OpenAPI document ([#204](https://github.com/CMSC495-GROUP3/Sourcebook/issues/204) /
-[PR #221](https://github.com/CMSC495-GROUP3/Sourcebook/pull/221)), CI/CD page
+On current `main`, and **not** claimed as a `v1.0.0` ship list:
+[docs/api.md](../../api.md) and [docs/openapi.json](../../openapi.json)
+([#204](https://github.com/CMSC495-GROUP3/Sourcebook/issues/204) /
+[PR #221](https://github.com/CMSC495-GROUP3/Sourcebook/pull/221)),
+[docs/install.md](../../install.md)
+([#205](https://github.com/CMSC495-GROUP3/Sourcebook/issues/205) /
+[PR #233](https://github.com/CMSC495-GROUP3/Sourcebook/pull/233)),
+live-evaluation fail-closed ([#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) /
+[PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226)),
+provider saturation as 503 ([#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) /
+[PR #247](https://github.com/CMSC495-GROUP3/Sourcebook/pull/247)),
+query-log reports ([#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160) /
+[PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171)),
+unique passage identity ([#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) /
+[PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176)),
+and follow-up grounding ([#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) /
+[PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)).
+
+Still draft, and **not** in this skeleton as shipped: the CI/CD page
 ([#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207) /
-[PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228)), live-
-evaluation fail-closed ([#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) /
-[PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226)), provider
-saturation as 503 ([#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) /
-[PR #225](https://github.com/CMSC495-GROUP3/Sourcebook/pull/225)), and the
-grounding-gate work ([#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) /
-[#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) /
-[PR #222](https://github.com/CMSC495-GROUP3/Sourcebook/pull/222),
-[PR #227](https://github.com/CMSC495-GROUP3/Sourcebook/pull/227)).
+[PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228)), team
+records ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) /
+[PR #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231)), and the
+quality summary ([#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208) /
+[PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232)). Merge
+those three before this PR adds their grouped index links; the order is in
+[handoff.md](handoff.md).
 
 ## Getting access
 
@@ -69,29 +87,37 @@ That needs no accounts, no API key, and no network. Do not `git checkout
 v1.0.0`; the tag does not exist. Retrieval quality cannot be judged in stub
 mode.
 
-Setup and usage are in the [README](../../../README.md).
-[CONTRIBUTING.md](../../../CONTRIBUTING.md) covers running against real
-services. The installation guide the portfolio asks for is
-[#205](https://github.com/CMSC495-GROUP3/Sourcebook/issues/205) and is not on
-`main` yet.
+Setup, the live site, real services, and deployment are in
+[docs/install.md](../../install.md). The [README](../../../README.md) walks
+one question through retrieval, the gate, and streaming.
+[CONTRIBUTING.md](../../../CONTRIBUTING.md) covers changing the code.
+The HTTP contract is [docs/api.md](../../api.md) and
+[docs/openapi.json](../../openapi.json).
 
 ## Known defects
 
-Each of these is open at the time this skeleton was written. Impact and
-mitigation are what a pilot user can do today. Update the table at freeze;
-do not delete a row to look finished.
+Each of these is open at the time this skeleton was reconciled with current
+`main`. Impact and mitigation are what a pilot user can do today. Update the
+table at freeze; do not delete a row to look finished.
 
 | Issue | What a user would see | Impact | Mitigation |
 | --- | --- | --- | --- |
-| [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) | an uncovered question asked as a follow-up is answered with a decline that cites unrelated policies, instead of the refusal card | the citations mislead, and the user loses the refusal card's route to a person | ask an uncovered question in a new conversation. Draft [PR #222](https://github.com/CMSC495-GROUP3/Sourcebook/pull/222) and [PR #227](https://github.com/CMSC495-GROUP3/Sourcebook/pull/227) are not merged |
 | [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) | an uncovered HR-adjacent question, or a prompt injection, is answered with a sentence saying the policies do not cover it, under a score badge and unrelated source chips | the answer text is safe; the one-click route to a person is missing and the chips mislead | "Not what you needed?" under the answer still files the escalation. Last committed measurement: [alpha live-evaluation.md](../v0.1.0-alpha.1/live-evaluation.md), both refusal metrics 0% |
-| [#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) | provider saturation reads as a generic error | the user does not know the request is worth retrying | `OPENAI_MAX_CONCURRENT_REQUESTS` bounds the damage; retry by hand. [PR #225](https://github.com/CMSC495-GROUP3/Sourcebook/pull/225) is not merged |
 | [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | assigning and deleting a project at the same moment can race | a conversation can point at a project that no longer exists | unlikely at pilot volume with one operator |
-| [#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) | nothing at the database level prevents duplicate passage identities | a repeated ingestion could duplicate passages and skew retrieval | ingestion upserts by `(source, chunk_index)`. [PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176) is held for a maintenance window |
 | [#159](https://github.com/CMSC495-GROUP3/Sourcebook/issues/159) | Human Resources has no in-app queue | the handler works from the API or a webhook-fed channel | `GET /api/escalations?status=open` and `PATCH` to resolve |
-| [#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160) | no weekly knowledge-gap report on `main` | content gaps have to be read out of the query log by hand | the log is populated; the report is in [PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171) |
-| [#174](https://github.com/CMSC495-GROUP3/Sourcebook/issues/174) | the theme switch is unreachable on a phone | phone review cannot change theme | review the pilot in a desktop browser |
-| [#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) | Live evaluation can finish green when `MONGODB_DB` is empty or invalid | a green workflow badge is not evidence of answer quality | do not read the badge as a PASS. [PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226) is the fail-closed fix and is not merged |
+
+Closed on current `main` since the first scaffold, so they are not in the
+table: [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189)
+([PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)),
+[#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118)
+([PR #247](https://github.com/CMSC495-GROUP3/Sourcebook/pull/247)),
+[#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158)
+([PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176)),
+[#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160)
+([PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171)),
+[#174](https://github.com/CMSC495-GROUP3/Sourcebook/issues/174),
+[#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223)
+([PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226)).
 
 ## What this release does not establish
 
@@ -104,11 +130,9 @@ PASS.
 - **Answer quality is not re-measured for this folder.** The last committed
   smoke-tier write-up is the [alpha](../v0.1.0-alpha.1/live-evaluation.md):
   retrieval and citation 100% of 12 answerable cases; unsupported-refusal and
-  injection-gate metrics 0%. That is #192. The full tier
-  ([#213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)) has not
-  been run. A green Live evaluation badge is not a quality claim, and
-  [#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) exists
-  because the job can still finish green without a valid database name.
+  injection-gate metrics 0%. That is [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192).
+  The full tier ([#213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213))
+  has not been run. A green Live evaluation badge is not a quality claim.
 - **The 10,000-user requirement is not verified.** [load-testing.md](../../load-testing.md)
   is synthetic. The [alpha live-benchmark](../v0.1.0-alpha.1/live-benchmark.md)
   is seven requests. The deployed load run is
