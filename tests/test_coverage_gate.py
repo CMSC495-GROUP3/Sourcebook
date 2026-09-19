@@ -1,9 +1,14 @@
 """Issue #192: coverage judge after cosine, before the answer role."""
 
+import threading
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import openai
 import pytest
 from conftest import FAKE_DB, make_passages
 
-from sourcebook.rag import cache, config, rag_chain
+from sourcebook.rag import cache, config, llm, rag_chain
 from sourcebook.rag.llm import ProviderBusyError
 from sourcebook.rag.rag_chain import (
     COVERAGE_SYSTEM_PROMPT,
@@ -41,6 +46,34 @@ class _CoverageProvider:
 def _install(monkeypatch, provider: _CoverageProvider) -> _CoverageProvider:
     monkeypatch.setattr(rag_chain, "get_provider", lambda: provider)
     return provider
+
+
+def _openai_complete_raising(exc: BaseException) -> llm.OpenAIProvider:
+    def boom(**_kwargs):
+        raise exc
+
+    provider = llm.OpenAIProvider.__new__(llm.OpenAIProvider)
+    provider._capacity = threading.BoundedSemaphore(1)
+    provider._client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=boom))
+    )
+    return provider
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        openai.APITimeoutError(request=Mock()),
+        openai.APIConnectionError(message="dropped", request=Mock()),
+        openai.RateLimitError("slow", response=Mock(status_code=429, headers={}), body=None),
+    ],
+    ids=["timeout", "connection", "rate-limit"],
+)
+def test_openai_complete_wraps_transient_sdk_errors_as_timeout(exc):
+    provider = _openai_complete_raising(exc)
+    with pytest.raises(TimeoutError, match="timed out, dropped, or was rate-limited") as caught:
+        provider.complete([{"role": "user", "content": "q"}], role="utility")
+    assert caught.value.__cause__ is exc
 
 
 class TestParseCoverageResponse:
@@ -128,6 +161,14 @@ class TestCoverageGate:
         with pytest.raises(TimeoutError):
             rag_chain.answer_question("How much PTO do I get?")
         assert "answer" not in provider.roles
+
+    def test_sdk_timeout_is_not_cached_as_a_refusal(self, retrieval, monkeypatch):
+        provider = _openai_complete_raising(openai.APITimeoutError(request=Mock()))
+        monkeypatch.setattr(rag_chain, "get_provider", lambda: provider)
+        with pytest.raises(TimeoutError, match="timed out, dropped, or was rate-limited"):
+            rag_chain.answer_question("How much PTO do I get?")
+        assert FAKE_DB["answer_cache"].count_documents({}) == 0
+        assert FAKE_DB["query_logs"].count_documents({}) == 0
 
     def test_busy_bubbles_and_is_not_recorded_as_refused(self, retrieval, monkeypatch):
         provider = _install(

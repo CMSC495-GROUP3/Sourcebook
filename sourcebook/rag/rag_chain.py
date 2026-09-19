@@ -170,7 +170,8 @@ def passages_cover_question(question: str, passages: list[dict]) -> bool:
     the chat routes can answer with the retryable 503 instead of caching a
     false "no matching policy" refusal. ``TimeoutError`` is re-raised the same
     way: chat does not map it to 503, so it becomes a generic error with no
-    persist, no cache, and no answer-role call.
+    persist, no cache, and no answer-role call. OpenAI timeouts, connection
+    drops, and 429s are wrapped as ``TimeoutError`` in the provider.
     """
     try:
         raw = get_provider().complete(

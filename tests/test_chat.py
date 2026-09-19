@@ -3,13 +3,17 @@ caching, and the bookkeeping that must survive a dropped stream."""
 
 import inspect
 import logging
+import threading
+from types import SimpleNamespace
+from unittest.mock import Mock
 
+import openai
 import pytest
 from conftest import FAKE_DB, make_passages, sse_events
 
 from sourcebook.api.limiter import limiter
 from sourcebook.api.routes.chat import ChatRequest, _stream, chat, load_history
-from sourcebook.rag import cache, llm
+from sourcebook.rag import cache, llm, rag_chain
 from sourcebook.rag.cache import get_cached_answer, get_corpus_version
 from sourcebook.rag.config import HISTORY_TURNS, REFUSAL_MESSAGE
 from sourcebook.rag.llm import ProviderBusyError
@@ -362,6 +366,31 @@ class TestCoverageChat:
         self, client, auth, retrieval, conversation, monkeypatch
     ):
         _stub_coverage(monkeypatch, error=TimeoutError("deadline"), forbid_answer=True)
+        response = client.post(
+            "/api/chat",
+            json={"question": "How much PTO?", "session_id": conversation},
+            headers=auth,
+        )
+        assert response.status_code == 200
+        assert response.json()["answer"].startswith("Sorry")
+        assert response.json()["refused"] is False
+        assert _messages(conversation) == []
+        assert FAKE_DB["query_logs"].count_documents({}) == 0
+        assert FAKE_DB["answer_cache"].count_documents({}) == 0
+
+    def test_coverage_sdk_timeout_is_not_cached_as_a_refusal(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        def boom(**_kwargs):
+            raise openai.APITimeoutError(request=Mock())
+
+        provider = llm.OpenAIProvider.__new__(llm.OpenAIProvider)
+        provider._capacity = threading.BoundedSemaphore(1)
+        provider._client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=boom))
+        )
+        monkeypatch.setattr(rag_chain, "get_provider", lambda: provider)
+
         response = client.post(
             "/api/chat",
             json={"question": "How much PTO?", "session_id": conversation},

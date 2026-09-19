@@ -50,6 +50,22 @@ class ProviderBusyError(Exception):
     """
 
 
+def _reraise_transient_openai(exc: BaseException) -> None:
+    """Turn OpenAI timeouts, drops, and 429s into ``TimeoutError``.
+
+    The coverage judge re-raises ``TimeoutError`` so a blip is not cached as
+    ``refused=True``. Other modules never import a vendor; this helper is the
+    only place those SDK types are named. No-op when openai is not installed
+    or the error is something else.
+    """
+    try:
+        import openai
+    except ImportError:
+        return
+    if isinstance(exc, (openai.APIConnectionError, openai.RateLimitError)):
+        raise TimeoutError("OpenAI request timed out, dropped, or was rate-limited") from exc
+
+
 class LLMProvider(ABC):
     """The contract every provider must satisfy.
 
@@ -210,12 +226,18 @@ class OpenAIProvider(LLMProvider):
         role: ModelRole = "utility",
         temperature: float = 0.0,
     ) -> str:
-        with self._request_slot():
-            response = self._client.chat.completions.create(
-                model=self._model_for(role),
-                messages=messages,
-                temperature=temperature,
-            )
+        try:
+            with self._request_slot():
+                response = self._client.chat.completions.create(
+                    model=self._model_for(role),
+                    messages=messages,
+                    temperature=temperature,
+                )
+        except ProviderBusyError:
+            raise
+        except Exception as exc:
+            _reraise_transient_openai(exc)
+            raise
         return response.choices[0].message.content or ""
 
     def stream(
