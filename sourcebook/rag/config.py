@@ -168,7 +168,16 @@ EMBEDDING_CACHE_TTL_SECONDS = int(os.getenv("EMBEDDING_CACHE_TTL_SECONDS", str(3
 # Bump this whenever ANSWER_SYSTEM_PROMPT changes. It is part of the answer
 # cache key, so without a bump a prompt fix would keep serving pre-fix answers
 # until the TTL expired.
+#
+# Issue #192 added a utility coverage judge before the answer role. That prompt
+# is not ANSWER_SYSTEM_PROMPT, so PROMPT_VERSION stays at v2. Cached
+# "answered" misses are invalidated by COVERAGE_PROMPT_VERSION instead.
 PROMPT_VERSION = os.getenv("PROMPT_VERSION", "v2")
+
+# Bump this whenever the coverage-judge prompt or its parse rules change. It is
+# part of the answer cache key so a prior answered entry cannot be served after
+# the gate starts refusing uncovered high-cosine questions.
+COVERAGE_PROMPT_VERSION = os.getenv("COVERAGE_PROMPT_VERSION", "v1")
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 # Every chat request writes one query_logs record. This is the substrate for

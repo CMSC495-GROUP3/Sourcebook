@@ -38,6 +38,7 @@ from datetime import UTC, datetime
 from sourcebook.rag.config import (
     ANSWER_CACHE_TTL_SECONDS,
     CACHE_ENABLED,
+    COVERAGE_PROMPT_VERSION,
     PROMPT_VERSION,
     RETRIEVAL_K,
     SIMILARITY_THRESHOLD,
@@ -140,12 +141,15 @@ def answer_cache_key(question: str, corpus_version: str) -> str:
     invalidates — otherwise a prompt fix would be masked until the TTL expired.
     Similarity threshold and retrieval k so tuning either (which changes
     refusals and what the model sees) does not keep serving the old answer.
+    Coverage prompt version so a gate that starts refusing uncovered
+    high-cosine questions cannot keep serving a prior answered miss.
     """
     return _digest(
         normalize(question),
         corpus_version,
         get_provider().answer_fingerprint(),
         PROMPT_VERSION,
+        COVERAGE_PROMPT_VERSION,
         str(SIMILARITY_THRESHOLD),
         str(RETRIEVAL_K),
     )

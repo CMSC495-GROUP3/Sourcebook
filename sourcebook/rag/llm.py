@@ -316,6 +316,12 @@ class FakeProvider(LLMProvider):
             self._sleep(self.STREAM_DELAY_MS * len(self.ANSWER.split()))
             return self.ANSWER
         self._sleep(self.UTILITY_DELAY_MS)
+        joined = "\n".join(str(message.get("content", "")) for message in messages)
+        # Stub mode has no real coverage judge. Return the only well-formed
+        # "yes" object the gate accepts so first-turn answers still generate;
+        # tests that need a miss stub complete() themselves.
+        if '{"covered": true}' in joined and '{"covered": false}' in joined:
+            return '{"covered": true}'
         # Utility calls ask for three newline-separated questions.
         return (
             "How do I request time off?\n"
