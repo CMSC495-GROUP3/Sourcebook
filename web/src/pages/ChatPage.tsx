@@ -138,7 +138,7 @@ export default function ChatPage() {
   const docked = pageWidth >= DOCK_MIN_WIDTH
   const facingPage = pageWidth >= FACING_PAGE_MIN_WIDTH
 
-  const { messages, loading, streaming, sendMessage, markEscalated } = useChat({
+  const { messages, loading, streaming, sendMessage, retryLastQuestion, markEscalated } = useChat({
     sessionId,
     onSessionCreated: (id) => {
       // Update the URL with the new session_id without re-mounting the component
@@ -195,6 +195,7 @@ export default function ChatPage() {
               onOpenSource={openSource}
               onFollowUp={sendMessage}
               onEscalated={markEscalated}
+              onRetry={retryLastQuestion}
             />
             {/* Flows after the thread, pins to the bottom once the thread is taller than the view. */}
             <div className="sticky bottom-0 z-10 bg-paper pb-5 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-linear-to-t before:from-paper before:to-transparent">

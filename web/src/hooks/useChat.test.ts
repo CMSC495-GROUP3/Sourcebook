@@ -38,6 +38,16 @@ function jsonResponse(body: ReadableStream<Uint8Array>, status = 200): Response 
   })
 }
 
+const PROVIDER_BUSY =
+  'The assistant is answering as many questions as it can right now. Please try again in a moment.'
+
+function retryable503(retryAfter = '1', error = PROVIDER_BUSY): Response {
+  return new Response(JSON.stringify({ error, retryable: true }), {
+    status: 503,
+    headers: { 'Content-Type': 'application/json', 'Retry-After': retryAfter },
+  })
+}
+
 async function mountChat(sessionId: string | null) {
   const hook = renderHook(
     (props: { sessionId: string | null }) =>
@@ -261,6 +271,188 @@ describe('useChat', () => {
       role: 'assistant',
       content: 'Sorry, something went wrong. Please try again.',
       error: true,
+    })
+    expect(result.current.messages[1]?.retryable).toBeUndefined()
+  })
+
+  it('shows the provider-busy copy and Retry-After on a retryable 503', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(retryable503('3')))
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: PROVIDER_BUSY,
+      error: true,
+      retryable: true,
+      retryAfter: 3,
+    })
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+  })
+
+  it('treats a retryable mid-stream SSE error like the pre-stream 503', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          sseBody([
+            { chunk: 'You get ' },
+            { error: PROVIDER_BUSY, retryable: true },
+          ]),
+        ),
+      ),
+    )
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: PROVIDER_BUSY,
+      error: true,
+      retryable: true,
+      retryAfter: 1,
+    })
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+  })
+
+  it('resends the same question once without duplicating the user turn', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          sseBody([
+            { chunk: '15 days.' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-1' },
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    expect(result.current.messages[1]?.retryable).toBe(true)
+
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.content).toBe('15 days.')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+    expect(result.current.messages[0]?.content).toBe('How much PTO do I get?')
+    const firstBody = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))
+    const retryBody = JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body))
+    expect(firstBody).toEqual({ question: 'How much PTO do I get?', session_id: 'sess-open' })
+    expect(retryBody).toEqual(firstBody)
+    expect(String((fetchMock.mock.calls[1][1] as RequestInit).body)).not.toContain('history')
+    expect(result.current.messages[1]?.retryable).toBeUndefined()
+  })
+
+  it('does not offer a second retry after the one-shot resend stays busy', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(retryable503('1'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.error).toBe(true)
+    })
+
+    expect(result.current.messages[1]?.retryable).toBeUndefined()
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not write a late retryable 503 into the next conversation', async () => {
+    let resolveFetch!: (value: Response) => void
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+      ),
+    )
+    vi.mocked(client.get).mockImplementation((url: string) => {
+      if (String(url).includes('sess-b')) {
+        return Promise.resolve(axiosData({ messages: [{ role: 'user', content: 'other thread' }] }))
+      }
+      return Promise.resolve(axiosData({ messages: [] }))
+    })
+
+    const { result, rerender } = renderHook(
+      ({ sessionId }) => useChat({ sessionId, onSessionCreated: vi.fn() }),
+      { initialProps: { sessionId: 'sess-a' as string | null } },
+    )
+    await waitFor(() => expect(client.get).toHaveBeenCalledWith('/api/conversations/sess-a'))
+
+    let sendPromise: Promise<void> = Promise.resolve()
+    await act(async () => {
+      sendPromise = result.current.sendMessage('How much PTO do I get?')
+    })
+
+    rerender({ sessionId: 'sess-b' })
+    await waitFor(() => {
+      expect(result.current.messages[0]?.content).toBe('other thread')
+    })
+
+    await act(async () => {
+      resolveFetch(retryable503('2'))
+      await sendPromise
+    })
+
+    expect(result.current.messages).toEqual([{ role: 'user', content: 'other thread' }])
+    expect(result.current.messages.some((message) => message.retryable)).toBe(false)
+  })
+
+  it('does not apply a late retryable 503 after unmount', async () => {
+    let resolveFetch!: (value: Response) => void
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+      ),
+    )
+
+    const { result, unmount } = await mountChat('sess-open')
+    const sendPromise = result.current.sendMessage('How much PTO do I get?')
+    await act(async () => {
+      await Promise.resolve()
+    })
+    unmount()
+
+    await act(async () => {
+      resolveFetch(retryable503('1'))
+      await sendPromise
     })
   })
 

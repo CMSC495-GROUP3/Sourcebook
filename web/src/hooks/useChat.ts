@@ -22,11 +22,76 @@ export interface ChatMessage {
    * It has no message_id and cannot be escalated.
    */
   error?: boolean
+  /**
+   * Provider-busy 503 / retryable SSE error. One retry is offered; a second
+   * failure of the same question stays generic so the client cannot loop.
+   */
+  retryable?: boolean
+  /** Seconds from Retry-After (or the API default) before the retry control enables. */
+  retryAfter?: number
 }
 
 interface UseChatOptions {
   sessionId: string | null
   onSessionCreated: (sessionId: string) => void
+}
+
+interface SendOptions {
+  /** Resend the last question without appending another user turn. */
+  reuseUserTurn?: boolean
+}
+
+const GENERIC_ERROR = 'Sorry, something went wrong. Please try again.'
+/** Matches `RETRY_AFTER_SECONDS` on the chat routes when the header or SSE event omits it. */
+const DEFAULT_RETRY_AFTER_SECONDS = 1
+
+function parseRetryAfter(header: string | null): number {
+  if (header == null || header === '') return DEFAULT_RETRY_AFTER_SECONDS
+  const seconds = Number(header)
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds)
+  return DEFAULT_RETRY_AFTER_SECONDS
+}
+
+function isRetryableEnvelope(value: unknown): value is { error: string; retryable: true } {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  return record.retryable === true && typeof record.error === 'string' && record.error.length > 0
+}
+
+async function readRetryableBusy(
+  response: Response,
+): Promise<{ error: string; retryAfter: number } | null> {
+  if (response.status !== 503) return null
+  const retryAfter = parseRetryAfter(response.headers.get('Retry-After'))
+  try {
+    const raw = await response.text()
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (isRetryableEnvelope(parsed)) return { error: parsed.error, retryAfter }
+  } catch {
+    return null
+  }
+  return null
+}
+
+function errorBubble(content: string, retryable: boolean, retryAfter?: number): ChatMessage {
+  if (retryable) {
+    return {
+      role: 'assistant',
+      content,
+      error: true,
+      retryable: true,
+      retryAfter: retryAfter ?? DEFAULT_RETRY_AFTER_SECONDS,
+    }
+  }
+  return { role: 'assistant', content, error: true }
+}
+
+function lastUserQuestion(messages: ChatMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i].role === 'user') return messages[i].content
+  }
+  return null
 }
 
 export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
@@ -35,10 +100,22 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
   const [streaming, setStreaming] = useState(false) // true = tokens arriving (input disabled)
   const activeSessionId = useRef<string | null>(sessionId)
   const skipNextFetch = useRef(false)
+  const messagesRef = useRef(messages)
+  const sendGeneration = useRef(0)
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
 
   useEffect(() => {
     activeSessionId.current = sessionId
   }, [sessionId])
+
+  useEffect(() => {
+    return () => {
+      sendGeneration.current += 1
+    }
+  }, [])
 
   // Leaving a conversation (sessionId becomes null) empties the list during
   // this render rather than in an effect, so there is no frame showing the old
@@ -90,17 +167,33 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
     }
   }, [sessionId])
 
-  async function sendMessage(question: string) {
+  async function sendMessage(question: string, options: SendOptions = {}) {
     if (loading || streaming) return
 
-    setLoading(true)
-    setMessages((prev) => [...prev, { role: 'user', content: question }])
+    const reuseUserTurn = options.reuseUserTurn === true
+    const generation = sendGeneration.current
+    const startedSession = activeSessionId.current
 
+    const isLive = (sid: string | null) =>
+      sendGeneration.current === generation && activeSessionId.current === sid
+
+    setLoading(true)
+    if (!reuseUserTurn) {
+      setMessages((prev) => [...prev, { role: 'user', content: question }])
+    } else {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        return last?.error ? prev.slice(0, -1) : prev
+      })
+    }
+
+    let sid = startedSession
     try {
       // Create conversation on first message
-      let sid = activeSessionId.current
       if (!sid) {
         const res = await client.post('/api/conversations', { title: question.slice(0, 60) })
+        if (sendGeneration.current !== generation) return
+        if (activeSessionId.current !== startedSession) return
         sid = res.data.session_id as string
         activeSessionId.current = sid
         skipNextFetch.current = true
@@ -121,13 +214,27 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
         body: JSON.stringify({ question, session_id: sid }),
       })
 
-      if (!response.ok || !response.body) {
+      if (response.status === 401) {
         // Stream uses raw fetch, so it bypasses the axios 401 interceptor.
         // An expired token must sign the user out, not look like a chat error.
-        if (response.status === 401) {
-          signOut()
+        signOut()
+        return
+      }
+
+      if (!isLive(sid)) return
+
+      if (!response.ok) {
+        const busy = await readRetryableBusy(response)
+        if (!isLive(sid)) return
+        if (busy) {
+          const allowRetry = !reuseUserTurn
+          setMessages((prev) => [...prev, errorBubble(busy.error, allowRetry, busy.retryAfter)])
           return
         }
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      if (!response.body) {
         throw new Error(`HTTP ${response.status}`)
       }
 
@@ -144,7 +251,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
         // empty one), but keep reading: closing the connection would make the
         // server persist a fragment, and draining lets it save the whole
         // answer for when the user comes back.
-        if (activeSessionId.current !== sid) {
+        if (!isLive(sid)) {
           while (!(await reader.read()).done) { /* discard */ }
           return
         }
@@ -204,29 +311,39 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
             })
           } else if (data.error) {
             setLoading(false)
+            const allowRetry = data.retryable === true && !reuseUserTurn
+            const bubble = errorBubble(String(data.error), allowRetry)
             if (assistantPushed) {
-              setMessages((prev) => {
-                const last = prev[prev.length - 1]
-                return [...prev.slice(0, -1), { ...last, content: data.error as string, error: true }]
-              })
+              setMessages((prev) => [...prev.slice(0, -1), bubble])
             } else {
-              setMessages((prev) => [
-                ...prev,
-                { role: 'assistant', content: data.error as string, error: true },
-              ])
+              setMessages((prev) => [...prev, bubble])
             }
           }
         }
       }
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.', error: true },
-      ])
+      if (!isLive(sid)) return
+      setMessages((prev) => [...prev, errorBubble(GENERIC_ERROR, false)])
     } finally {
-      setLoading(false)
-      setStreaming(false)
+      if (sendGeneration.current === generation) {
+        setLoading(false)
+        setStreaming(false)
+      }
     }
+  }
+
+  /**
+   * Resend the question that produced the last retryable error. The user turn
+   * stays as-is; a second busy response is not retryable.
+   */
+  function retryLastQuestion() {
+    if (loading || streaming) return
+    const current = messagesRef.current
+    const last = current[current.length - 1]
+    if (!last?.error || !last.retryable) return
+    const question = lastUserQuestion(current)
+    if (!question) return
+    void sendMessage(question, { reuseUserTurn: true })
   }
 
   /** Record that a message was escalated, so the button shows its reference. */
@@ -236,5 +353,5 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
     )
   }
 
-  return { messages, loading, streaming, sendMessage, markEscalated }
+  return { messages, loading, streaming, sendMessage, retryLastQuestion, markEscalated }
 }
