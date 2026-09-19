@@ -20,7 +20,7 @@ commits, open pull requests, or unmerged work "count" as merged history.
 
 | Member | GitHub | Role (Unit 5 pitch) | Author commits | Merged PRs authored | PRs reviewed |
 | --- | --- | --- | ---: | ---: | ---: |
-| Taylor Shahan | [@t-shahan](https://github.com/t-shahan) | Lead Architect | 140 | 57 | 55 |
+| Taylor Shahan | [@t-shahan](https://github.com/t-shahan) | Lead Architect | 140 [^claude] | 57 | 55 |
 | Chris | [@threshi-art](https://github.com/threshi-art) | Integration Lead | 94 | 41 | 6 |
 | Daniel Tsang | [@DanielTsang26](https://github.com/DanielTsang26) | Interface Designer | 4 | 1 | 1 |
 | George Struder | [@Lazzy-dev](https://github.com/Lazzy-dev) | Administration, locks, MongoDB | 11 | 3 | 3 |
@@ -121,3 +121,5 @@ The merged open-book implementation on `main` is [PR #161](https://github.com/CM
 - Review counts are pull requests GitHub marks `reviewed-by`, not every comment.
 - Open PRs and issues are cited as ownership, not as merged evidence.
 - The seven-name `git shortlog` goal in [issue #209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) is met for everyone who has commits on `main`. It is not met for Gavin and Dominick until they have author commits, which this PR does not invent. This page is not a claim that #209 is complete.
+
+[^claude]: This total includes 16 Claude-authored commits Taylor directed and accepted responsibility for.
