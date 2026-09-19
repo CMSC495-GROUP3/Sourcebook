@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import { useEffect, useState, type Ref } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
 import { AlertCircle, BookOpen } from 'lucide-react'
@@ -24,6 +24,32 @@ interface Props {
   onOpenSource: (title: string) => void
   onFollowUp: (q: string) => void
   onEscalated: (index: number, escalationId: string) => void
+  /** One-shot resend after a provider-busy error. */
+  onRetry?: () => void
+}
+
+function RetryControl({ retryAfter, onRetry }: { retryAfter: number; onRetry: () => void }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil(retryAfter)))
+
+  useEffect(() => {
+    if (remaining <= 0) return
+    const id = window.setTimeout(() => {
+      setRemaining((n) => n - 1)
+    }, 1000)
+    return () => window.clearTimeout(id)
+  }, [remaining])
+
+  const waiting = remaining > 0
+  return (
+    <button
+      type="button"
+      onClick={onRetry}
+      disabled={waiting}
+      className="h-9 cursor-pointer self-start rounded-md bg-accent px-4 text-[13.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-default disabled:bg-rule disabled:text-ink-3"
+    >
+      {waiting ? `Retry in ${remaining}s` : 'Retry'}
+    </button>
+  )
 }
 
 function Question({ text, first, ref }: { text: string; first: boolean; ref?: Ref<HTMLDivElement> }) {
@@ -36,7 +62,7 @@ function Question({ text, first, ref }: { text: string; first: boolean; ref?: Re
 }
 
 export default function Message({
-  ref, message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated,
+  ref, message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated, onRetry,
 }: Props) {
   if (message.role === 'user') {
     return <Question ref={ref} text={message.content} first={index === 0} />
@@ -97,7 +123,11 @@ export default function Message({
             <FollowUpButtons questions={message.follow_ups ?? []} onSelect={onFollowUp} />
           )}
           {/* An error bubble is this client's own text; the server stored no
-              turn to hand to a person. See #84. */}
+              turn to hand to a person. See #84. A provider-busy error can be
+              retried once; generic failures stay as copy only. */}
+          {message.error && message.retryable && onRetry ? (
+            <RetryControl retryAfter={message.retryAfter ?? 1} onRetry={onRetry} />
+          ) : null}
           {!message.error && (
             <EscalateButton
               sessionId={sessionId}

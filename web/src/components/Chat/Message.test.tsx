@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import type { AxiosResponse } from 'axios'
@@ -29,6 +29,7 @@ function renderMessage(message: ChatMessage, overrides: Record<string, unknown> 
 describe('Message', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('renders a user question', () => {
@@ -136,5 +137,35 @@ describe('Message', () => {
       error: true,
     })
     expect(screen.queryByRole('button', { name: /Ask Human Resources/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument()
+  })
+
+  it('holds the retry control until Retry-After elapses', async () => {
+    vi.useFakeTimers()
+    const onRetry = vi.fn()
+    renderMessage(
+      {
+        role: 'assistant',
+        content: 'The assistant is answering as many questions as it can right now. Please try again in a moment.',
+        error: true,
+        retryable: true,
+        retryAfter: 2,
+      },
+      { onRetry },
+    )
+
+    expect(screen.getByRole('button', { name: 'Retry in 2s' })).toBeDisabled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(screen.getByRole('button', { name: 'Retry in 1s' })).toBeDisabled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    const retry = screen.getByRole('button', { name: 'Retry' })
+    expect(retry).toBeEnabled()
+    retry.click()
+    expect(onRetry).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
   })
 })
