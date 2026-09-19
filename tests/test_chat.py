@@ -3,15 +3,20 @@ caching, and the bookkeeping that must survive a dropped stream."""
 
 import inspect
 import logging
+import threading
+from types import SimpleNamespace
+from unittest.mock import Mock
 
+import openai
 import pytest
 from conftest import FAKE_DB, make_passages, sse_events
 
 from sourcebook.api.limiter import limiter
 from sourcebook.api.routes.chat import ChatRequest, _stream, chat, load_history
-from sourcebook.rag import llm
+from sourcebook.rag import cache, llm, rag_chain
 from sourcebook.rag.cache import get_cached_answer, get_corpus_version
 from sourcebook.rag.config import HISTORY_TURNS, REFUSAL_MESSAGE
+from sourcebook.rag.llm import ProviderBusyError
 
 _INJECTED_SESSION_IDS = (
     "abc\nINFO forged",
@@ -172,8 +177,12 @@ class TestChat:
     def test_generation_failure_is_reported_not_raised(
         self, client, auth, retrieval, conversation, monkeypatch
     ):
-        def broken(*args, **kwargs):
-            raise RuntimeError("provider down")
+        original = llm.get_provider().complete
+
+        def broken(*args, role="utility", **kwargs):
+            if role == "answer":
+                raise RuntimeError("provider down")
+            return original(*args, role=role, **kwargs)
 
         monkeypatch.setattr(llm.get_provider(), "complete", broken)
         body = client.post(
@@ -184,9 +193,12 @@ class TestChat:
 
     def test_generation_failure_log_stays_one_line(self, retrieval, monkeypatch, caplog):
         """Sink-level sanitizer: a constructed dirty session_id stays one log line."""
+        original = llm.get_provider().complete
 
-        def broken(*args, **kwargs):
-            raise RuntimeError("provider down")
+        def broken(*args, role="utility", **kwargs):
+            if role == "answer":
+                raise RuntimeError("provider down")
+            return original(*args, role=role, **kwargs)
 
         monkeypatch.setattr(llm.get_provider(), "complete", broken)
         body = ChatRequest.model_construct(question="q", session_id="abc\nINFO forged")
@@ -289,6 +301,136 @@ class TestChat:
         assert chat_log["question_hash"] == stream_log["question_hash"]
 
 
+class TestCoverageChat:
+    """Issue #192: HTTP and SSE refuse uncovered high-cosine turns."""
+
+    def test_coverage_miss_refuses_http_without_citations(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        _stub_coverage(monkeypatch, covered=False, forbid_answer=True)
+        body = client.post(
+            "/api/chat",
+            json={
+                "question": "Does the company reimburse pet insurance?",
+                "session_id": conversation,
+            },
+            headers=auth,
+        ).json()
+        assert body["refused"] is True
+        assert body["answer"] == REFUSAL_MESSAGE
+        assert body["sources"] == [] and body["follow_ups"] == []
+        stored = _messages(conversation)[-1]
+        assert stored["refused"] is True and stored["sources"] == []
+        log = FAKE_DB["query_logs"].find_one({})
+        assert log["refused"] is True
+
+    def test_coverage_miss_refuses_sse_without_citations(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        _stub_coverage(monkeypatch, covered=False, forbid_answer=True)
+        events = _ask(client, auth, "What is the CEO private salary?", conversation)
+        assert events[0] == {"chunk": REFUSAL_MESSAGE}
+        done = events[1]
+        assert done["refused"] is True and done["sources"] == []
+        stored = _messages(conversation)[-1]
+        assert stored["refused"] is True and stored["sources"] == []
+        assert FAKE_DB["query_logs"].find_one({})["refused"] is True
+
+    def test_uncovered_does_not_serve_a_prior_answered_cache_entry(
+        self, client, auth, retrieval, monkeypatch
+    ):
+        first = client.post("/api/chat", json={"question": "How much PTO?"}, headers=auth).json()
+        assert first["refused"] is False
+        monkeypatch.setattr(cache, "COVERAGE_PROMPT_VERSION", "v-uncovered")
+        _stub_coverage(monkeypatch, covered=False, forbid_answer=True)
+        body = client.post("/api/chat", json={"question": "How much PTO?"}, headers=auth).json()
+        assert body["refused"] is True
+        assert body["answer"] == REFUSAL_MESSAGE
+        assert body["sources"] == []
+
+    def test_coverage_busy_is_503_not_a_refusal(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        _stub_coverage(monkeypatch, error=ProviderBusyError("slot"), forbid_answer=True)
+        response = client.post(
+            "/api/chat",
+            json={"question": "How much PTO?", "session_id": conversation},
+            headers=auth,
+        )
+        assert response.status_code == 503
+        assert _messages(conversation) == []
+        assert FAKE_DB["query_logs"].count_documents({}) == 0
+        assert FAKE_DB["answer_cache"].count_documents({}) == 0
+
+    def test_coverage_timeout_is_an_error_not_a_cached_refusal(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        _stub_coverage(monkeypatch, error=TimeoutError("deadline"), forbid_answer=True)
+        response = client.post(
+            "/api/chat",
+            json={"question": "How much PTO?", "session_id": conversation},
+            headers=auth,
+        )
+        assert response.status_code == 200
+        assert response.json()["answer"].startswith("Sorry")
+        assert response.json()["refused"] is False
+        assert _messages(conversation) == []
+        assert FAKE_DB["query_logs"].count_documents({}) == 0
+        assert FAKE_DB["answer_cache"].count_documents({}) == 0
+
+    def test_coverage_sdk_timeout_is_not_cached_as_a_refusal(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        def boom(**_kwargs):
+            raise openai.APITimeoutError(request=Mock())
+
+        provider = llm.OpenAIProvider.__new__(llm.OpenAIProvider)
+        provider._capacity = threading.BoundedSemaphore(1)
+        provider._client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=boom))
+        )
+        monkeypatch.setattr(rag_chain, "get_provider", lambda: provider)
+
+        response = client.post(
+            "/api/chat",
+            json={"question": "How much PTO?", "session_id": conversation},
+            headers=auth,
+        )
+        assert response.status_code == 200
+        assert response.json()["answer"].startswith("Sorry")
+        assert response.json()["refused"] is False
+        assert _messages(conversation) == []
+        assert FAKE_DB["query_logs"].count_documents({}) == 0
+        assert FAKE_DB["answer_cache"].count_documents({}) == 0
+
+    def test_coverage_internal_server_error_is_not_cached_as_a_refusal(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        def boom(**_kwargs):
+            raise openai.InternalServerError(
+                "boom", response=Mock(status_code=500, headers={}), body=None
+            )
+
+        provider = llm.OpenAIProvider.__new__(llm.OpenAIProvider)
+        provider._capacity = threading.BoundedSemaphore(1)
+        provider._client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=boom))
+        )
+        monkeypatch.setattr(rag_chain, "get_provider", lambda: provider)
+
+        response = client.post(
+            "/api/chat",
+            json={"question": "How much PTO?", "session_id": conversation},
+            headers=auth,
+        )
+        assert response.status_code == 200
+        assert response.json()["answer"].startswith("Sorry")
+        assert response.json()["refused"] is False
+        assert _messages(conversation) == []
+        assert FAKE_DB["query_logs"].count_documents({}) == 0
+        assert FAKE_DB["answer_cache"].count_documents({}) == 0
+
+
 # ── Streaming ─────────────────────────────────────────────────────────────────
 
 
@@ -304,6 +446,26 @@ def _rewrite_follow_ups_to(monkeypatch, rewrite: str, *, forbid_answer: bool = F
         content = messages[0]["content"] if messages else ""
         if role == "utility" and "Rewrite the follow-up question" in content:
             return rewrite
+        return original(messages, role=role, **kwargs)
+
+    monkeypatch.setattr(provider, "complete", complete)
+
+
+def _stub_coverage(monkeypatch, *, covered=True, raw=None, error=None, forbid_answer=False):
+    """Pin the coverage-judge utility call. Other utility roles stay on FakeProvider."""
+    provider = llm.get_provider()
+    original = provider.complete
+
+    def complete(messages, *, role="utility", **kwargs):
+        if forbid_answer:
+            assert role != "answer", "the answer model must not run on a coverage miss"
+        joined = "\n".join(str(message.get("content", "")) for message in messages)
+        if role == "utility" and '{"covered": true}' in joined:
+            if error is not None:
+                raise error
+            if raw is not None:
+                return raw
+            return '{"covered": true}' if covered else '{"covered": false}'
         return original(messages, role=role, **kwargs)
 
     monkeypatch.setattr(provider, "complete", complete)
