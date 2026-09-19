@@ -166,6 +166,7 @@ keep it obviously partial rather than pretending to be complete.
 |---|---|
 | a tuning knob (threshold, chunk size, TTLs, thread pool) | `sourcebook/rag/config.py`; every value is env-overridable, defaults live here |
 | the answer prompt | `sourcebook/rag/rag_chain.py` `ANSWER_SYSTEM_PROMPT`, then bump `PROMPT_VERSION` in `sourcebook/rag/config.py` or cached answers keep serving the old prompt |
+| the coverage-judge prompt or parser | `sourcebook/rag/rag_chain.py` `COVERAGE_SYSTEM_PROMPT` / `_parse_coverage_response`, then bump `COVERAGE_PROMPT_VERSION` in `sourcebook/rag/config.py` or cached answers and refusals keep serving the old judge |
 | retrieval or the grounding gate | `sourcebook/rag/rag_chain.py` |
 | which model or vendor is used | `sourcebook/rag/llm.py` only. Add a subclass, register it in `_PROVIDERS`, set `LLM_PROVIDER` |
 | how a source format is parsed | `sourcebook/rag/documents.py` |
@@ -225,8 +226,10 @@ covers `.env`; the rest is on you.
   workers times that. Atlas free tier caps in the low hundreds and fails under
   load rather than at startup. Redo the arithmetic in `sourcebook/rag/mongo.py` before
   raising either number.
-- **Cached answers outlive a prompt fix** unless `PROMPT_VERSION` is bumped. It
-  is part of the cache key for exactly this reason.
+- **Cached answers outlive a prompt fix** unless the matching version is
+  bumped. `PROMPT_VERSION` is for `ANSWER_SYSTEM_PROMPT`.
+  `COVERAGE_PROMPT_VERSION` is for the coverage-judge prompt and parse
+  contract. Both participate in the answer-cache key.
 - **`THREADPOOL_TOKENS` is the chat throughput ceiling.** It was measured, not
   guessed; see `docs/load-testing.md` before changing it, and re-measure
   after.

@@ -143,11 +143,14 @@ def answer_cache_key(question: str, corpus_version: str) -> str:
     refusals and what the model sees) does not keep serving the old answer.
     Coverage prompt version so a gate that starts refusing uncovered
     high-cosine questions cannot keep serving a prior answered miss.
+    Utility-model fingerprint so swapping the coverage judge cannot keep
+    serving answers or refusals produced under a different utility model.
     """
     return _digest(
         normalize(question),
         corpus_version,
         get_provider().answer_fingerprint(),
+        get_provider().utility_fingerprint(),
         PROMPT_VERSION,
         COVERAGE_PROMPT_VERSION,
         str(SIMILARITY_THRESHOLD),

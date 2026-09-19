@@ -51,19 +51,29 @@ class ProviderBusyError(Exception):
 
 
 def _reraise_transient_openai(exc: BaseException) -> None:
-    """Turn OpenAI timeouts, drops, and 429s into ``TimeoutError``.
+    """Turn OpenAI timeouts, drops, 429s, and 5xx into ``TimeoutError``.
 
     The coverage judge re-raises ``TimeoutError`` so a blip is not cached as
-    ``refused=True``. Other modules never import a vendor; this helper is the
-    only place those SDK types are named. No-op when openai is not installed
-    or the error is something else.
+    ``refused=True``. Terminal 4xx (auth, permission, bad request) are left
+    alone. Other modules never import a vendor; this helper is the only place
+    those SDK types are named. No-op when openai is not installed or the error
+    is something else.
     """
     try:
         import openai
     except ImportError:
         return
-    if isinstance(exc, (openai.APIConnectionError, openai.RateLimitError)):
-        raise TimeoutError("OpenAI request timed out, dropped, or was rate-limited") from exc
+    if isinstance(
+        exc,
+        (
+            openai.APIConnectionError,
+            openai.RateLimitError,
+            openai.InternalServerError,
+        ),
+    ):
+        raise TimeoutError(
+            "OpenAI request timed out, dropped, was rate-limited, or returned a transient 5xx"
+        ) from exc
 
 
 class LLMProvider(ABC):
@@ -128,6 +138,10 @@ class LLMProvider(ABC):
         """Identifies the answer model, for the answer cache key."""
         return self.name
 
+    def utility_fingerprint(self) -> str:
+        """Identifies the utility/coverage model, for the answer cache key."""
+        return self.name
+
 
 class OpenAIProvider(LLMProvider):
     """OpenAI-backed implementation — the default for the pilot."""
@@ -190,6 +204,9 @@ class OpenAIProvider(LLMProvider):
 
     def answer_fingerprint(self) -> str:
         return f"{self.name}:{self.ANSWER_MODEL}"
+
+    def utility_fingerprint(self) -> str:
+        return f"{self.name}:{self.UTILITY_MODEL}"
 
     def embed(self, text: str) -> list[float]:
         with self._request_slot():
@@ -338,11 +355,18 @@ class FakeProvider(LLMProvider):
             self._sleep(self.STREAM_DELAY_MS * len(self.ANSWER.split()))
             return self.ANSWER
         self._sleep(self.UTILITY_DELAY_MS)
-        joined = "\n".join(str(message.get("content", "")) for message in messages)
-        # Stub mode has no real coverage judge. Return the only well-formed
-        # "yes" object the gate accepts so first-turn answers still generate;
-        # tests that need a miss stub complete() themselves.
-        if '{"covered": true}' in joined and '{"covered": false}' in joined:
+        system = next(
+            (
+                str(message.get("content", ""))
+                for message in messages
+                if message.get("role") == "system"
+            ),
+            "",
+        )
+        # Stub mode has no real coverage judge. Identify the call by the
+        # system-prompt identity, not by JSON literals in the user message, so
+        # ordinary utility prompts that mention those strings still rewrite.
+        if system.startswith("You are a coverage judge"):
             return '{"covered": true}'
         # Utility calls ask for three newline-separated questions.
         return (

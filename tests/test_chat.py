@@ -403,6 +403,33 @@ class TestCoverageChat:
         assert FAKE_DB["query_logs"].count_documents({}) == 0
         assert FAKE_DB["answer_cache"].count_documents({}) == 0
 
+    def test_coverage_internal_server_error_is_not_cached_as_a_refusal(
+        self, client, auth, retrieval, conversation, monkeypatch
+    ):
+        def boom(**_kwargs):
+            raise openai.InternalServerError(
+                "boom", response=Mock(status_code=500, headers={}), body=None
+            )
+
+        provider = llm.OpenAIProvider.__new__(llm.OpenAIProvider)
+        provider._capacity = threading.BoundedSemaphore(1)
+        provider._client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=boom))
+        )
+        monkeypatch.setattr(rag_chain, "get_provider", lambda: provider)
+
+        response = client.post(
+            "/api/chat",
+            json={"question": "How much PTO?", "session_id": conversation},
+            headers=auth,
+        )
+        assert response.status_code == 200
+        assert response.json()["answer"].startswith("Sorry")
+        assert response.json()["refused"] is False
+        assert _messages(conversation) == []
+        assert FAKE_DB["query_logs"].count_documents({}) == 0
+        assert FAKE_DB["answer_cache"].count_documents({}) == 0
+
 
 # ── Streaming ─────────────────────────────────────────────────────────────────
 

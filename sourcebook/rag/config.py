@@ -177,7 +177,7 @@ PROMPT_VERSION = os.getenv("PROMPT_VERSION", "v2")
 # Bump this whenever the coverage-judge prompt or its parse rules change. It is
 # part of the answer cache key so a prior answered entry cannot be served after
 # the gate starts refusing uncovered high-cosine questions.
-COVERAGE_PROMPT_VERSION = os.getenv("COVERAGE_PROMPT_VERSION", "v1")
+COVERAGE_PROMPT_VERSION = os.getenv("COVERAGE_PROMPT_VERSION", "v2")
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 # Every chat request writes one query_logs record. This is the substrate for
