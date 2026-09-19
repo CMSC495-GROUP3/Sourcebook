@@ -28,8 +28,6 @@ These totals are GitHub search observations captured at **2026-09-18T06:58:39Z**
 | --- | ---: | --- |
 | Pull requests (all states) | 148 | [`is:pr`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr&type=pullrequests) |
 | Merged pull requests | 122 | [`is:pr is:merged`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged&type=pullrequests) |
-| Newest 128 PRs from `gh pr list --state all --limit 128` | 128 | that list (repo has 148; this window is #252–#21) |
-| Merged pull requests in that 128 window | 106 | same list, `state == MERGED` |
 | Merged PRs authored by @t-shahan | 57 | [`author:t-shahan is:merged`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+author%3At-shahan+is%3Amerged&type=pullrequests) |
 | Merged PRs authored by @threshi-art | 41 | [`author:threshi-art is:merged`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+author%3Athreshi-art+is%3Amerged&type=pullrequests) |
 | Merged PRs authored by dependabot | 18 | [`author:app/dependabot is:merged`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+author%3Aapp%2Fdependabot+is%3Amerged&type=pullrequests) |
@@ -43,7 +41,7 @@ These totals are GitHub search observations captured at **2026-09-18T06:58:39Z**
 | PRs reviewed by @DanielTsang26 | 1 | [`reviewed-by:DanielTsang26`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3ADanielTsang26&type=pullrequests) |
 | PRs reviewed by @gavinwathen or @fudgepop01 | 0 | [`reviewed-by:gavinwathen`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3Agavinwathen&type=pullrequests), [`reviewed-by:fudgepop01`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3Afudgepop01&type=pullrequests) — no hits |
 
-These are GitHub search totals, not a hand-counted review-event ledger. The 2026-09-12 snapshot on [`7d028ef`](https://github.com/CMSC495-GROUP3/Sourcebook/commit/7d028efd37ca738cff51bf001961021a1ff6ef90) used the first 128 PRs (101 merged in that list). [Issue #201](https://github.com/CMSC495-GROUP3/Sourcebook/issues/201) earlier cited 100 merged PRs and 73 human reviews; this page uses the 2026-09-18T06:58:39Z observation instead of repeating those older pairs.
+These are GitHub search totals, not a hand-counted review-event ledger. This page uses the 2026-09-18T06:58:39Z observation instead of repeating earlier partial-window counts.
 
 ### Threads where review changed the code
 
