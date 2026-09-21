@@ -11,7 +11,10 @@ import yaml
 from scripts.validate_live_evaluation import main as validate_cli_main
 from sourcebook.rag.evaluation import (
     _validate_rate_metric,
+    require_exact_checkout_sha,
     require_live_env,
+    require_nonempty_commit_sha,
+    resolve_evaluation_shas,
     validate_mongodb_db_name,
     validate_results_file,
     validate_results_report,
@@ -24,14 +27,28 @@ from sourcebook.rag.evaluation import (
 # dotted path rather than through a second import of the module.
 RUN_EVALUATION = "sourcebook.rag.evaluation.run_evaluation"
 SCORE_RESULTS = "sourcebook.rag.evaluation.score_results"
+GET_CORPUS_VERSION = "sourcebook.rag.cache.get_corpus_version"
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "evaluation.yml"
+
+_FAKE_SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+_FAKE_SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 
 def _valid_report(**overrides: object) -> dict:
     report: dict = {
+        "requested_sha": _FAKE_SHA_A,
+        "tested_sha": _FAKE_SHA_A,
         "tier": "smoke",
         "dataset": "evaluation/questions.json",
+        "corpus_version": "test-corpus-version",
+        "llm_provider": "openai",
+        "answer_model": "gpt-4o",
+        "utility_model": "gpt-4o-mini",
+        "embedding_model": "text-embedding-3-small",
+        "prompt_version": "v2",
+        "scoring_mode": "measurement_only",
+        "pass_fail_thresholds": None,
         "metrics": {
             "evaluated_cases": 2,
             "category_counts": {
@@ -89,13 +106,62 @@ def test_require_live_env_rejects_missing_and_blank_values():
     )
 
 
+def test_require_exact_checkout_sha_accepts_match_and_rejects_mismatch():
+    assert require_exact_checkout_sha(_FAKE_SHA_A, _FAKE_SHA_A) == _FAKE_SHA_A
+    with pytest.raises(ValueError, match="Checkout SHA mismatch"):
+        require_exact_checkout_sha(_FAKE_SHA_A, _FAKE_SHA_B)
+    with pytest.raises(ValueError, match="required"):
+        require_nonempty_commit_sha("")
+    with pytest.raises(ValueError, match="required"):
+        require_nonempty_commit_sha("   ")
+
+
+def test_resolve_evaluation_shas_fail_closed_under_actions(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.delenv("EVAL_REQUESTED_SHA", raising=False)
+    monkeypatch.delenv("EVAL_TESTED_SHA", raising=False)
+    with pytest.raises(ValueError, match="EVAL_REQUESTED_SHA"):
+        resolve_evaluation_shas()
+
+    monkeypatch.setenv("EVAL_REQUESTED_SHA", _FAKE_SHA_A)
+    monkeypatch.setenv("EVAL_TESTED_SHA", _FAKE_SHA_B)
+    with pytest.raises(ValueError, match="Checkout SHA mismatch"):
+        resolve_evaluation_shas()
+
+    monkeypatch.setenv("EVAL_TESTED_SHA", _FAKE_SHA_A)
+    assert resolve_evaluation_shas() == (_FAKE_SHA_A, _FAKE_SHA_A)
+
+
 def test_validate_results_report_accepts_complete_fixture():
     report = validate_results_report(_valid_report())
     assert report["metrics"]["evaluated_cases"] == 2
+    assert report["requested_sha"] == _FAKE_SHA_A
+    assert report["tested_sha"] == _FAKE_SHA_A
+    assert report["pass_fail_thresholds"] is None
+
+
+def test_validate_results_report_rejects_missing_requested_or_tested_sha():
+    missing_requested = _valid_report()
+    del missing_requested["requested_sha"]
+    with pytest.raises(ValueError, match="requested_sha"):
+        validate_results_report(missing_requested)
+
+    missing_tested = _valid_report()
+    del missing_tested["tested_sha"]
+    with pytest.raises(ValueError, match="tested_sha"):
+        validate_results_report(missing_tested)
+
+    blank = _valid_report(requested_sha="", tested_sha="")
+    with pytest.raises(ValueError, match="requested_sha"):
+        validate_results_report(blank)
+
+    mismatch = _valid_report(requested_sha=_FAKE_SHA_A, tested_sha=_FAKE_SHA_B)
+    with pytest.raises(ValueError, match="Checkout SHA mismatch"):
+        validate_results_report(mismatch)
 
 
 def test_validate_results_report_rejects_missing_metrics_and_empty_cases():
-    with pytest.raises(ValueError, match="missing a metrics object"):
+    with pytest.raises(ValueError, match="required identity keys"):
         validate_results_report({"results": []})
 
     bad = _valid_report()
@@ -108,6 +174,11 @@ def test_validate_results_report_rejects_missing_metrics_and_empty_cases():
     del missing_key["metrics"]["recall_at_5"]
     with pytest.raises(ValueError, match="recall_at_5"):
         validate_results_report(missing_key)
+
+    missing_metrics = _valid_report()
+    del missing_metrics["metrics"]
+    with pytest.raises(ValueError, match="missing a metrics object"):
+        validate_results_report(missing_metrics)
 
 
 def test_validate_results_report_rejects_malformed_rates_and_length_mismatch():
@@ -255,17 +326,66 @@ def test_check_env_cli_rejects_bad_mongodb_db(
 def test_evaluation_main_rejects_bad_mongodb_db_without_writing(
     bad: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     for key, value in _complete_env(MONGODB_DB=bad).items():
         monkeypatch.setenv(key, value)
+    monkeypatch.setenv("EVAL_REQUESTED_SHA", _FAKE_SHA_A)
+    monkeypatch.setenv("EVAL_TESTED_SHA", _FAKE_SHA_A)
     output = tmp_path / "results.json"
     assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
     assert not output.exists()
     assert "MONGODB_DB" in capsys.readouterr().err
 
 
-def _run_main_with_live_env(monkeypatch: pytest.MonkeyPatch, output: Path) -> int:
+def test_evaluation_main_rejects_sha_mismatch_before_results_or_paid_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """SHA mismatch must exit before writing results and before run_evaluation."""
+    called = {"run": False, "corpus": False}
+
+    def boom_run(cases):
+        called["run"] = True
+        raise AssertionError("paid path must not run on SHA mismatch")
+
+    def boom_corpus():
+        called["corpus"] = True
+        raise AssertionError("corpus lookup must not run on SHA mismatch")
+
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     for key, value in _complete_env().items():
         monkeypatch.setenv(key, value)
+    monkeypatch.setenv("EVAL_REQUESTED_SHA", _FAKE_SHA_A)
+    monkeypatch.setenv("EVAL_TESTED_SHA", _FAKE_SHA_B)
+    monkeypatch.setattr(RUN_EVALUATION, boom_run)
+    monkeypatch.setattr(GET_CORPUS_VERSION, boom_corpus)
+    output = tmp_path / "results.json"
+    assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
+    assert not output.exists()
+    assert called == {"run": False, "corpus": False}
+    assert "Checkout SHA mismatch" in capsys.readouterr().err
+
+
+def test_evaluation_main_rejects_empty_sha_under_actions_without_writing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    for key, value in _complete_env().items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("EVAL_REQUESTED_SHA", "")
+    monkeypatch.setenv("EVAL_TESTED_SHA", "")
+    output = tmp_path / "results.json"
+    assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
+    assert not output.exists()
+    assert "EVAL_REQUESTED_SHA" in capsys.readouterr().err
+
+
+def _run_main_with_live_env(monkeypatch: pytest.MonkeyPatch, output: Path) -> int:
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    for key, value in _complete_env().items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("EVAL_REQUESTED_SHA", _FAKE_SHA_A)
+    monkeypatch.setenv("EVAL_TESTED_SHA", _FAKE_SHA_A)
+    monkeypatch.setattr(GET_CORPUS_VERSION, lambda: "test-corpus-version")
     return evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)])
 
 
@@ -319,9 +439,37 @@ def test_workflow_fail_closed_contract():
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     steps = workflow["jobs"]["evaluate"]["steps"]
     by_name = {step.get("name"): step for step in steps}
+    # PyYAML turns the workflow key `on` into boolean True.
+    inputs = workflow[True]["workflow_dispatch"]["inputs"]
+
+    assert "commit_sha" in inputs
+    assert inputs["commit_sha"]["required"] is True
+    assert "default" not in inputs["commit_sha"]
+
+    checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
+    assert checkout["with"]["ref"] == "${{ inputs.commit_sha }}"
+
+    sha_step = by_name["Require exact checkout SHA"]
+    assert "Checkout SHA mismatch" in sha_step["run"]
+    assert "git rev-parse HEAD" in sha_step["run"]
+
+    secrets_index = next(
+        i for i, step in enumerate(steps) if step.get("name") == "Require live evaluation secrets"
+    )
+    sha_index = next(
+        i for i, step in enumerate(steps) if step.get("name") == "Require exact checkout SHA"
+    )
+    atlas_index = next(
+        i
+        for i, step in enumerate(steps)
+        if step.get("name") == "Admit this runner to the Atlas IP access list"
+    )
+    assert sha_index < secrets_index < atlas_index
 
     assert "--check-env" in by_name["Require live evaluation secrets"]["run"]
     assert "set -euo pipefail" in by_name["Run the evaluation"]["run"]
+    assert "EVAL_REQUESTED_SHA" in by_name["Run the evaluation"]["env"]
+    assert "EVAL_TESTED_SHA" in by_name["Run the evaluation"]["env"]
 
     results_step = by_name["Validate evaluation results"]
     assert results_step["if"] == "always()"

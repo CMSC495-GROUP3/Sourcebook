@@ -25,6 +25,13 @@
 # a gate if `continue-on-error` is ever added to a step above it. Summary
 # and artifact upload still run for diagnostics and do not by themselves
 # make the job green.
+#
+# Commit pin: workflow_dispatch requires an explicit commit_sha. The job
+# checks out that SHA and fails closed if HEAD does not match before any
+# secrets gate, Atlas admit, or paid OpenAI call. The evaluation environment
+# still allows only protected `main`; evaluating an arbitrary feature-branch
+# commit remains a human policy/path problem (HTTP 422 on unprotected refs),
+# not something this workflow bypasses.
 
 name: Live evaluation
 
@@ -39,6 +46,10 @@ on:
           - full
         default: smoke
         required: true
+      commit_sha:
+        description: Exact git commit SHA to evaluate (full object name; required — no floating default)
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -50,7 +61,41 @@ jobs:
     environment: evaluation
     timeout-minutes: 60
     steps:
+      - name: Require non-empty commit_sha input
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${REQUESTED_SHA// }" ]; then
+            echo "commit_sha is required and must be a non-empty git commit SHA" >&2
+            exit 1
+          fi
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.commit_sha }}
+      - name: Require exact checkout SHA
+        id: sha
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          tested="$(git rev-parse HEAD)"
+          if ! requested="$(git rev-parse --verify "${REQUESTED_SHA}^{commit}")"; then
+            echo "commit_sha is not a known commit object: ${REQUESTED_SHA}" >&2
+            exit 1
+          fi
+          if [ "$requested" != "$tested" ]; then
+            echo "Checkout SHA mismatch: requested_sha=${requested} tested_sha=${tested}" >&2
+            exit 1
+          fi
+          echo "requested_sha=${requested}" >> "$GITHUB_OUTPUT"
+          echo "tested_sha=${tested}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Live evaluation checkout"
+            echo
+            echo "- requested_sha: \`${requested}\`"
+            echo "- tested_sha: \`${tested}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -105,6 +150,8 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           MONGODB_DB: ${{ secrets.MONGODB_DB }}
           EVAL_TIER: ${{ inputs.tier }}
+          EVAL_REQUESTED_SHA: ${{ steps.sha.outputs.requested_sha }}
+          EVAL_TESTED_SHA: ${{ steps.sha.outputs.tested_sha }}
           CACHE_ENABLED: "0"
         run: |
           set -euo pipefail
@@ -144,6 +191,24 @@ jobs:
           from pathlib import Path
 
           report = json.loads(Path("evaluation/results.json").read_text(encoding="utf-8"))
+          print("### Run identity")
+          print()
+          for key in (
+              "requested_sha",
+              "tested_sha",
+              "tier",
+              "dataset",
+              "corpus_version",
+              "llm_provider",
+              "answer_model",
+              "utility_model",
+              "embedding_model",
+              "prompt_version",
+              "scoring_mode",
+              "pass_fail_thresholds",
+          ):
+              print(f"- {key}: `{report.get(key)}`")
+          print()
           metrics = report["metrics"]
           counts = metrics.get("category_counts", {})
           print("### Per-category counts")
@@ -180,7 +245,8 @@ jobs:
             echo
             echo "Review each cited passage by hand before reporting these numbers."
             echo "Ambiguous clarifications remain a manual review; they are not auto-scored."
-            echo "A green job requires the secrets gate, a zero evaluator exit, and validated metrics."
+            echo "A green job requires the SHA gate, the secrets gate, a zero evaluator exit, and validated metrics."
+            echo "A green job is still measurement-only — not a product-quality PASS."
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()

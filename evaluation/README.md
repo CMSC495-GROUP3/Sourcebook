@@ -13,10 +13,11 @@ The job **must exit nonzero** when any of the following is true:
 
 | Failure | Gate |
 |---|---|
+| `commit_sha` missing/blank, or checked-out `HEAD` ≠ requested SHA | workflow SHA steps before secrets / Atlas / paid calls |
 | `OPENAI_API_KEY`, `MONGODB_URI`, or `MONGODB_DB` missing or blank | `scripts/validate_live_evaluation.py --check-env` |
 | `MONGODB_DB` is not a legal MongoDB database name (empty, any whitespace including padding, `. $ / \\ "`, NUL, or 64 bytes and longer) | same preflight, plus the CLI runner |
 | Evaluator process exits nonzero | `set -euo pipefail` on the `python \| tee` pipeline |
-| `evaluation/results.json` missing, not JSON, or missing required metrics/cases | `scripts/validate_live_evaluation.py --results` (`if: always()`) |
+| `evaluation/results.json` missing, not JSON, or missing required identity/metrics/cases (including `requested_sha` / `tested_sha`) | `scripts/validate_live_evaluation.py --results` (`if: always()`) |
 
 Empty `MONGODB_DB` is never treated as success. The name is checked exactly
 as the client will use it, with no trimming, because a padded secret would
