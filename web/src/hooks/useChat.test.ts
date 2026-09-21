@@ -362,6 +362,195 @@ describe('useChat', () => {
     expect(result.current.messages[1]?.retryable).toBeUndefined()
   })
 
+  it('rejects a second immediate retry before loading state publishes', async () => {
+    let resolveRetry!: (value: Response) => void
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockImplementation(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveRetry = resolve
+          }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    expect(result.current.messages[1]?.retryable).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      result.current.retryLastQuestion()
+      result.current.retryLastQuestion()
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+
+    await act(async () => {
+      resolveRetry(
+        jsonResponse(
+          sseBody([
+            { chunk: '15 days.' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-1' },
+          ]),
+        ),
+      )
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.content).toBe('15 days.')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter((message) => message.role === 'assistant')).toHaveLength(1)
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('releases the in-flight guard after a successful retry so a later retry still works', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          sseBody([
+            { chunk: '15 days.' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-1' },
+          ]),
+        ),
+      )
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          sseBody([
+            { chunk: '15 days.' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-2' },
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.message_id).toBe('m-1')
+    })
+
+    await act(async () => {
+      await result.current.sendMessage('How do I request time off?')
+    })
+    expect(result.current.messages[3]?.retryable).toBe(true)
+
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(result.current.messages[3]?.message_id).toBe('m-2')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(result.current.loading).toBe(false)
+    const retryBody = JSON.parse(String((fetchMock.mock.calls[3][1] as RequestInit).body))
+    expect(retryBody).toEqual({ question: 'How do I request time off?', session_id: 'sess-open' })
+    expect(String((fetchMock.mock.calls[3][1] as RequestInit).body)).not.toContain('history')
+  })
+
+  it('releases the in-flight guard after a failed retry', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          sseBody([
+            { chunk: 'ok' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-1' },
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.content).toBe(
+        'Sorry, something went wrong. Please try again.',
+      )
+    })
+    expect(result.current.messages[1]?.retryable).toBeUndefined()
+    expect(result.current.loading).toBe(false)
+
+    await act(async () => {
+      await result.current.sendMessage('How do I request time off?')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(result.current.messages[3]?.content).toBe('ok')
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('does not leave a remounted hook blocked after unmount during a retry', async () => {
+    let resolveRetry!: (value: Response) => void
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveRetry = resolve
+          }),
+      )
+      .mockResolvedValue(
+        jsonResponse(
+          sseBody([
+            { chunk: 'ok' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-2' },
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, unmount } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    unmount()
+
+    await act(async () => {
+      resolveRetry(retryable503('1'))
+    })
+
+    const remounted = await mountChat('sess-open')
+    await act(async () => {
+      await remounted.result.current.sendMessage('How do I request time off?')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(remounted.result.current.messages[1]?.content).toBe('ok')
+    expect(remounted.result.current.loading).toBe(false)
+  })
+
   it('does not offer a second retry after the one-shot resend stays busy', async () => {
     const fetchMock = vi.fn().mockResolvedValue(retryable503('1'))
     vi.stubGlobal('fetch', fetchMock)

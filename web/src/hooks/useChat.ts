@@ -102,6 +102,8 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
   const skipNextFetch = useRef(false)
   const messagesRef = useRef(messages)
   const sendGeneration = useRef(0)
+  // `loading`/`streaming` publish on the next render; this claims the request now.
+  const inFlightRef = useRef(false)
 
   useEffect(() => {
     messagesRef.current = messages
@@ -168,7 +170,8 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
   }, [sessionId])
 
   async function sendMessage(question: string, options: SendOptions = {}) {
-    if (loading || streaming) return
+    if (loading || streaming || inFlightRef.current) return
+    inFlightRef.current = true
 
     const reuseUserTurn = options.reuseUserTurn === true
     const generation = sendGeneration.current
@@ -177,18 +180,18 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
     const isLive = (sid: string | null) =>
       sendGeneration.current === generation && activeSessionId.current === sid
 
-    setLoading(true)
-    if (!reuseUserTurn) {
-      setMessages((prev) => [...prev, { role: 'user', content: question }])
-    } else {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1]
-        return last?.error ? prev.slice(0, -1) : prev
-      })
-    }
-
     let sid = startedSession
     try {
+      setLoading(true)
+      if (!reuseUserTurn) {
+        setMessages((prev) => [...prev, { role: 'user', content: question }])
+      } else {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1]
+          return last?.error ? prev.slice(0, -1) : prev
+        })
+      }
+
       // Create conversation on first message
       if (!sid) {
         const res = await client.post('/api/conversations', { title: question.slice(0, 60) })
@@ -325,6 +328,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
       if (!isLive(sid)) return
       setMessages((prev) => [...prev, errorBubble(GENERIC_ERROR, false)])
     } finally {
+      inFlightRef.current = false
       if (sendGeneration.current === generation) {
         setLoading(false)
         setStreaming(false)
@@ -337,7 +341,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
    * stays as-is; a second busy response is not retryable.
    */
   function retryLastQuestion() {
-    if (loading || streaming) return
+    if (loading || streaming || inFlightRef.current) return
     const current = messagesRef.current
     const last = current[current.length - 1]
     if (!last?.error || !last.retryable) return
