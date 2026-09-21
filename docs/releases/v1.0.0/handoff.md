@@ -40,19 +40,18 @@ deployed candidate. Copy the alpha pages then; do not invent numbers.
   are the committed HTTP contract.
   [CONTRIBUTING.md](../../../CONTRIBUTING.md) covers the development setup.
 
-## Required merge order (this PR is last)
+## Remaining integration order (this pull request is last)
 
 This pull request is the documentation-index integrator, not an advance
-placeholder. It currently links only pages that exist on `origin/main`. Do
-not add README or `docs/README.md` rows for files that live only on draft
-branches.
+placeholder. Pull requests #228 and #232 are now on `main`, and this branch
+links their CI/CD and quality pages. Do not add links or claims for files that
+still live only on draft branches.
 
-1. [PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228) merges and lands `docs/ci-cd.md` ([#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207)).
-2. [PR #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) merges and lands `.mailmap` plus `docs/team.md` ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)).
-3. [PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232) merges and lands `docs/quality.md` ([#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208)).
-4. Then this PR merges current `main` again and adds those grouped index
-   links. Until step 4, those filenames stay in backticks in
-   [portfolio.md](portfolio.md).
+1. [Pull request #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) merges and lands `.mailmap` plus `docs/team.md` ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)).
+2. Preferably, [pull request #252](https://github.com/CMSC495-GROUP3/Sourcebook/pull/252) lands the scoped frontend test suite ([#211](https://github.com/CMSC495-GROUP3/Sourcebook/issues/211)).
+3. Merge current `main` again. Add the team index row after #231. Remove the
+   README's no-unit-tests limitation and refresh `docs/quality.md` only after
+   #252 is actually on `main`.
 
 ## Blockers before anyone tags
 
@@ -64,7 +63,7 @@ is the order.
 | --- | --- |
 | [#203](https://github.com/CMSC495-GROUP3/Sourcebook/issues/203) cut `v0.2.0-beta.1` | Open. Remaining correctness blocker is [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192). Closed since the scaffold was first written: [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) ([PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)), [#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) ([PR #247](https://github.com/CMSC495-GROUP3/Sourcebook/pull/247)), [#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) ([PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176)), [#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160) ([PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171)), [#174](https://github.com/CMSC495-GROUP3/Sourcebook/issues/174), [#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) ([PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226)) |
 | [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), refusal card follows the model's own decline | Open. [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) is closed. Alpha smoke-tier refusal metrics are 0% and remain the last committed measurement |
-| Documentation pages #204–#209 | [#204](https://github.com/CMSC495-GROUP3/Sourcebook/issues/204) and [#205](https://github.com/CMSC495-GROUP3/Sourcebook/issues/205) are on `main` ([docs/api.md](../../api.md), [docs/openapi.json](../../openapi.json), [docs/install.md](../../install.md)). Still open: [#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206), [#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207) / draft [PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228), [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208) / draft [PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232), [#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) / draft [PR #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) |
+| Documentation pages #204–#209 | API, OpenAPI, install, [CI/CD](../../ci-cd.md), and [quality](../../quality.md) are on `main`. [#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207) and [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208) remain open for final-release evidence. Still missing: [#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206) user guide and [#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) / draft [pull request #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) team records |
 | Re-run the three checks on the deployed candidate (browser pass, bounded benchmark, smoke-tier evaluation) | Not started for `v1.0.0`. Do not copy alpha numbers into new files and call them final |
 | `live-benchmark.md`, `live-evaluation.md`, and `evidence/` filled from those checks | Not written |
 | Video link | [#216](https://github.com/CMSC495-GROUP3/Sourcebook/issues/216), recorded after the tag |
@@ -87,7 +86,7 @@ in the notes; it closed in [PR #245](https://github.com/CMSC495-GROUP3/Sourceboo
 - That live evaluation or the bounded benchmark was re-run.
 - That the 10,000-user requirement, the full evaluation tier, or a real
   corpus was measured.
-- That any open pull request listed above has merged.
+- That the remaining open pull requests listed above have merged.
 
 ## The tag (do not run these yet)
 

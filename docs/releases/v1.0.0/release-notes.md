@@ -55,17 +55,18 @@ query-log reports ([#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/16
 unique passage identity ([#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) /
 [PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176)),
 and follow-up grounding ([#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) /
-[PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)).
-
-Still draft, and **not** in this skeleton as shipped: the CI/CD page
+[pull request #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)),
+the [CI/CD page](../../ci-cd.md)
 ([#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207) /
-[PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228)), team
-records ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) /
-[PR #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231)), and the
-quality summary ([#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208) /
-[PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232)). Merge
-those three before this PR adds their grouped index links; the order is in
-[handoff.md](handoff.md).
+[pull request #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228)),
+and the [quality summary](../../quality.md)
+([#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208) /
+[pull request #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232)).
+
+Still draft, and **not** in this skeleton as shipped: team records
+([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) /
+[pull request #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231)).
+The remaining order is in [handoff.md](handoff.md).
 
 ## Getting access
 

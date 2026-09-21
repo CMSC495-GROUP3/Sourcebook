@@ -101,8 +101,8 @@ its handoff, release notes, live benchmark, live evaluation, and evidence.
 ### Planned, not tagged
 
 `v1.0.0` is a folder, not a GitHub release. It does not belong in the tagged
-table above. Rows for CI/CD, team, and quality wait until those pages exist
-on `main`; the merge order is in
+table above. The CI/CD and quality pages are indexed above; the team record
+still waits on pull request #231. The remaining release gates are in
 [docs/releases/v1.0.0/handoff.md](docs/releases/v1.0.0/handoff.md).
 
 | Folder | What it is |

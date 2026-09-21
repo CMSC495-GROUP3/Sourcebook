@@ -26,15 +26,15 @@ links.
 | --- | --- | --- | --- |
 | Integrated system | [README](../../../README.md); deployed pilot at https://sourcebook.duckdns.org; [alpha handoff](../v0.1.0-alpha.1/handoff.md) | this row points into the tagged tree; the headline remaining defect is [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192). [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) is closed ([PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)) | [#201](https://github.com/CMSC495-GROUP3/Sourcebook/issues/201) step 1; beta [#203](https://github.com/CMSC495-GROUP3/Sourcebook/issues/203) |
 | AI feature | README [How a question is answered](../../../README.md#how-a-question-is-answered) and [Keeping the model honest](../../../README.md#keeping-the-model-honest) | same pages in the tagged tree, after the remaining gate work | [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) |
-| CI/CD evidence | Five workflows exist; no collected page on `main` | `docs/ci-cd.md` plus screenshots of green runs on the merge commit | [#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207), draft [PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228) |
+| CI/CD evidence | [docs/ci-cd.md](../../ci-cd.md) documents the five workflows and deploy path | final-tag screenshots and the sanitized host journal | [#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207); page merged in [pull request #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228) |
 | README | [README.md](../../../README.md) | this table's first row, the video link, and the contributions pointer, written after the tag | [#215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215) follow-up PR |
 | API documentation | [docs/api.md](../../api.md) and [docs/openapi.json](../../openapi.json) | the same files in the tagged tree | [#204](https://github.com/CMSC495-GROUP3/Sourcebook/issues/204) closed by [PR #221](https://github.com/CMSC495-GROUP3/Sourcebook/pull/221) |
 | Installation guide | [docs/install.md](../../install.md) | the same page in the tagged tree | [#205](https://github.com/CMSC495-GROUP3/Sourcebook/issues/205) closed by [PR #233](https://github.com/CMSC495-GROUP3/Sourcebook/pull/233) |
 | User manual | alpha [evidence](../v0.1.0-alpha.1/evidence/README.md) and the browser pass in the [alpha handoff](../v0.1.0-alpha.1/handoff.md) | `docs/user-guide.md`, written after the beta browser pass | [#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206) |
-| Code reviews | CODEOWNERS and PR checks exist; no summary page | `docs/quality.md` review section with representative threads | [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208), draft [PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232) |
+| Code reviews | [docs/quality.md](../../quality.md) summarizes CODEOWNERS, pull-request checks, and representative review threads | refresh the tagged counts and links | [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208); page merged in [pull request #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232) |
 | Coverage | CI fails under 80%; the job-summary table is not committed | `docs/releases/v1.0.0/evidence/coverage.md` for the tagged commit | [#210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210) |
 | Benchmarks | synthetic [load-testing.md](../../load-testing.md); bounded real-service [alpha live-benchmark.md](../v0.1.0-alpha.1/live-benchmark.md) | this folder's `live-benchmark.md` after the three checks, plus the deployed load run if [#212](https://github.com/CMSC495-GROUP3/Sourcebook/issues/212) lands | [#212](https://github.com/CMSC495-GROUP3/Sourcebook/issues/212), alpha [#183](https://github.com/CMSC495-GROUP3/Sourcebook/issues/183) |
-| Collaboration evidence | 100+ merged PRs and required CODEOWNERS review; no grader-facing index | `docs/quality.md` plus the threads it cites | [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208), draft [PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232) |
+| Collaboration evidence | [docs/quality.md](../../quality.md) links the review process and representative threads | refresh the tagged contribution and review totals | [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208); page merged in [pull request #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232) |
 | Contributions | README [Team](../../../README.md#team) | `docs/team.md` and `.mailmap`, each member checking their row | [#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209), draft [PR #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) |
 
 ## Folder status
@@ -52,20 +52,18 @@ tag is not cut.
 | `live-evaluation.md` | **not written.** Do not invent one. Last recorded smoke-tier write-up is the [alpha](../v0.1.0-alpha.1/live-evaluation.md). That run's refusal metrics are 0% and are [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), not a PASS |
 | [evidence/](evidence/README.md) | empty. Screenshots and the coverage table land at freeze |
 
-## Required merge order before the grouped index grows
+## Remaining integration order
 
-This pull request is the documentation-index integrator. It must not link
-pages that are not on `origin/main`. After those pages land, merge current
-`main` into this branch and add the grouped rows. Until then the index names
-only files that already exist.
+This pull request is the documentation-index integrator. Pull requests #228
+and #232 are now on `main`, so their CI/CD and quality links are live. Keep
+forward links out until the remaining files land.
 
-1. [PR #228](https://github.com/CMSC495-GROUP3/Sourcebook/pull/228) lands `docs/ci-cd.md` ([#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207)).
-2. [PR #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) lands `.mailmap` and `docs/team.md` ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)).
-3. [PR #232](https://github.com/CMSC495-GROUP3/Sourcebook/pull/232) lands `docs/quality.md` ([#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208)).
-4. Then this PR merges current `main` again and adds those links to the grouped README and [docs/README.md](../../README.md) tables.
+1. [Pull request #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) lands `.mailmap` and `docs/team.md` ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)).
+2. Preferably, [pull request #252](https://github.com/CMSC495-GROUP3/Sourcebook/pull/252) lands the scoped frontend test suite ([#211](https://github.com/CMSC495-GROUP3/Sourcebook/issues/211)).
+3. Merge current `main` again. Add the team index row after #231, and remove the README's no-unit-tests limitation plus refresh [docs/quality.md](../../quality.md) only after #252.
 
-Do not reverse that order. A forward link to a file that is only on a draft
-branch is a broken link on `main`.
+A forward link to a file that is only on a draft branch is a broken link on
+`main`, and a green test branch is not evidence that the tests shipped.
 
 ## Two routes in (unchanged from the alpha)
 
