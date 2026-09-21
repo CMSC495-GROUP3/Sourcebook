@@ -964,8 +964,10 @@ The product name lives in three places: `APP_NAME` in
   still works. See [above](#hallucination-refuse-rather-than-guess).
 - **Escalations have no handler UI.** The open-queue and resolve endpoints
   exist; a page for Human Resources to work through them does not.
-- **The React components have no unit tests.** The backend suite is the safety
-  net; `tsc` and ESLint check the web app.
+- **Frontend unit coverage is intentionally focused.** Vitest and React Testing
+  Library cover the chat stream, message and escalation behavior, theme toggle,
+  and theme storage. `tsc`, ESLint, and the production build cover the wider web
+  application, but visual regression and full browser tests remain future work.
 - **Document search uses `$regex`**, which does not use an index. Fine at this
   corpus size. Move to Atlas Search if the library grows large.
 - **JWTs live in browser local storage.** Acceptable for an internal pilot
