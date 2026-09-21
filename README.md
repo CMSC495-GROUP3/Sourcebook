@@ -86,6 +86,8 @@ To run it, read [docs/install.md](docs/install.md). To change it, read
 | [docs/design.md](docs/design.md) | the paper-and-ink design system |
 | [docs/evaluation.md](docs/evaluation.md) | the labeled question sets and how to score the live system |
 | [docs/load-testing.md](docs/load-testing.md) | throughput measurements and `THREADPOOL_TOKENS` |
+| [docs/ci-cd.md](docs/ci-cd.md) | the five workflows, the merge-to-deploy path, and the `v1.0.0` tag procedure |
+| [docs/quality.md](docs/quality.md) | code review, coverage, and performance evidence, with the source of every number |
 
 ### Releases
 
@@ -696,7 +698,8 @@ what changed since the last *successful* deploy, recorded in the local ref
 `/api/health` passes, or after a docs-only fast-forward that needs no rebuild.
 A failed `docker compose build` or `up` therefore leaves the ref behind, and
 the next tick retries the same tip instead of treating the fast-forwarded
-`HEAD` as already deployed.
+`HEAD` as already deployed. [docs/ci-cd.md](docs/ci-cd.md#from-merge-to-the-pilot-containers)
+walks the same path from merge to running containers.
 
 | Changed path                                       | What happens                                                                 |
 | -------------------------------------------------- | ---------------------------------------------------------------------------- |
@@ -872,7 +875,9 @@ reuse: `sourcebook-api:acceptance` and
 | PR path labels  | every PR                           | applies area labels from the changed paths                          
 | Live evaluation | by hand from the Actions tab       | scores the labeled question set against the real provider and index                                                                                                |
 
-CONTRIBUTING.md has the full table.
+CONTRIBUTING.md has the full table. [docs/ci-cd.md](docs/ci-cd.md) explains each
+workflow and what a green run does and does not prove. [docs/quality.md](docs/quality.md)
+collects the review, coverage, and performance evidence in one place.
 
 ## Document format
 
@@ -926,8 +931,9 @@ scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, t
                     synthetic test, and the load-test harness in loadtest/
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
 data/               42 fictional sample policies
-docs/               design.md, evaluation.md, load-testing.md, and one folder per release
-                    under releases/ with its handoff, notes, measurements, and evidence
+docs/               install, api, design, evaluation, load-testing, ci-cd, and quality pages,
+                    and one folder per release under releases/ with its handoff, notes,
+                    measurements, and evidence
 assets/brand/       the Sourcebook mark, source PNGs; web/public/ holds the served copies
 requirements/       *.in are pip-compile inputs (base is shared; api is the Docker image; ingest;
                     lint; dev is everything); api, dev, and ingest compile to .txt locks
