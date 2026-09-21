@@ -20,6 +20,8 @@ is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
 | [design.md](design.md) | the paper-and-ink design system for `web/` |
 | [evaluation.md](evaluation.md) | the labeled question sets in `evaluation/` and how to run the live evaluation |
 | [load-testing.md](load-testing.md) | throughput measurements from `scripts/loadtest/` and the `THREADPOOL_TOKENS` decision |
+| [ci-cd.md](ci-cd.md) | the five workflows, the merge-to-deploy path on the pilot host, and the `v1.0.0` tag procedure |
+| [quality.md](quality.md) | code review, coverage, and performance evidence, each number tied to a file, PR, or run |
 
 ## Releases
 
