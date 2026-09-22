@@ -202,8 +202,11 @@ With `SITE_ADDRESS` unset, Caddy serves plain HTTP on localhost, which is what
 3. Atlas Vector Search returns the 5 nearest passages out of 100 candidates,
    each with a similarity score.
 4. The grounding gate. If the single best passage scores below
-   `SIMILARITY_THRESHOLD`, the system declines and makes no model call. See
-   [below](#hallucination-refuse-rather-than-guess).
+   `SIMILARITY_THRESHOLD`, the system declines and makes no model call. If
+   cosine clears, a coverage judge (one extra utility call) decides whether
+   those excerpts actually answer the question before any answer-role call.
+   See [below](#hallucination-refuse-rather-than-guess). A follow-up can
+   require condense, coverage, and answer calls plus two retrievals.
 5. Otherwise the passages, recent history, and previously cited documents go to
    the answer model with instructions to use only the supplied context.
 6. Tokens stream to the browser over server-sent events. Sources and the
@@ -213,9 +216,11 @@ With `SITE_ADDRESS` unset, Caddy serves plain HTTP on localhost, which is what
 7. The exchange, its sources, and its score are saved, so reopening a past
    conversation restores its citations and not just its text. First-turn
    answers are also cached for 24 hours under a key that includes the corpus
-   version, prompt version, and retrieval settings (`SIMILARITY_THRESHOLD` and
-   `RETRIEVAL_K`), so re-ingestion or a behavior change invalidates them with
-   no cache-clearing code to get wrong.
+   version, the answer model, the coverage/utility model, the answer prompt
+   version (`PROMPT_VERSION`), the coverage prompt version
+   (`COVERAGE_PROMPT_VERSION`), and retrieval settings (`SIMILARITY_THRESHOLD`
+   and `RETRIEVAL_K`), so re-ingestion or a behavior change invalidates them
+   with no cache-clearing code to get wrong.
 8. If the assistant refused, or the answer did not help, the employee can hand
    the question to a person from the same screen.
 
