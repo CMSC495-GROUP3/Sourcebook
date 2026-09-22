@@ -332,10 +332,11 @@ at-least-once: a receiver that accepts a request immediately before the worker
 dies may see the same escalation again, so consumers should deduplicate by
 `escalation_id`.
 
-Whoever handles the queue lists it with `GET /api/escalations?status=open` and
-closes an item with `PATCH /api/escalations/{id}` and a resolution note. There
-is no UI for that side yet. The endpoints are enough for a script or a
-webhook-fed channel.
+Human Resources works the queue from the **HR Requests** page in the web app,
+which lists open escalations, resolves or reopens them with a note, and retries
+failed webhook delivery. The same operations are available as
+`GET /api/escalations?status=open`, `PATCH /api/escalations/{id}`, and
+`POST /api/escalations/{id}/retry-delivery` for a script or a webhook-fed channel.
 
 ### Vendor lock-in: one interface, one env var
 
@@ -967,8 +968,6 @@ The product name lives in three places: `APP_NAME` in
   source chips instead of the refusal card (#192), and an uncovered follow-up
   can clear the gate the same way (#189). The escalation link under the answer
   still works. See [above](#hallucination-refuse-rather-than-guess).
-- **Escalations have no handler UI.** The open-queue and resolve endpoints
-  exist; a page for Human Resources to work through them does not.
 - **Frontend unit coverage is intentionally focused.** Vitest and React Testing
   Library cover the chat stream, message and escalation behavior, theme toggle,
   and theme storage. `tsc`, ESLint, and the production build cover the wider web
