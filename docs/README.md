@@ -1,8 +1,9 @@
 # Documentation
 
 Narrative docs live here. New to the project? Start with
-[install.md](install.md). The [README](../README.md) explains what the system
-is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
+[install.md](install.md). Using the product as an employee or HR handler?
+[user-guide.md](user-guide.md). The [README](../README.md) explains what the
+system is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
 [SECURITY.md](../SECURITY.md) covers reporting a vulnerability.
 
 ### Running
@@ -10,6 +11,7 @@ is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
 | Page | Covers |
 | --- | --- |
 | [install.md](install.md) | the live site, the offline stub, real services with every `.env` variable, deployment |
+| [user-guide.md](user-guide.md) | employee and HR handler workflows for the shipped product |
 
 ### Reference
 
@@ -35,13 +37,19 @@ handoff, release notes, live benchmark, live evaluation, and evidence.
 ## Planned, not tagged
 
 `v1.0.0` is a folder, not a GitHub release. It does not belong in the tagged
-table above. The CI/CD and quality pages are indexed above; the team record
-still waits on pull request #231. The remaining release gates are in
-[releases/v1.0.0/handoff.md](releases/v1.0.0/handoff.md).
+table above. The CI/CD, quality, and user-guide pages are indexed above; the
+team record still waits on pull request #231. The remaining release gates are
+in [releases/v1.0.0/handoff.md](releases/v1.0.0/handoff.md).
 
 | Folder | What it is |
 | --- | --- |
 | [releases/v1.0.0/portfolio.md](releases/v1.0.0/portfolio.md) | Unit 8 grader table. Pre-tag scaffold for [#215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215). Not a GitHub release |
+| [releases/v1.0.0/release-notes.md](releases/v1.0.0/release-notes.md) | Skeleton release body. No tag |
+| [releases/v1.0.0/handoff.md](releases/v1.0.0/handoff.md) | Pre-tag blocker checklist. Not a verification record |
+| [releases/v1.0.0/evidence/README.md](releases/v1.0.0/evidence/README.md) | Empty screenshot/coverage folder until freeze |
+| [releases/v1.0.0/evidence/numbers.md](releases/v1.0.0/evidence/numbers.md) | Shared position-paper figures. Pending cells stay Pending |
+| [releases/v1.0.0/stakeholder-video-script.md](releases/v1.0.0/stakeholder-video-script.md) | Pre-production script. Recording and URL pending |
+| [releases/v1.0.0/stakeholder-video-shot-list.md](releases/v1.0.0/stakeholder-video-shot-list.md) | Pre-production shot list. Recording pending |
 
 ## Conventions
 
@@ -50,4 +58,5 @@ still waits on pull request #231. The remaining release gates are in
   its `evidence/` folder, numbered in the order the steps ran.
 - Brand source images live in `../assets/brand/`; the served copies are in
   `web/public/`.
-- Link only pages that exist on `main`. A draft pull request is not a page.
+- Link only pages that exist on the branch being merged. A draft pull request
+  elsewhere is not a page on `main` until it lands.

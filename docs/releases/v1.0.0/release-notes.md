@@ -39,13 +39,18 @@ cuts `v0.2.0-beta.1`._ The beta folder does not exist yet. Do not invent a
 delta from a tag that has not been cut. The last published notes are
 [v0.1.0-alpha.1/release-notes.md](../v0.1.0-alpha.1/release-notes.md).
 
-On current `main`, and **not** claimed as a `v1.0.0` ship list:
+On current `main` / this integrator branch, and **not** claimed as a `v1.0.0`
+ship list:
 [docs/api.md](../../api.md) and [docs/openapi.json](../../openapi.json)
 ([#204](https://github.com/CMSC495-GROUP3/Sourcebook/issues/204) /
 [PR #221](https://github.com/CMSC495-GROUP3/Sourcebook/pull/221)),
 [docs/install.md](../../install.md)
 ([#205](https://github.com/CMSC495-GROUP3/Sourcebook/issues/205) /
 [PR #233](https://github.com/CMSC495-GROUP3/Sourcebook/pull/233)),
+[docs/user-guide.md](../../user-guide.md)
+([#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206) /
+absorbed from [pull request #259](https://github.com/CMSC495-GROUP3/Sourcebook/pull/259);
+screenshots remain alpha-interim),
 live-evaluation fail-closed ([#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) /
 [PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226)),
 provider saturation as 503 ([#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) /
@@ -91,6 +96,7 @@ mode.
 Setup, the live site, real services, and deployment are in
 [docs/install.md](../../install.md). The [README](../../../README.md) walks
 one question through retrieval, the gate, and streaming.
+Employee and HR workflows are in [docs/user-guide.md](../../user-guide.md).
 [CONTRIBUTING.md](../../../CONTRIBUTING.md) covers changing the code.
 The HTTP contract is [docs/api.md](../../api.md) and
 [docs/openapi.json](../../openapi.json).
@@ -138,14 +144,25 @@ PASS.
   is synthetic. The [alpha live-benchmark](../v0.1.0-alpha.1/live-benchmark.md)
   is seven requests. The deployed load run is
   [#212](https://github.com/CMSC495-GROUP3/Sourcebook/issues/212).
+- **Coverage XML, Lighthouse, and deployment journals are not in this folder.**
+  [#210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210),
+  [#214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214),
+  [#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207).
 - **The corpus is fictional.** Sourcebook has never run against a real
   company's policies.
 - **One deployment, one instance, no failover.** No backup schedule, no
   restore drill.
 - **`CustomerDataProvider` is designed and not written.**
-- **The video and the seven position papers are not in this repository.**
-  [#216](https://github.com/CMSC495-GROUP3/Sourcebook/issues/216),
-  [#217](https://github.com/CMSC495-GROUP3/Sourcebook/issues/217).
+- **The stakeholder video is not recorded or published.** Pre-production
+  [script](stakeholder-video-script.md) and [shot list](stakeholder-video-shot-list.md)
+  live in this folder ([#216](https://github.com/CMSC495-GROUP3/Sourcebook/issues/216));
+  recording happens after the tag. The seven position papers are not in this
+  repository. The shared figures sheet is
+  [evidence/numbers.md](evidence/numbers.md)
+  ([#217](https://github.com/CMSC495-GROUP3/Sourcebook/issues/217)); Pending
+  cells stay Pending.
+
+Video URL placeholder for the freeze follow-up: _TBD after upload._
 
 ## Reproducing a version that does not exist
 

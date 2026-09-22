@@ -65,7 +65,8 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 
 ## Documentation
 
-To run it, read [docs/install.md](docs/install.md). To change it, read
+To run it, read [docs/install.md](docs/install.md). To use it as an employee or
+HR handler, read [docs/user-guide.md](docs/user-guide.md). To change it, read
 [CONTRIBUTING.md](CONTRIBUTING.md). Everything under `docs/` is indexed in
 [docs/README.md](docs/README.md).
 
@@ -74,6 +75,7 @@ To run it, read [docs/install.md](docs/install.md). To change it, read
 | Page | Covers |
 | --- | --- |
 | [docs/install.md](docs/install.md) | the live site, the offline stub, real services, deployment |
+| [docs/user-guide.md](docs/user-guide.md) | sign-in, ask, citations, refusal, escalate; HR API/webhook and the knowledge-gap report |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | checks, conventions, and the things that bite |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability; what the Security workflow scans |
 
@@ -101,13 +103,21 @@ its handoff, release notes, live benchmark, live evaluation, and evidence.
 ### Planned, not tagged
 
 `v1.0.0` is a folder, not a GitHub release. It does not belong in the tagged
-table above. The CI/CD and quality pages are indexed above; the team record
-still waits on pull request #231. The remaining release gates are in
+table above. The CI/CD, quality, and user-guide pages are indexed above; the
+team record still waits on pull request #231. Frontend unit tests still wait
+on pull request #252, so the no-unit-tests limitation below stays. The
+remaining release gates are in
 [docs/releases/v1.0.0/handoff.md](docs/releases/v1.0.0/handoff.md).
 
 | Folder | What it is |
 | --- | --- |
 | [docs/releases/v1.0.0/portfolio.md](docs/releases/v1.0.0/portfolio.md) | Unit 8 grader table. Pre-tag scaffold for [#215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215). Not the submitted version |
+| [docs/releases/v1.0.0/release-notes.md](docs/releases/v1.0.0/release-notes.md) | Skeleton release body. No tag |
+| [docs/releases/v1.0.0/handoff.md](docs/releases/v1.0.0/handoff.md) | Pre-tag blocker checklist. Not a verification record |
+| [docs/releases/v1.0.0/evidence/README.md](docs/releases/v1.0.0/evidence/README.md) | Empty screenshot/coverage slots until freeze |
+| [docs/releases/v1.0.0/evidence/numbers.md](docs/releases/v1.0.0/evidence/numbers.md) | Shared position-paper figures. Pending cells stay Pending |
+| [docs/releases/v1.0.0/stakeholder-video-script.md](docs/releases/v1.0.0/stakeholder-video-script.md) | Pre-production script. Recording and URL pending |
+| [docs/releases/v1.0.0/stakeholder-video-shot-list.md](docs/releases/v1.0.0/stakeholder-video-shot-list.md) | Pre-production shot list. Recording pending |
 
 Coding agents get the condensed version of all of this in
 [.agents/skills/sourcebook/SKILL.md](.agents/skills/sourcebook/SKILL.md).

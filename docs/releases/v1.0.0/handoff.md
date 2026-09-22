@@ -13,7 +13,9 @@ This folder follows that alpha pattern
 one addition, `portfolio.md`. `live-benchmark.md` and `live-evaluation.md`
 are deliberately absent until the three checks are re-run against the
 deployed candidate. Copy the alpha pages then; do not invent numbers.
-`evidence/` is empty for the same reason.
+Screenshot and coverage slots under `evidence/` stay empty for the same
+reason. [evidence/numbers.md](evidence/numbers.md) is the shared sheet with
+Pending cells, not a filled freeze table.
 
 ## The submitted version
 
@@ -38,14 +40,17 @@ deployed candidate. Copy the alpha pages then; do not invent numbers.
   through retrieval, the grounding gate, and streaming.
   [docs/api.md](../../api.md) and [docs/openapi.json](../../openapi.json)
   are the committed HTTP contract.
+  [docs/user-guide.md](../../user-guide.md) is the employee and HR workflow
+  page.
   [CONTRIBUTING.md](../../../CONTRIBUTING.md) covers the development setup.
 
 ## Remaining integration order (this pull request is last)
 
-This pull request is the documentation-index integrator, not an advance
-placeholder. Pull requests #228 and #232 are now on `main`, and this branch
-links their CI/CD and quality pages. Do not add links or claims for files that
-still live only on draft branches.
+This pull request is the documentation-index integrator. Pull requests #228
+and #232 are on `main`. Draft pages from #259 (user guide), #260 (numbers
+sheet), and #262 (video package) are absorbed into this branch so the folder
+stays coherent. Do not add links or claims for files that still live only on
+unrelated draft branches (notably `docs/team.md` on #231).
 
 1. [Pull request #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) merges and lands `.mailmap` plus `docs/team.md` ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)).
 2. Preferably, [pull request #252](https://github.com/CMSC495-GROUP3/Sourcebook/pull/252) lands the scoped frontend test suite ([#211](https://github.com/CMSC495-GROUP3/Sourcebook/issues/211)).
@@ -63,10 +68,11 @@ is the order.
 | --- | --- |
 | [#203](https://github.com/CMSC495-GROUP3/Sourcebook/issues/203) cut `v0.2.0-beta.1` | Open. Remaining correctness blocker is [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192). Closed since the scaffold was first written: [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) ([PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245)), [#118](https://github.com/CMSC495-GROUP3/Sourcebook/issues/118) ([PR #247](https://github.com/CMSC495-GROUP3/Sourcebook/pull/247)), [#158](https://github.com/CMSC495-GROUP3/Sourcebook/issues/158) ([PR #176](https://github.com/CMSC495-GROUP3/Sourcebook/pull/176)), [#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160) ([PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171)), [#174](https://github.com/CMSC495-GROUP3/Sourcebook/issues/174), [#223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223) ([PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226)) |
 | [#192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), refusal card follows the model's own decline | Open. [#189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) is closed. Alpha smoke-tier refusal metrics are 0% and remain the last committed measurement |
-| Documentation pages #204–#209 | API, OpenAPI, install, [CI/CD](../../ci-cd.md), and [quality](../../quality.md) are on `main`. [#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207) and [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208) remain open for final-release evidence. Still missing: [#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206) user guide and [#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) / draft [pull request #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) team records |
+| Documentation pages #204–#209 | API, OpenAPI, install, [CI/CD](../../ci-cd.md), [quality](../../quality.md), and [user-guide](../../user-guide.md) prose are in the tree. [#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207) and [#208](https://github.com/CMSC495-GROUP3/Sourcebook/issues/208) remain open for final-release evidence. [#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206) still needs the beta/final screenshot refresh. Still missing on `main`: [#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209) / draft [pull request #231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) team records |
 | Re-run the three checks on the deployed candidate (browser pass, bounded benchmark, smoke-tier evaluation) | Not started for `v1.0.0`. Do not copy alpha numbers into new files and call them final |
-| `live-benchmark.md`, `live-evaluation.md`, and `evidence/` filled from those checks | Not written |
-| Video link | [#216](https://github.com/CMSC495-GROUP3/Sourcebook/issues/216), recorded after the tag |
+| `live-benchmark.md`, `live-evaluation.md`, and screenshot/coverage evidence filled from those checks | Not written |
+| Video recording and URL | [#216](https://github.com/CMSC495-GROUP3/Sourcebook/issues/216). Script and shot list are in this folder as pre-production only; record after the tag |
+| Shared numbers sheet Pending cells | [#217](https://github.com/CMSC495-GROUP3/Sourcebook/issues/217). [evidence/numbers.md](evidence/numbers.md) exists; fill only from named freeze artifacts |
 | A commit on `main` after the work above, CI and Security green, then tag | Not chosen |
 
 Hands-off elsewhere, still open, and not implemented from this folder:
@@ -83,9 +89,10 @@ in the notes; it closed in [PR #245](https://github.com/CMSC495-GROUP3/Sourceboo
 ## What this page does not establish
 
 - That `v1.0.0` was verified, tagged, or published.
-- That live evaluation or the bounded benchmark was re-run.
-- That the 10,000-user requirement, the full evaluation tier, or a real
-  corpus was measured.
+- That live evaluation, the bounded benchmark, coverage XML, Lighthouse, or
+  deployed load was re-run or measured for this folder.
+- That the video was recorded or published (script and shot list only).
+- That Pending cells in [evidence/numbers.md](evidence/numbers.md) are final.
 - That the remaining open pull requests listed above have merged.
 
 ## The tag (do not run these yet)
