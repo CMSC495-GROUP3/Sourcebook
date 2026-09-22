@@ -39,6 +39,43 @@ ModelRole = Literal["answer", "utility"]
 Message = dict  # {"role": "system" | "user" | "assistant", "content": str}
 
 
+class ProviderBusyError(Exception):
+    """The provider could not take another request within the capacity wait.
+
+    An expected, short-lived condition, not a generation failure: the chat
+    routes answer it with HTTP 503 and Retry-After so a client can try again,
+    and they keep the generic error path for anything unexpected. Deliberately
+    not a RuntimeError, so an `except RuntimeError` cannot swallow it by
+    accident.
+    """
+
+
+def _reraise_transient_openai(exc: BaseException) -> None:
+    """Turn OpenAI timeouts, drops, 429s, and 5xx into ``TimeoutError``.
+
+    The coverage judge re-raises ``TimeoutError`` so a blip is not cached as
+    ``refused=True``. Terminal 4xx (auth, permission, bad request) are left
+    alone. Other modules never import a vendor; this helper is the only place
+    those SDK types are named. No-op when openai is not installed or the error
+    is something else.
+    """
+    try:
+        import openai
+    except ImportError:
+        return
+    if isinstance(
+        exc,
+        (
+            openai.APIConnectionError,
+            openai.RateLimitError,
+            openai.InternalServerError,
+        ),
+    ):
+        raise TimeoutError(
+            "OpenAI request timed out, dropped, was rate-limited, or returned a transient 5xx"
+        ) from exc
+
+
 class LLMProvider(ABC):
     """The contract every provider must satisfy.
 
@@ -101,6 +138,10 @@ class LLMProvider(ABC):
         """Identifies the answer model, for the answer cache key."""
         return self.name
 
+    def utility_fingerprint(self) -> str:
+        """Identifies the utility/coverage model, for the answer cache key."""
+        return self.name
+
 
 class OpenAIProvider(LLMProvider):
     """OpenAI-backed implementation — the default for the pilot."""
@@ -149,7 +190,7 @@ class OpenAIProvider(LLMProvider):
         """Bound provider occupancy without tying up the whole app thread pool."""
         acquired = self._capacity.acquire(timeout=OPENAI_CAPACITY_WAIT_SECONDS)
         if not acquired:
-            raise RuntimeError("OpenAI provider is at its configured concurrency limit")
+            raise ProviderBusyError("OpenAI provider is at its configured concurrency limit")
         try:
             yield
         finally:
@@ -163,6 +204,9 @@ class OpenAIProvider(LLMProvider):
 
     def answer_fingerprint(self) -> str:
         return f"{self.name}:{self.ANSWER_MODEL}"
+
+    def utility_fingerprint(self) -> str:
+        return f"{self.name}:{self.UTILITY_MODEL}"
 
     def embed(self, text: str) -> list[float]:
         with self._request_slot():
@@ -199,12 +243,18 @@ class OpenAIProvider(LLMProvider):
         role: ModelRole = "utility",
         temperature: float = 0.0,
     ) -> str:
-        with self._request_slot():
-            response = self._client.chat.completions.create(
-                model=self._model_for(role),
-                messages=messages,
-                temperature=temperature,
-            )
+        try:
+            with self._request_slot():
+                response = self._client.chat.completions.create(
+                    model=self._model_for(role),
+                    messages=messages,
+                    temperature=temperature,
+                )
+        except ProviderBusyError:
+            raise
+        except Exception as exc:
+            _reraise_transient_openai(exc)
+            raise
         return response.choices[0].message.content or ""
 
     def stream(
@@ -305,6 +355,19 @@ class FakeProvider(LLMProvider):
             self._sleep(self.STREAM_DELAY_MS * len(self.ANSWER.split()))
             return self.ANSWER
         self._sleep(self.UTILITY_DELAY_MS)
+        system = next(
+            (
+                str(message.get("content", ""))
+                for message in messages
+                if message.get("role") == "system"
+            ),
+            "",
+        )
+        # Stub mode has no real coverage judge. Identify the call by the
+        # system-prompt identity, not by JSON literals in the user message, so
+        # ordinary utility prompts that mention those strings still rewrite.
+        if system.startswith("You are a coverage judge"):
+            return '{"covered": true}'
         # Utility calls ask for three newline-separated questions.
         return (
             "How do I request time off?\n"

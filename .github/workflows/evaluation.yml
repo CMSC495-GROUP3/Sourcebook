@@ -105,6 +105,7 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           MONGODB_DB: ${{ secrets.MONGODB_DB }}
           EVAL_TIER: ${{ inputs.tier }}
+          CACHE_ENABLED: "0"
         run: |
           set -euo pipefail
           python -m sourcebook.rag.evaluation \

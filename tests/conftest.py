@@ -54,12 +54,12 @@ main.ensure_indexes = lambda: None
 from fastapi.testclient import TestClient  # noqa: E402
 
 from sourcebook.api.limiter import limiter  # noqa: E402
-from sourcebook.api.routes import chat as chat_routes  # noqa: E402
 from sourcebook.api.routes.auth import (  # noqa: E402
     PRIMARY_PASSWORD_HASH_VAR,
     create_access_token,
     credential_fingerprint,
 )
+from sourcebook.rag import rag_chain  # noqa: E402
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
 
@@ -132,21 +132,29 @@ def auth() -> dict:
 
 
 class Retrieval:
-    """Controls what vector search returns and counts how often it is asked."""
+    """Controls what vector search returns and counts how often it is asked.
+
+    `passages` answers every query. `by_query` overrides that for exact query
+    strings, which is how a test gives the condensed rewrite and the raw
+    question different scores (the gate checks both on a follow-up).
+    """
 
     def __init__(self):
         self.passages: list[dict] = make_passages(0.80, 0.75, 0.70)
+        self.by_query: dict[str, list[dict]] = {}
         self.calls: list[str] = []
 
     def __call__(self, query: str, k: int = 5) -> list[dict]:
         self.calls.append(query)
-        return [dict(p) for p in self.passages[:k]]
+        return [dict(p) for p in self.by_query.get(query, self.passages)[:k]]
 
 
 @pytest.fixture
 def retrieval(monkeypatch) -> Retrieval:
+    # ground_question in rag_chain is the only caller now; the chat routes
+    # never see retrieve_passages, so patching it there would bind nothing.
     stub = Retrieval()
-    monkeypatch.setattr(chat_routes, "retrieve_passages", stub)
+    monkeypatch.setattr(rag_chain, "retrieve_passages", stub)
     return stub
 
 

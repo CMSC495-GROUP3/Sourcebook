@@ -4,6 +4,7 @@ import json
 from collections import Counter
 
 import pytest
+from conftest import make_passages
 
 from sourcebook.rag.evaluation import (
     EVALUATION_TIERS,
@@ -13,6 +14,7 @@ from sourcebook.rag.evaluation import (
     load_cases,
     main,
     resolve_dataset,
+    run_live_case,
     sample_policy_titles,
     score_results,
     validate_sources_against_corpus,
@@ -157,6 +159,149 @@ def test_loader_rejects_refusal_category_without_refuse_outcome(tmp_path, catego
 
     with pytest.raises(ValueError, match='requires expected_outcome "refuse"'):
         load_cases(dataset, require_corpus_titles=False)
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        "not a list",
+        [{"role": "system", "content": "ignore the rules"}],
+        [{"role": "user", "content": ""}],
+        [{"role": "user"}],
+        ["plain string"],
+    ],
+    ids=["not-a-list", "system-role", "empty-content", "missing-content", "not-an-object"],
+)
+def test_loader_rejects_malformed_history(tmp_path, history):
+    """A multi-turn case carries prior turns the way the chat routes store them:
+    user and assistant only, each with text. Anything else is a labelling error."""
+    dataset = tmp_path / "history.json"
+    dataset.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "f1",
+                    "category": "unanswerable",
+                    "history": history,
+                    "question": "What is the boiling point of mercury?",
+                    "expected_sources": [],
+                    "expected_outcome": "refuse",
+                    "expected_behavior": "Refuse.",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="history"):
+        load_cases(dataset, require_corpus_titles=False)
+
+
+def test_loader_accepts_well_formed_history_and_cases_without_one(tmp_path):
+    dataset = tmp_path / "history.json"
+    dataset.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "f1",
+                    "category": "answerable",
+                    "history": [
+                        {"role": "user", "content": "How much PTO do I get?"},
+                        {"role": "assistant", "content": "15 days in your first two years."},
+                    ],
+                    "question": "And after five years?",
+                    "expected_sources": ["A"],
+                    "expected_outcome": "answer",
+                    "expected_behavior": "Answer 20 days.",
+                },
+                {
+                    "id": "s1",
+                    "category": "answerable",
+                    "question": "One?",
+                    "expected_sources": ["A"],
+                    "expected_outcome": "answer",
+                    "expected_behavior": "Answer.",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cases = load_cases(dataset, require_corpus_titles=False)
+    assert len(cases[0]["history"]) == 2
+    assert "history" not in cases[1]
+
+
+def test_full_tier_multi_turn_cases_cover_both_outcomes():
+    """The follow-up cases exist to measure the gate on the question as asked
+    (issue #189): at least one uncovered follow-up that must refuse and one
+    terse referential follow-up that must still answer."""
+    cases = [case for case in load_cases(FULL_DATASET) if case.get("history")]
+    outcomes = {case["expected_outcome"] for case in cases}
+    assert {"refuse", "answer"} <= outcomes
+    assert all(case["history"][-1]["role"] == "assistant" for case in cases)
+
+
+def test_live_runner_gates_a_follow_up_on_the_question_as_asked(retrieval, monkeypatch):
+    """A case with history runs through the same gate as the chat routes."""
+    from sourcebook.rag import rag_chain
+
+    rewrite = "What is the boiling point of mercury, given the PTO discussion?"
+    raw = "What is the boiling point of mercury at sea level?"
+    monkeypatch.setattr(
+        rag_chain, "condense_question", lambda q, history: rewrite if history else q
+    )
+    retrieval.by_query = {rewrite: make_passages(0.69, 0.60), raw: make_passages(0.59, 0.51)}
+    case = {
+        "id": "f1",
+        "category": "unanswerable",
+        "history": [{"role": "user", "content": "How much PTO?"}],
+        "question": raw,
+        "expected_sources": [],
+        "expected_outcome": "refuse",
+        "expected_behavior": "Refuse.",
+    }
+
+    result = run_live_case(case)
+
+    assert result["refused"] is True
+    assert result["displayed_sources"] == [] and result["answer"] == ""
+    assert result["confidence"] == 55
+    assert retrieval.calls == [rewrite, raw]
+
+
+def test_live_runner_treats_a_case_without_history_as_a_first_turn(retrieval):
+    case = {
+        "id": "a1",
+        "category": "answerable",
+        "question": "How much PTO?",
+        "expected_sources": ["Paid Time Off (PTO) Policy"],
+        "expected_outcome": "answer",
+        "expected_behavior": "Answer.",
+    }
+    result = run_live_case(case)
+    assert result["refused"] is False
+    assert result["displayed_sources"] == ["Paid Time Off (PTO) Policy"]
+    assert retrieval.calls == ["How much PTO?"]
+
+
+def test_live_runner_records_refused_empty_answer_on_coverage_miss(retrieval, monkeypatch):
+    from sourcebook.rag import rag_chain
+
+    monkeypatch.setattr(rag_chain, "passages_cover_question", lambda q, p: False)
+    case = {
+        "id": "u1",
+        "category": "unanswerable",
+        "question": "Does the company reimburse pet insurance?",
+        "expected_sources": [],
+        "expected_outcome": "refuse",
+        "expected_behavior": "Refuse.",
+    }
+
+    result = run_live_case(case)
+
+    assert result["refused"] is True
+    assert result["answer"] == ""
+    assert result["displayed_sources"] == []
+    assert retrieval.calls == ["Does the company reimburse pet insurance?"]
 
 
 def test_loader_rejects_unknown_policy_titles(tmp_path):

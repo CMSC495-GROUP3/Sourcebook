@@ -94,6 +94,14 @@ REFUSAL_MESSAGE = (
     "this is something the handbook should cover, it's worth flagging to them."
 )
 
+# Shown when the model provider is at its concurrency limit
+# (OPENAI_MAX_CONCURRENT_REQUESTS) for longer than OPENAI_CAPACITY_WAIT_SECONDS.
+# A short-lived condition the user can retry, unlike a generation failure.
+PROVIDER_BUSY_MESSAGE = (
+    "The assistant is answering as many questions as it can right now. "
+    "Please try again in a moment."
+)
+
 # ── Concurrency ───────────────────────────────────────────────────────────────
 # Size of the thread pool FastAPI uses to run sync routes and to iterate the SSE
 # generator. Starlette calls next() on that generator through the pool, so a
@@ -160,7 +168,16 @@ EMBEDDING_CACHE_TTL_SECONDS = int(os.getenv("EMBEDDING_CACHE_TTL_SECONDS", str(3
 # Bump this whenever ANSWER_SYSTEM_PROMPT changes. It is part of the answer
 # cache key, so without a bump a prompt fix would keep serving pre-fix answers
 # until the TTL expired.
+#
+# Issue #192 added a utility coverage judge before the answer role. That prompt
+# is not ANSWER_SYSTEM_PROMPT, so PROMPT_VERSION stays at v2. Cached
+# "answered" misses are invalidated by COVERAGE_PROMPT_VERSION instead.
 PROMPT_VERSION = os.getenv("PROMPT_VERSION", "v2")
+
+# Bump this whenever the coverage-judge prompt or its parse rules change. It is
+# part of the answer cache key so a prior answered entry cannot be served after
+# the gate starts refusing uncovered high-cosine questions.
+COVERAGE_PROMPT_VERSION = os.getenv("COVERAGE_PROMPT_VERSION", "v2")
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 # Every chat request writes one query_logs record. This is the substrate for

@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-import sourcebook.rag.evaluation as evaluation
 from scripts.validate_live_evaluation import main as validate_cli_main
 from sourcebook.rag.evaluation import (
     _validate_rate_metric,
@@ -17,6 +16,14 @@ from sourcebook.rag.evaluation import (
     validate_results_file,
     validate_results_report,
 )
+from sourcebook.rag.evaluation import (
+    main as evaluation_main,
+)
+
+# main() looks these up on its own module at call time, so the patches go by
+# dotted path rather than through a second import of the module.
+RUN_EVALUATION = "sourcebook.rag.evaluation.run_evaluation"
+SCORE_RESULTS = "sourcebook.rag.evaluation.score_results"
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "evaluation.yml"
 
@@ -251,7 +258,7 @@ def test_evaluation_main_rejects_bad_mongodb_db_without_writing(
     for key, value in _complete_env(MONGODB_DB=bad).items():
         monkeypatch.setenv(key, value)
     output = tmp_path / "results.json"
-    assert evaluation.main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
+    assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
     assert not output.exists()
     assert "MONGODB_DB" in capsys.readouterr().err
 
@@ -259,7 +266,7 @@ def test_evaluation_main_rejects_bad_mongodb_db_without_writing(
 def _run_main_with_live_env(monkeypatch: pytest.MonkeyPatch, output: Path) -> int:
     for key, value in _complete_env().items():
         monkeypatch.setenv(key, value)
-    return evaluation.main(["--tier", "smoke", "--yes", "--output", str(output)])
+    return evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)])
 
 
 def test_evaluation_main_reports_runner_failure_without_writing(
@@ -268,7 +275,7 @@ def test_evaluation_main_reports_runner_failure_without_writing(
     def explode(cases):
         raise RuntimeError("provider exploded")
 
-    monkeypatch.setattr(evaluation, "run_evaluation", explode)
+    monkeypatch.setattr(RUN_EVALUATION, explode)
     output = tmp_path / "results.json"
     assert _run_main_with_live_env(monkeypatch, output) == 1
     assert not output.exists()
@@ -283,7 +290,7 @@ def test_evaluation_main_names_argumentless_exception(
     def explode(cases):
         raise RuntimeError()
 
-    monkeypatch.setattr(evaluation, "run_evaluation", explode)
+    monkeypatch.setattr(RUN_EVALUATION, explode)
     output = tmp_path / "results.json"
     assert _run_main_with_live_env(monkeypatch, output) == 1
     assert not output.exists()
@@ -299,8 +306,8 @@ def test_evaluation_main_rejects_unscoreable_report_without_writing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ):
     empty_metrics = {**_valid_report()["metrics"], "evaluated_cases": 0}
-    monkeypatch.setattr(evaluation, "run_evaluation", lambda cases: [])
-    monkeypatch.setattr(evaluation, "score_results", lambda cases, results: empty_metrics)
+    monkeypatch.setattr(RUN_EVALUATION, lambda cases: [])
+    monkeypatch.setattr(SCORE_RESULTS, lambda cases, results: empty_metrics)
     output = tmp_path / "results.json"
     assert _run_main_with_live_env(monkeypatch, output) == 1
     assert not output.exists()
