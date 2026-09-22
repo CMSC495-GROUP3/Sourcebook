@@ -283,6 +283,27 @@ def test_live_runner_treats_a_case_without_history_as_a_first_turn(retrieval):
     assert retrieval.calls == ["How much PTO?"]
 
 
+def test_live_runner_records_refused_empty_answer_on_coverage_miss(retrieval, monkeypatch):
+    from sourcebook.rag import rag_chain
+
+    monkeypatch.setattr(rag_chain, "passages_cover_question", lambda q, p: False)
+    case = {
+        "id": "u1",
+        "category": "unanswerable",
+        "question": "Does the company reimburse pet insurance?",
+        "expected_sources": [],
+        "expected_outcome": "refuse",
+        "expected_behavior": "Refuse.",
+    }
+
+    result = run_live_case(case)
+
+    assert result["refused"] is True
+    assert result["answer"] == ""
+    assert result["displayed_sources"] == []
+    assert retrieval.calls == ["Does the company reimburse pet insurance?"]
+
+
 def test_loader_rejects_unknown_policy_titles(tmp_path):
     dataset = tmp_path / "unknown.json"
     dataset.write_text(
