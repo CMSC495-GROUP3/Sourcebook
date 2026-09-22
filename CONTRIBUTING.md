@@ -89,7 +89,7 @@ make cov      # same, with a per-file coverage report
 make lint     # ruff on Python; ESLint and tsc on the web app
 make fmt      # fix what ruff can fix, then format; run before committing
 make build    # production web build
-make check    # test, lint, build; this is what the CI workflow runs
+make check    # Python tests, web tests (test-web / npm test), lint, build; this is what the CI workflow runs
 make openapi  # rewrite docs/openapi.json from the live app; CI diffs this file
 make audit    # known vulnerabilities in both dependency trees (the Security workflow)
 ```
@@ -109,7 +109,7 @@ so they run on fork PRs too.
 | CI | Python tests (3.11 through 3.14) | a failing test, or coverage under 80% on any version |
 | CI | Evaluation dataset | `evaluation/questions.json` or `questions_full.json` that `load_cases` rejects |
 | CI | OpenAPI document | `make openapi` rewriting `docs/openapi.json` so it no longer matches the commit |
-| CI | Web lint, types, build | ESLint, `tsc -b`, or `vite build` |
+| CI | Web lint, types, test, build | ESLint, `tsc`, `npm test`, or `vite build` |
 | CI | Docker images and Compose | either image failing to build, the API image failing to import `sourcebook.api.main`, an invalid `docker-compose.yml`, or `scripts/test_proxy_chain.py` failing the live Caddy → Nginx → Uvicorn client-IP / rate-limit check |
 | CI | Shell, Dockerfile, workflow lint | shellcheck on `scripts/*.sh`, hadolint on both Dockerfiles, actionlint on the workflows, or a `.env`, key, or build output that got committed |
 | Security | CodeQL, dependency advisories, dependency review, leaked secrets | a new finding; the accepted-advisory list is in `scripts/audit.sh` |

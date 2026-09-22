@@ -69,7 +69,9 @@ From the README [Tests and CI](../README.md#tests-and-ci) section, which matches
 
 **Covered (stubbed suite):** the grounding gate and its best-not-mean rule, server-side history filtering, the SSE protocol, first-turn caching and invalidation, query logging, query-log analysis reports ([PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171), `tests/test_query_log_reports.py`), escalations end to end, ingestion without real services, the labeled evaluation set and its metrics, and bookkeeping after a client hangs up mid-stream.
 
-**Not covered:** live calls to AWS, Atlas, or OpenAI, and the React components. `tsc` and ESLint check `web/`; there are still no component unit tests on `main` ([issue #211](https://github.com/CMSC495-GROUP3/Sourcebook/issues/211) is open). This page does not cite a web-coverage artifact because that file is not on `main`.
+**Frontend coverage:** [PR #252](https://github.com/CMSC495-GROUP3/Sourcebook/pull/252) adds Vitest and React Testing Library coverage for the chat stream, message and escalation behavior, theme toggle, and theme storage. On its validated head, `npm test` ran 32 tests across five files and reported 99.46% statements, 96.42% branches, 100% functions, and 99.37% lines for the five configured source files. Each metric clears the enforced 80% floor. The command runs from `make check` and the web CI job.
+
+**Not covered:** live calls to AWS, Atlas, or OpenAI, visual regression, and full browser workflows. `tsc`, ESLint, and the production build check the rest of `web/`; the focused unit-coverage numbers above do not describe the entire frontend.
 
 The suite is the real application with Mongo, the model, and vector search replaced (`tests/conftest.py`, `scripts/loadtest/fakemongo.py`). A green `make check` does not measure retrieval quality.
 
@@ -98,4 +100,4 @@ make audit    # pip-audit and npm audit; accepted advisories in scripts/audit.sh
 
 ## What this page will gain later
 
-When #210 commits the tagged coverage table, replace the floor-only paragraph with that number and the run link. When #212, #213, and #214 produce artifacts, add rows to the table above. When #211 lands React component tests on `main`, cite that suite; `tsc` and ESLint are not those tests. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open. None of those replacements are this PR.
+When #210 commits the tagged Python coverage table, replace the floor-only paragraph with that number and the run link. When #212, #213, and #214 produce artifacts, add rows to the table above. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open.
