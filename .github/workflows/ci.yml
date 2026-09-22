@@ -92,19 +92,39 @@ jobs:
       - name: Coverage summary
         if: always()
         run: |
-          echo "## Coverage (Python ${{ matrix.python }})" >> "$GITHUB_STEP_SUMMARY"
-          python -m coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Coverage (Python ${{ matrix.python }})"
+            python -m coverage report --format=markdown
+          } | tee coverage-table.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         # Keep the complete 3.12 evidence bundle for every run. Other matrix
         # versions upload only when they fail, so successful PRs do not retain
-        # four copies of equivalent coverage and JUnit output.
+        # four copies of equivalent coverage and JUnit output. The markdown
+        # table is retained with the XML so the job summary is not the only
+        # copy when a run ages out of the Actions UI.
         if: ${{ always() && (matrix.python == '3.12' || failure()) }}
         with:
           name: python-test-results-py${{ matrix.python }}
           path: |
             coverage.xml
+            coverage-table.md
             junit.xml
+          if-no-files-found: ignore
           retention-days: 14
+      - uses: actions/upload-artifact@v7
+        # Successful main runs keep a SHA-named coverage pack for release
+        # evidence (#210). Failure evidence above still uploads on red jobs.
+        if: >
+          success()
+          && github.event_name == 'push'
+          && github.ref == 'refs/heads/main'
+          && matrix.python == '3.12'
+        with:
+          name: python-coverage-${{ github.sha }}
+          path: |
+            coverage.xml
+            coverage-table.md
+          retention-days: 90
 
   evaluation-dataset:
     # The labeled question set in evaluation/ is data the tests depend on. This
@@ -180,6 +200,28 @@ jobs:
       - run: npx tsc -b --pretty false
       - run: npm test
       - run: npm run build
+      - uses: actions/upload-artifact@v7
+        # Vitest writes JSON coverage under node_modules/.tmp/coverage
+        # (vitest.config.ts). Keep it on failure so a red web job still has
+        # a downloadable report.
+        if: failure()
+        with:
+          name: web-coverage-failure-${{ github.sha }}
+          path: web/node_modules/.tmp/coverage
+          if-no-files-found: ignore
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        # Successful main runs keep a SHA-named Vitest coverage pack for
+        # release evidence once React tests land (#210 / #252).
+        if: >
+          success()
+          && github.event_name == 'push'
+          && github.ref == 'refs/heads/main'
+        with:
+          name: web-coverage-${{ github.sha }}
+          path: web/node_modules/.tmp/coverage
+          if-no-files-found: error
+          retention-days: 90
       - uses: actions/upload-artifact@v7
         # PRs prove the build in the job log; retain deployable output only for
         # the protected main branch after merge.
