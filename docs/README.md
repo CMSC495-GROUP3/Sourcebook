@@ -1,13 +1,15 @@
 # Documentation
 
 Narrative docs live here. New to the project? Start with
-[install.md](install.md). The [README](../README.md) explains what the system
-is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
+[install.md](install.md). Using the product as an employee or HR handler?
+[user-guide.md](user-guide.md). The [README](../README.md) explains what the
+system is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
 [SECURITY.md](../SECURITY.md) covers reporting a vulnerability.
 
 | Page | Covers |
 | --- | --- |
 | [install.md](install.md) | the live site, the offline stub, real services with every `.env` variable, deployment |
+| [user-guide.md](user-guide.md) | employee and HR handler workflows for the shipped product |
 | [api.md](api.md) | every HTTP route, with a stub request and response |
 | [openapi.json](openapi.json) | the committed OpenAPI document; `make openapi` regenerates it, CI fails if it drifts |
 | [design.md](design.md) | the paper-and-ink design system for `web/` |
