@@ -17,6 +17,8 @@ export default defineConfig({
         'src/components/Chat/EscalateButton.tsx',
         'src/components/Layout/ThemeToggle.tsx',
         'src/lib/theme.ts',
+        'src/api/escalations.ts',
+        'src/pages/EscalationsPage.tsx',
       ],
       thresholds: {
         lines: 80,

@@ -1,10 +1,19 @@
-import { useEffect, useState } from 'react'
+/**
+ * The Human Resources queue: employee escalations, newest first. A handler
+ * reads the question, the assistant's answer, and the employee's note, then
+ * resolves the request with a note, reopens it, or retries a failed webhook
+ * delivery. The same operations exist as API routes; see docs/api.md.
+ */
+import { useEffect, useRef, useState } from 'react'
 import {
   getEscalations,
   updateEscalation,
   retryEscalationDelivery,
+  escalationErrorMessage,
 } from '../api/escalations'
 import type { Escalation, EscalationStatus } from '../types'
+
+const DETAIL_SCROLL: ScrollIntoViewOptions = { block: 'start', behavior: 'smooth' }
 
 function formatCreatedTime(value: string) {
   return new Date(value).toLocaleString()
@@ -13,6 +22,8 @@ function formatCreatedTime(value: string) {
 export default function EscalationsPage() {
   const [status, setStatus] = useState<EscalationStatus>('open')
   const [escalations, setEscalations] = useState<Escalation[]>([])
+  // The list returns at most 50 items; `total` is the full count for the status.
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -30,6 +41,7 @@ export default function EscalationsPage() {
 
       const data = await getEscalations(currentStatus)
       setEscalations(data.items)
+      setTotal(data.total)
     } catch {
       setError('Unable to load HR requests.')
     } finally {
@@ -46,6 +58,7 @@ export default function EscalationsPage() {
 
         if (!cancelled) {
           setEscalations(data.items)
+          setTotal(data.total)
           setError(null)
           setLoading(false)
         }
@@ -69,7 +82,23 @@ export default function EscalationsPage() {
       (escalation) => escalation.escalation_id === selectedId
     ) ?? null
 
+  // The detail panel renders below the list, so picking a request scrolls to
+  // it. The effect runs after the panel for the new selection has mounted.
+  const detailRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (selectedId) {
+      detailRef.current?.scrollIntoView(DETAIL_SCROLL)
+    }
+  }, [selectedId])
+
   function selectEscalation(escalationId: string) {
+    if (escalationId === selectedId) {
+      // Already open: scroll back to it and keep any note being typed.
+      detailRef.current?.scrollIntoView(DETAIL_SCROLL)
+      return
+    }
+
     setSelectedId(escalationId)
     setResolution('')
     setActionError(null)
@@ -105,8 +134,8 @@ export default function EscalationsPage() {
       setSelectedId(null)
       setResolution('')
       await loadEscalations('open')
-    } catch {
-      setActionError('Unable to resolve this request.')
+    } catch (error) {
+      setActionError(escalationErrorMessage(error, 'Unable to resolve this request.'))
     } finally {
       setAction(null)
     }
@@ -128,8 +157,8 @@ export default function EscalationsPage() {
 
       setSelectedId(null)
       await loadEscalations('resolved')
-    } catch {
-      setActionError('Unable to reopen this request.')
+    } catch (error) {
+      setActionError(escalationErrorMessage(error, 'Unable to reopen this request.'))
     } finally {
       setAction(null)
     }
@@ -155,10 +184,12 @@ export default function EscalationsPage() {
             : escalation
         )
       )
-    } catch {
-      setActionError(
-        'Unable to retry delivery. Delivery may not be configured or the retry limit may have been reached.'
-      )
+
+      if (updated.delivery_status !== 'delivered') {
+        setActionError('Delivery was retried and failed again.')
+      }
+    } catch (error) {
+      setActionError(escalationErrorMessage(error, 'Unable to retry delivery.'))
     } finally {
       setAction(null)
     }
@@ -173,7 +204,7 @@ export default function EscalationsPage() {
 
         {!loading && !error && (
           <span className="text-[13px] text-ink-3">
-            {escalations.length} {status}
+            {total} {status}
           </span>
         )}
       </header>
@@ -213,7 +244,7 @@ export default function EscalationsPage() {
 
         {error && (
           <div className="rounded-md border border-rule bg-paper-2 p-4">
-            <p className="text-[14px] text-ink">
+            <p role="alert" className="text-[14px] text-ink">
               {error}
             </p>
 
@@ -257,9 +288,9 @@ export default function EscalationsPage() {
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
-                  <h2 className="font-medium text-ink">
+                  <span className="font-medium text-ink">
                     {escalation.question}
-                  </h2>
+                  </span>
 
                   <span className="shrink-0 text-[12px] text-ink-3">
                     {formatCreatedTime(escalation.created_at)}
@@ -292,7 +323,7 @@ export default function EscalationsPage() {
         )}
 
         {selectedEscalation && (
-          <div className="mt-5 max-w-3xl rounded-md border border-rule bg-paper-2 p-5">
+          <div ref={detailRef} className="mt-5 max-w-3xl scroll-mt-5 rounded-md border border-rule bg-paper-2 p-5">
             <div className="flex items-start justify-between gap-4 border-b border-rule pb-4">
               <div>
                 <p className="caps text-ink-3">
@@ -441,7 +472,7 @@ export default function EscalationsPage() {
               )}
 
             {actionError && (
-              <p className="mt-5 text-[13px] text-brick">
+              <p role="alert" className="mt-5 text-[13px] text-brick">
                 {actionError}
               </p>
             )}
