@@ -1,6 +1,6 @@
 import { AxiosError } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
@@ -36,6 +36,29 @@ function escalation(overrides: Partial<Escalation> = {}): Escalation {
 }
 
 const second = escalation({ escalation_id: 'esc-2', question: 'Is there a sabbatical program?' })
+const third = escalation({ escalation_id: 'esc-3', question: 'Can I carry over unused PTO?' })
+const closed = escalation({
+  escalation_id: 'esc-r',
+  status: 'resolved',
+  question: 'Who approves remote work?',
+  resolution: 'Sent them the remote work policy.',
+  delivery_status: 'delivered',
+  delivery_retryable: false,
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((settle) => {
+    resolve = settle
+  })
+  return { promise, resolve }
+}
+
+const listResponse = (items: Escalation[]) => ({ data: { items, total: items.length } }) as AxiosResponse
+
+/** GET calls that fetched one request by id rather than a list. */
+const byIdCalls = (get: { mock: { calls: unknown[][] } }) =>
+  get.mock.calls.filter(([url]) => url !== '/api/escalations')
 
 function axiosError(status: number, data: unknown): AxiosError {
   return new AxiosError('failed', String(status), undefined, undefined, {
@@ -293,6 +316,177 @@ describe('EscalationsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Reopen request' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Escalation not found.')
+  })
+
+  describe('while a resolve or its refetch is in flight', () => {
+    it('keeps the resolved request out of the list until the refetch lands', async () => {
+      const refetch = deferred<AxiosResponse>()
+      const get = vi.spyOn(client, 'get')
+        .mockResolvedValueOnce(listResponse([escalation(), second]))
+        .mockReturnValueOnce(refetch.promise)
+      vi.spyOn(client, 'patch').mockResolvedValue({ data: escalation({ status: 'resolved' }) } as AxiosResponse)
+      const user = await openFirstRequest()
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+
+      await waitFor(() => expect(location()).toBe('/escalations'))
+      expect(screen.queryByRole('button', { name: /pet insurance/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /sabbatical/ })).toBeInTheDocument()
+      expect(screen.getByText('1 open')).toBeInTheDocument()
+
+      await act(async () => refetch.resolve(listResponse([second])))
+      expect(screen.queryByRole('button', { name: /pet insurance/ })).not.toBeInTheDocument()
+      expect(byIdCalls(get)).toHaveLength(0)
+    })
+
+    it('in two panes, does not reselect or refetch the only request after resolving it', async () => {
+      stubTwoPane()
+      const refetch = deferred<AxiosResponse>()
+      const get = vi.spyOn(client, 'get')
+        .mockResolvedValueOnce(listResponse([escalation()]))
+        .mockReturnValueOnce(refetch.promise)
+      vi.spyOn(client, 'patch').mockResolvedValue({ data: escalation({ status: 'resolved' }) } as AxiosResponse)
+      const user = renderPage()
+      await screen.findByRole('heading', { name: /pet insurance/ })
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+
+      await waitFor(() => expect(location()).toBe('/escalations'))
+      expect(screen.getByText('0 open')).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: /pet insurance/ })).not.toBeInTheDocument()
+
+      await act(async () => refetch.resolve(listResponse([])))
+      expect(location()).toBe('/escalations')
+      expect(screen.getByText('Nothing to review.')).toBeInTheDocument()
+      expect(byIdCalls(get)).toHaveLength(0)
+    })
+
+    it('in two panes, opens the next request before the refetch lands', async () => {
+      stubTwoPane()
+      const refetch = deferred<AxiosResponse>()
+      vi.spyOn(client, 'get')
+        .mockResolvedValueOnce(listResponse([escalation(), second]))
+        .mockReturnValueOnce(refetch.promise)
+      vi.spyOn(client, 'patch').mockResolvedValue({ data: escalation({ status: 'resolved' }) } as AxiosResponse)
+      const user = renderPage()
+      await screen.findByRole('heading', { name: /pet insurance/ })
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+
+      await waitFor(() => expect(location()).toBe('/escalations?id=esc-2'))
+      expect(screen.getByRole('heading', { name: /sabbatical/ })).toBeInTheDocument()
+    })
+
+    it('keeps a tab switch made while the resolve was pending', async () => {
+      stubTwoPane()
+      mockApi({ open: [escalation(), second], resolved: [closed] })
+      const patch = deferred<AxiosResponse>()
+      vi.spyOn(client, 'patch').mockReturnValue(patch.promise)
+      const user = renderPage()
+      await screen.findByRole('heading', { name: /pet insurance/ })
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+      await user.click(screen.getByRole('button', { name: 'Resolved' }))
+      await waitFor(() => expect(location()).toBe('/escalations?status=resolved&id=esc-r'))
+
+      await act(async () => patch.resolve({ data: escalation({ status: 'resolved' }) } as AxiosResponse))
+      expect(location()).toBe('/escalations?status=resolved&id=esc-r')
+      expect(screen.getByRole('heading', { name: 'Who approves remote work?' })).toBeInTheDocument()
+    })
+
+    it('keeps a row picked while the resolve was pending, and shows that row idle', async () => {
+      stubTwoPane()
+      const get = mockApi({ open: [escalation(), second, third] })
+      const patch = deferred<AxiosResponse>()
+      vi.spyOn(client, 'patch').mockReturnValue(patch.promise)
+      const user = renderPage()
+      await screen.findByRole('heading', { name: /pet insurance/ })
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+      await user.click(screen.getByRole('button', { name: /carry over/ }))
+      expect(screen.getByRole('button', { name: 'Resolve request' })).toBeInTheDocument()
+      expect(screen.queryByText('Resolving…')).not.toBeInTheDocument()
+
+      // The server has closed esc-1, so the refetch no longer returns it.
+      get.mockImplementation(async (url) =>
+        url === '/api/escalations' ? listResponse([second, third]) : listResponse([]),
+      )
+      await act(async () => patch.resolve({ data: escalation({ status: 'resolved' }) } as AxiosResponse))
+      expect(location()).toBe('/escalations?id=esc-3')
+      expect(screen.queryByRole('button', { name: /pet insurance/ })).not.toBeInTheDocument()
+    })
+  })
+
+  it('reopens a resolved request and returns to the resolved list', async () => {
+    const get = mockApi({ resolved: [closed] })
+    const patch = vi.spyOn(client, 'patch').mockImplementation(async () => {
+      get.mockImplementation(async () => listResponse([]))
+      return { data: { ...closed, status: 'open' } } as AxiosResponse
+    })
+    const user = renderPage('/escalations?status=resolved&id=esc-r')
+
+    await user.click(await screen.findByRole('button', { name: 'Reopen request' }))
+
+    expect(patch).toHaveBeenCalledWith('/api/escalations/esc-r', { status: 'open' })
+    await waitFor(() => expect(location()).toBe('/escalations?status=resolved'))
+    expect(screen.getByText('0 resolved')).toBeInTheDocument()
+  })
+
+  it('fetches a linked request by id exactly once', async () => {
+    const get = mockApi({ open: [escalation()], byId: { 'esc-9': escalation({ escalation_id: 'esc-9', question: 'Old one?' }) } })
+    renderPage('/escalations?id=esc-9')
+    await screen.findByRole('heading', { name: 'Old one?' })
+    await act(async () => {})
+    expect(byIdCalls(get)).toHaveLength(1)
+  })
+
+  it('offers a retry when a linked request fails to load for a reason other than 404', async () => {
+    const get = vi.spyOn(client, 'get').mockImplementation(async (url) => {
+      if (url === '/api/escalations') return listResponse([escalation()])
+      throw axiosError(500, { detail: 'boom' })
+    })
+    const user = renderPage('/escalations?id=esc-9')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load this request.')
+    expect(screen.queryByText('That request was not found.')).not.toBeInTheDocument()
+
+    get.mockImplementation(async (url) =>
+      url === '/api/escalations'
+        ? listResponse([escalation()])
+        : ({ data: escalation({ escalation_id: 'esc-9', question: 'Old one?' }) } as AxiosResponse),
+    )
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: 'Old one?' })).toBeInTheDocument()
+  })
+
+  it('in two panes, re-clicking the open row keeps its draft', async () => {
+    stubTwoPane()
+    mockApi({ open: [escalation(), second] })
+    const user = renderPage()
+    await screen.findByRole('heading', { name: /pet insurance/ })
+    await user.type(screen.getByLabelText('Resolution note'), 'Half written')
+
+    await user.click(screen.getByRole('button', { name: /pet insurance/ }))
+
+    expect(screen.getByLabelText('Resolution note')).toHaveValue('Half written')
+    expect(location()).toBe('/escalations?id=esc-1')
+  })
+
+  it('in two panes, switching tabs closes the open request', async () => {
+    stubTwoPane()
+    mockApi({ open: [escalation()], resolved: [closed] })
+    const user = renderPage()
+    await screen.findByRole('heading', { name: /pet insurance/ })
+
+    await user.click(screen.getByRole('button', { name: 'Resolved' }))
+
+    await waitFor(() => expect(location()).toBe('/escalations?status=resolved&id=esc-r'))
+    expect(screen.getByRole('heading', { name: 'Who approves remote work?' })).toBeInTheDocument()
   })
 
   it('offers a retry when the list fails to load', async () => {

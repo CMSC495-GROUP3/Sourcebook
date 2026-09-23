@@ -21,7 +21,7 @@ export async function getEscalations(
 
 /** One request by id, for a linked `?id=` that is not on the current list page. */
 export async function getEscalation(escalationId: string): Promise<Escalation> {
-  const response = await client.get<Escalation>(`/api/escalations/${escalationId}`)
+  const response = await client.get<Escalation>(`/api/escalations/${encodeURIComponent(escalationId)}`)
   return response.data
 }
 
@@ -31,7 +31,7 @@ export async function updateEscalation(
   resolution?: string | null
 ): Promise<Escalation> {
   const response = await client.patch<Escalation>(
-    `/api/escalations/${escalationId}`,
+    `/api/escalations/${encodeURIComponent(escalationId)}`,
     {
       status,
       ...(resolution !== undefined ? { resolution } : {}),
@@ -45,7 +45,7 @@ export async function retryEscalationDelivery(
   escalationId: string
 ): Promise<Escalation> {
   const response = await client.post<Escalation>(
-    `/api/escalations/${escalationId}/retry-delivery`
+    `/api/escalations/${encodeURIComponent(escalationId)}/retry-delivery`
   )
 
   return response.data

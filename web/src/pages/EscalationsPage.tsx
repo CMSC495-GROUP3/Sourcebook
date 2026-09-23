@@ -10,7 +10,8 @@
  * is not on the current list page is fetched on its own, so a link from a
  * webhook message opens the right request whatever tab it lands on.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { isAxiosError } from 'axios'
 import { useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Inbox } from 'lucide-react'
 import {
@@ -47,6 +48,8 @@ interface ListState {
 interface Linked {
   id: string
   escalation: Escalation | null
+  /** Why `escalation` is null: the server has no such request, or the fetch failed. */
+  failure: 'not_found' | 'error' | null
 }
 
 export default function EscalationsPage() {
@@ -58,9 +61,15 @@ export default function EscalationsPage() {
   const [list, setList] = useState<ListState | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [linked, setLinked] = useState<Linked | null>(null)
-  const [action, setAction] = useState<EscalationAction | null>(null)
-  // Tied to the request it came from, so opening another one hides it.
+  // Both tied to the request they came from, so opening another one hides them.
+  const [action, setAction] = useState<{ id: string; kind: EscalationAction } | null>(null)
   const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null)
+  // Handlers that finish after an await read the URL through this ref, so a
+  // tab switch or row pick made while they waited is not overwritten.
+  const searchParamsRef = useRef(searchParams)
+  useEffect(() => {
+    searchParamsRef.current = searchParams
+  }, [searchParams])
 
   // A request just resolved or reopened has left this tab. React Router
   // commits the URL change in a transition, after the state updates below, so
@@ -70,13 +79,10 @@ export default function EscalationsPage() {
   if (closedId !== null && linkedId !== closedId) setClosedId(null)
   const selectedId = linkedId === closedId ? null : linkedId
 
-  // Back and Forward change the tab through the URL, so loading is derived
-  // from which tab the list holds rather than set by the click.
+  // The tab comes from the URL, which a link, a reload, or Back can change
+  // without a click here, so loading is derived from which tab the list holds.
   const loaded = list !== null && list.status === status
-  const items = useMemo(
-    () => (loaded ? list.items.filter((escalation) => escalation.escalation_id !== closedId) : NO_ITEMS),
-    [loaded, list, closedId],
-  )
+  const items = loaded ? list.items : NO_ITEMS
 
   useEffect(() => {
     let cancelled = false
@@ -100,10 +106,12 @@ export default function EscalationsPage() {
     let cancelled = false
     getEscalation(selectedId)
       .then((escalation) => {
-        if (!cancelled) setLinked({ id: selectedId, escalation })
+        if (!cancelled) setLinked({ id: selectedId, escalation, failure: null })
       })
-      .catch(() => {
-        if (!cancelled) setLinked({ id: selectedId, escalation: null })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        const failure = isAxiosError(error) && error.response?.status === 404 ? 'not_found' : 'error'
+        setLinked({ id: selectedId, escalation: null, failure })
       })
     return () => {
       cancelled = true
@@ -138,13 +146,29 @@ export default function EscalationsPage() {
     setSearchParams(next, { replace: true })
   }
 
-  /** After resolve or reopen the request leaves this tab: close it and refetch. */
+  /**
+   * After resolve or reopen the request has left its tab. Drop it from the list
+   * now, so it cannot reappear before the refetch lands, and close it in the
+   * URL only if the URL still names it: the handler may have been busy while
+   * the handler moved to another tab or request.
+   */
   function closeAndReload(id: string) {
-    setClosedId(id)
-    setLinked(null)
-    const next = new URLSearchParams(searchParams)
-    next.delete('id')
-    setSearchParams(next, { replace: true })
+    setList((current) => {
+      if (!current?.items.some((escalation) => escalation.escalation_id === id)) return current
+      return {
+        ...current,
+        items: current.items.filter((escalation) => escalation.escalation_id !== id),
+        total: Math.max(0, current.total - 1),
+      }
+    })
+    setLinked((current) => (current?.id === id ? null : current))
+    const latest = searchParamsRef.current
+    if (latest.get('id') === id) {
+      setClosedId(id)
+      const next = new URLSearchParams(latest)
+      next.delete('id')
+      setSearchParams(next, { replace: true })
+    }
     setReloadKey((key) => key + 1)
   }
 
@@ -160,14 +184,14 @@ export default function EscalationsPage() {
   async function run(kind: EscalationAction, fallback: string, work: (id: string) => Promise<void>) {
     if (!selected) return
     const id = selected.escalation_id
-    setAction(kind)
+    setAction({ id, kind })
     setActionError(null)
     try {
       await work(id)
     } catch (error) {
       setActionError({ id, message: escalationErrorMessage(error, fallback) })
     } finally {
-      setAction(null)
+      setAction((current) => (current?.id === id ? null : current))
     }
   }
 
@@ -192,8 +216,7 @@ export default function EscalationsPage() {
       }
     })
 
-  const shownTotal = loaded ? list.total - (list.items.length - items.length) : 0
-  const count = !loaded ? 'Loading…' : list.error ? '' : `${shownTotal} ${status}`
+  const count = !loaded ? 'Loading…' : list.error ? '' : `${list.total} ${status}`
 
   const listPane = (
     <div className="flex h-full min-h-0 flex-col">
@@ -261,15 +284,28 @@ export default function EscalationsPage() {
       <EscalationDetail
         key={selected.escalation_id}
         escalation={selected}
-        action={action}
+        action={action?.id === selected.escalation_id ? action.kind : null}
         actionError={actionError?.id === selected.escalation_id ? actionError.message : null}
         onResolve={handleResolve}
         onReopen={handleReopen}
         onRetry={handleRetry}
       />
     )
-  } else if (selectedId && linked?.id === selectedId) {
+  } else if (selectedId && linked?.id === selectedId && linked.failure === 'not_found') {
     detailBody = <p className="text-[14px] text-ink-2">That request was not found.</p>
+  } else if (selectedId && linked?.id === selectedId) {
+    detailBody = (
+      <div>
+        <p role="alert" className="text-[14px] text-brick">Unable to load this request.</p>
+        <button
+          type="button"
+          onClick={() => setLinked(null)}
+          className="mt-2 cursor-pointer text-[13px] font-medium text-accent hover:underline"
+        >
+          Try again
+        </button>
+      </div>
+    )
   } else if (selectedId) {
     detailBody = <p className="text-[14px] text-ink-3">Loading…</p>
   }
