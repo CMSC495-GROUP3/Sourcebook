@@ -11,9 +11,8 @@ Two callers:
 
 - The chat UI creates one from the refusal card, or from under an answer that
   did not help. `reason` records which.
-- Whoever handles them lists the open ones and marks them resolved. There is
-  no dedicated UI for that yet; the endpoints are enough for a script or for a
-  webhook-fed channel.
+- Human Resources lists the open ones and marks them resolved, from the HR
+  Requests page in the web app or from a script or webhook-fed channel.
 
 Escalating the same message twice returns the first record rather than
 creating a second. A double click should not file two tickets. The check on
@@ -24,6 +23,13 @@ Webhook delivery is tracked on the record (`pending` / `delivered` /
 `failed`) and updated after each attempt. Create never waits on the webhook;
 failed deliveries can be retried through an authenticated, bounded endpoint
 that claims the record before sending so concurrent retries cannot duplicate.
+
+Responses describe delivery as it stands now rather than echoing the stored
+field. With no webhook configured, a record that was never attempted reads
+`not_configured`: stored `pending` would promise a send that is not coming.
+`delivery_retryable` says whether the retry endpoint would send right now.
+Both are computed per response and never stored, so configuring a webhook
+later turns those records back into `pending` and makes them retryable.
 """
 
 import uuid
@@ -92,6 +98,50 @@ def _public_record(doc: dict | None) -> dict | None:
         return None
     doc.pop("_id", None)
     return doc
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Mongo hands back naive UTC datetimes; records built in-process are aware."""
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def _claimable(doc: dict, now: datetime) -> bool:
+    """The same test `_claim_delivery` runs in its filter, evaluated in Python."""
+    attempts = doc.get("delivery_attempts")
+    if attempts is not None and attempts >= ESCALATION_WEBHOOK_MAX_ATTEMPTS:
+        return False
+    status = doc.get("delivery_status")
+    if status is None or status == "failed":
+        return True
+    if status != "pending":
+        return False
+    claimed_at = doc.get("delivery_claimed_at")
+    stale_before = now - timedelta(seconds=ESCALATION_WEBHOOK_LEASE_SECONDS)
+    return claimed_at is None or _as_utc(claimed_at) < stale_before
+
+
+def _present(doc: dict | None) -> dict | None:
+    """Shape a stored record for a response: current delivery state, no `_id`.
+
+    See the module docstring. The stored record is not modified.
+    """
+    record = _public_record(doc)
+    if record is None:
+        return None
+    configured = bool(notify.ESCALATION_WEBHOOK_URL)
+    # Records filed before delivery tracking carry no delivery fields.
+    status = record.get("delivery_status") or "pending"
+    never_attempted = not record.get("delivery_attempts") and not record.get("delivery_claimed_at")
+    if not configured and status == "pending" and never_attempted:
+        status = "not_configured"
+    return {
+        **record,
+        "delivery_status": status,
+        "delivery_attempts": record.get("delivery_attempts") or 0,
+        "delivery_last_attempt_at": record.get("delivery_last_attempt_at"),
+        "delivery_claimed_at": record.get("delivery_claimed_at"),
+        "delivery_retryable": configured and _claimable(record, datetime.now(UTC)),
+    }
 
 
 def _apply_delivery_result(escalation_id: str, claimed_at: datetime, success: bool) -> dict | None:
@@ -250,7 +300,7 @@ def create_escalation(request: Request, body: CreateEscalationRequest, backgroun
 
     existing = _existing_escalation(assistant, body.session_id, position)
     if existing:
-        return existing
+        return _present(existing)
 
     now = datetime.now(UTC)
     record = {
@@ -284,9 +334,11 @@ def create_escalation(request: Request, body: CreateEscalationRequest, backgroun
     except DuplicateKeyError:
         # A concurrent request won the race. Return its record; it also owns
         # the webhook delivery, so nothing is sent from here.
-        return escalations_col.find_one(
-            {"session_id": body.session_id, "message_index": position},
-            {"_id": 0},
+        return _present(
+            escalations_col.find_one(
+                {"session_id": body.session_id, "message_index": position},
+                {"_id": 0},
+            )
         )
 
     # Mark the message so the UI can show "already sent" when the conversation
@@ -298,7 +350,7 @@ def create_escalation(request: Request, body: CreateEscalationRequest, backgroun
 
     # Runs after the response is sent. See sourcebook/api/notify.py.
     background.add_task(_deliver_in_background, record)
-    return record
+    return _present(dict(record))
 
 
 @router.post("/escalations/{escalation_id}/retry-delivery", dependencies=[Depends(require_auth)])
@@ -327,9 +379,9 @@ def retry_delivery(request: Request, escalation_id: str):
     success = notify.deliver_escalation(claimed)
     updated = _apply_delivery_result(escalation_id, claimed["delivery_claimed_at"], success)
     if updated is not None:
-        return updated
+        return _present(updated)
     current = escalations_col.find_one({"escalation_id": escalation_id}, {"_id": 0})
-    return _public_record(current) or claimed
+    return _present(current or claimed)
 
 
 @router.get("/escalations", dependencies=[Depends(require_auth)])
@@ -345,9 +397,8 @@ def list_escalations(
         query["status"] = status
     if session_id:
         query["session_id"] = session_id
-    items = list(
-        escalations_col.find(query, {"_id": 0}).sort("created_at", DESCENDING).limit(limit)
-    )
+    cursor = escalations_col.find(query, {"_id": 0}).sort("created_at", DESCENDING).limit(limit)
+    items = [_present(doc) for doc in cursor]
     return {"items": items, "total": escalations_col.count_documents(query)}
 
 
@@ -356,7 +407,7 @@ def get_escalation(escalation_id: str):
     doc = escalations_col.find_one({"escalation_id": escalation_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Escalation not found.")
-    return doc
+    return _present(doc)
 
 
 @router.patch("/escalations/{escalation_id}", dependencies=[Depends(require_auth)])
@@ -374,4 +425,4 @@ def update_escalation(escalation_id: str, body: UpdateEscalationRequest):
     result = escalations_col.update_one({"escalation_id": escalation_id}, {"$set": updates})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Escalation not found.")
-    return escalations_col.find_one({"escalation_id": escalation_id}, {"_id": 0})
+    return _present(escalations_col.find_one({"escalation_id": escalation_id}, {"_id": 0}))

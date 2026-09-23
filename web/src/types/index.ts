@@ -75,4 +75,12 @@ export interface Escalation {
   created_at: string
   updated_at: string
   resolved_at: string | null
+
+  /** Computed per response: `not_configured` means no webhook and nothing was sent. */
+  delivery_status: 'pending' | 'delivered' | 'failed' | 'not_configured'
+  delivery_attempts: number
+  delivery_last_attempt_at: string | null
+  delivery_claimed_at: string | null
+  /** True when the retry-delivery endpoint would send right now. */
+  delivery_retryable: boolean
 }
