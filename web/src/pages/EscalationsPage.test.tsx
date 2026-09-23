@@ -29,6 +29,7 @@ function escalation(overrides: Partial<Escalation> = {}): Escalation {
     delivery_attempts: 1,
     delivery_last_attempt_at: '2026-09-20T12:00:01Z',
     delivery_claimed_at: null,
+    delivery_retryable: true,
     ...overrides,
   }
 }
@@ -110,7 +111,7 @@ describe('EscalationsPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Retry delivery' }))
 
-    expect(await screen.findByText('delivered', { selector: 'p' })).toBeInTheDocument()
+    expect(await screen.findByText('Delivered', { selector: 'p' })).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -154,6 +155,43 @@ describe('EscalationsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Reopen request' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Escalation not found.')
+  })
+
+  it('labels a request with no webhook and offers no retry', async () => {
+    mockList([
+      escalation({
+        delivery_status: 'not_configured',
+        delivery_attempts: 0,
+        delivery_last_attempt_at: null,
+        delivery_retryable: false,
+      }),
+    ])
+    await openFirstRequest()
+
+    expect(screen.getAllByText(/No webhook configured/)).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /Retry delivery|Send to webhook/ })).not.toBeInTheDocument()
+  })
+
+  it('explains the attempt limit instead of offering a retry that cannot send', async () => {
+    mockList([escalation({ delivery_attempts: 5, delivery_retryable: false })])
+    await openFirstRequest()
+
+    expect(screen.getByText(/failed after 5 attempts, the most the server allows/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry delivery' })).not.toBeInTheDocument()
+  })
+
+  it('offers to send a request that was filed before a webhook was configured', async () => {
+    mockList([escalation({ delivery_status: 'pending', delivery_attempts: 0 })])
+    const post = vi.spyOn(client, 'post').mockResolvedValue({
+      data: escalation({ delivery_status: 'delivered', delivery_attempts: 1, delivery_retryable: false }),
+    } as AxiosResponse)
+    const user = await openFirstRequest()
+
+    expect(screen.getByText('This request has not been sent to the HR webhook yet.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Send to webhook' }))
+
+    expect(post).toHaveBeenCalledWith('/api/escalations/esc-1/retry-delivery')
+    expect(await screen.findByText('Delivered', { selector: 'p' })).toBeInTheDocument()
   })
 
   it('offers a retry when the list fails to load', async () => {

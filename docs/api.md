@@ -218,15 +218,30 @@ Content-Type: application/json
   "created_at": "2026-09-12T01:04:16.973759+00:00",
   "updated_at": "2026-09-12T01:04:16.973759+00:00",
   "resolved_at": null,
-  "delivery_status": "pending",
+  "delivery_status": "not_configured",
   "delivery_attempts": 0,
   "delivery_last_attempt_at": null,
-  "delivery_claimed_at": null
+  "delivery_claimed_at": null,
+  "delivery_retryable": false
 }
 ```
 
 Escalating the same message twice returns the first record. Create never waits
 on the webhook.
+
+`delivery_status` and `delivery_retryable` are computed for each response, not
+stored:
+
+| `delivery_status` | Meaning |
+| --- | --- |
+| `not_configured` | No `ESCALATION_WEBHOOK_URL` is set and nothing was ever sent. The stub returns this |
+| `pending` | A webhook is configured and a send is queued, in flight, or not yet attempted |
+| `delivered` | The webhook accepted the last attempt |
+| `failed` | The last attempt failed |
+
+`delivery_retryable` is true only when `POST .../retry-delivery` would send
+now: a webhook is configured, attempts are under
+`ESCALATION_WEBHOOK_MAX_ATTEMPTS`, and no live claim holds the record.
 
 ## Human Resources queue and resolve
 
@@ -259,10 +274,11 @@ Authorization: Bearer <access_token>
       "created_at": "2026-09-12T01:04:16.973759+00:00",
       "updated_at": "2026-09-12T01:04:16.973759+00:00",
       "resolved_at": null,
-      "delivery_status": "pending",
+      "delivery_status": "not_configured",
       "delivery_attempts": 0,
       "delivery_last_attempt_at": null,
-      "delivery_claimed_at": null
+      "delivery_claimed_at": null,
+      "delivery_retryable": false
     }
   ],
   "total": 1

@@ -301,16 +301,21 @@ class TestDeliveryStatus:
         assert stored["delivery_status"] == "failed"
         assert stored["delivery_attempts"] == 1
 
-    def test_empty_webhook_leaves_pending_without_an_attempt(
+    def test_empty_webhook_stores_pending_and_reports_not_configured(
         self, client, auth, refused, monkeypatch
     ):
-        """No receiver configured means store-only, not a failed delivery."""
+        """No receiver configured means store-only, not a failed delivery.
+
+        The stored record stays `pending` so a webhook configured later can
+        still claim it; the response says what is true now.
+        """
         monkeypatch.setattr(notify, "ESCALATION_WEBHOOK_URL", "")
 
         response = _create(client, auth, refused)
         assert response.status_code == 200
         record = response.json()
-        assert record["delivery_status"] == "pending"
+        assert record["delivery_status"] == "not_configured"
+        assert record["delivery_retryable"] is False
         assert record["delivery_attempts"] == 0
 
         stored = FAKE_DB["escalations"].find_one({"escalation_id": record["escalation_id"]})
@@ -541,6 +546,135 @@ class TestDeliveryStatus:
         assert (
             client.post("/api/escalations/missing/retry-delivery", headers=auth).status_code == 404
         )
+
+
+def _stored(escalation_id: str) -> dict:
+    return next(
+        doc for doc in FAKE_DB["escalations"]._docs if doc["escalation_id"] == escalation_id
+    )
+
+
+class TestDeliveryView:
+    """What responses say about delivery, computed per response and never stored."""
+
+    def test_configuring_a_webhook_later_makes_the_record_pending_and_retryable(
+        self, client, auth, refused, monkeypatch, delivered
+    ):
+        monkeypatch.setattr(notify, "ESCALATION_WEBHOOK_URL", "")
+        escalation_id = _create(client, auth, refused).json()["escalation_id"]
+        before = client.get(f"/api/escalations/{escalation_id}", headers=auth).json()
+        assert before["delivery_status"] == "not_configured"
+
+        monkeypatch.setattr(notify, "ESCALATION_WEBHOOK_URL", WEBHOOK_URL)
+        after = client.get(f"/api/escalations/{escalation_id}", headers=auth).json()
+        assert after["delivery_status"] == "pending"
+        assert after["delivery_retryable"] is True
+        assert _stored(escalation_id)["delivery_status"] == "pending"
+
+    def test_legacy_record_reads_not_configured_with_zero_attempts(
+        self, client, auth, refused, monkeypatch, delivered
+    ):
+        monkeypatch.setattr(notify, "ESCALATION_WEBHOOK_URL", "")
+        escalation_id = _create(client, auth, refused).json()["escalation_id"]
+        stored = _stored(escalation_id)
+        for field in (
+            "delivery_status",
+            "delivery_attempts",
+            "delivery_last_attempt_at",
+            "delivery_claimed_at",
+        ):
+            stored.pop(field, None)
+
+        items = client.get("/api/escalations?status=open", headers=auth).json()["items"]
+        (record,) = [item for item in items if item["escalation_id"] == escalation_id]
+        assert record["delivery_status"] == "not_configured"
+        assert record["delivery_attempts"] == 0
+        assert record["delivery_last_attempt_at"] is None
+        assert record["delivery_retryable"] is False
+
+    def test_a_failed_attempt_stays_failed_after_the_webhook_is_removed(
+        self, client, auth, refused, monkeypatch, delivered
+    ):
+        """Only never-attempted records are relabeled; history is not rewritten."""
+        monkeypatch.setattr(notify, "ESCALATION_WEBHOOK_URL", "")
+        escalation_id = _create(client, auth, refused).json()["escalation_id"]
+        FAKE_DB["escalations"].update_one(
+            {"escalation_id": escalation_id},
+            {"$set": {"delivery_status": "failed", "delivery_attempts": 1}},
+        )
+        record = client.get(f"/api/escalations/{escalation_id}", headers=auth).json()
+        assert record["delivery_status"] == "failed"
+        assert record["delivery_retryable"] is False
+
+    def test_retryable_tracks_the_attempt_limit(
+        self, client, auth, refused, monkeypatch, delivered
+    ):
+        monkeypatch.setattr(notify, "ESCALATION_WEBHOOK_URL", WEBHOOK_URL)
+        escalation_id = _create(client, auth, refused).json()["escalation_id"]
+        limit = escalations.ESCALATION_WEBHOOK_MAX_ATTEMPTS
+
+        for attempts, retryable in ((limit - 1, True), (limit, False)):
+            FAKE_DB["escalations"].update_one(
+                {"escalation_id": escalation_id},
+                {"$set": {"delivery_status": "failed", "delivery_attempts": attempts}},
+            )
+            record = client.get(f"/api/escalations/{escalation_id}", headers=auth).json()
+            assert record["delivery_retryable"] is retryable
+
+    def test_resolve_response_carries_the_delivery_view(
+        self, client, auth, refused, monkeypatch, delivered
+    ):
+        monkeypatch.setattr(notify, "ESCALATION_WEBHOOK_URL", "")
+        escalation_id = _create(client, auth, refused).json()["escalation_id"]
+        resolved = client.patch(
+            f"/api/escalations/{escalation_id}", json={"status": "resolved"}, headers=auth
+        ).json()
+        assert resolved["delivery_status"] == "not_configured"
+        assert resolved["delivery_retryable"] is False
+
+    @pytest.mark.parametrize(
+        ("fields", "naive"),
+        [
+            ({"delivery_status": "failed", "delivery_attempts": 1}, False),
+            ({"delivery_status": "failed", "delivery_attempts": 99}, False),
+            ({"delivery_status": "delivered", "delivery_attempts": 1}, False),
+            ({"delivery_status": "pending", "delivery_attempts": 0}, False),
+            ({"delivery_status": "pending", "claim_age": 1}, False),
+            ({"delivery_status": "pending", "claim_age": 1}, True),
+            ({"delivery_status": "pending", "claim_age": "stale"}, False),
+            ({"delivery_status": "pending", "claim_age": "stale"}, True),
+            ({}, False),
+        ],
+    )
+    def test_retryable_agrees_with_the_claim_filter(
+        self, client, auth, refused, monkeypatch, delivered, fields, naive
+    ):
+        """`_claimable` restates `_claim_delivery`'s Mongo filter; they must agree.
+
+        `naive` stores the claim time the way the real driver returns it. The
+        fake store cannot compare naive with aware datetimes, so the claim
+        itself runs against the aware value; real Mongo compares both as BSON
+        dates.
+        """
+        monkeypatch.setattr(notify, "ESCALATION_WEBHOOK_URL", WEBHOOK_URL)
+        escalation_id = _create(client, auth, refused).json()["escalation_id"]
+        stored = _stored(escalation_id)
+        for field in ("delivery_status", "delivery_attempts", "delivery_claimed_at"):
+            stored.pop(field, None)
+        fields = dict(fields)
+        claim_age = fields.pop("claim_age", None)
+        stored.update(fields)
+        if claim_age is not None:
+            lease = escalations.ESCALATION_WEBHOOK_LEASE_SECONDS
+            seconds = lease + 1 if claim_age == "stale" else claim_age
+            claimed_at = datetime.now(UTC) - timedelta(seconds=seconds)
+            stored["delivery_claimed_at"] = claimed_at.replace(tzinfo=None) if naive else claimed_at
+
+        reported = client.get(f"/api/escalations/{escalation_id}", headers=auth).json()
+        if claim_age is not None:
+            stored["delivery_claimed_at"] = claimed_at
+        claimed = escalations._claim_delivery(escalation_id) is not None
+        assert reported["delivery_retryable"] is claimed
 
 
 class TestEscalateByMessageId:

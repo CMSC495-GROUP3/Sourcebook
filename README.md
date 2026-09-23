@@ -332,6 +332,12 @@ at-least-once: a receiver that accepts a request immediately before the worker
 dies may see the same escalation again, so consumers should deduplicate by
 `escalation_id`.
 
+Responses report delivery as it stands, not the stored field. With no webhook
+configured, a record that was never attempted reads `not_configured`, and every
+record carries `delivery_retryable`, which is true only when the retry endpoint
+would send. Neither is stored, so setting `ESCALATION_WEBHOOK_URL` later turns
+those records back into `pending` and lets the HR Requests page send them.
+
 Human Resources works the queue from the **HR Requests** page in the web app,
 which lists open escalations, resolves or reopens them with a note, and retries
 failed webhook delivery. The same operations are available as
