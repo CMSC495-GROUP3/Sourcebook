@@ -19,6 +19,12 @@ export async function getEscalations(
   return response.data
 }
 
+/** One request by id, for a linked `?id=` that is not on the current list page. */
+export async function getEscalation(escalationId: string): Promise<Escalation> {
+  const response = await client.get<Escalation>(`/api/escalations/${escalationId}`)
+  return response.data
+}
+
 export async function updateEscalation(
   escalationId: string,
   status: EscalationStatus,

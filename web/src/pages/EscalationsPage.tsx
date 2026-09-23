@@ -1,558 +1,318 @@
 /**
- * The Human Resources queue: employee escalations, newest first. A handler
- * reads the question, the assistant's answer, and the employee's note, then
- * resolves the request with a note, reopens it, or retries a failed webhook
- * delivery. The same operations exist as API routes; see docs/api.md.
+ * EscalationsPage — the Human Resources queue, laid out like the Policy
+ * Library: the list beside the open request at `lg`, taking turns below it.
+ * A handler reads what the employee asked and was told, then resolves the
+ * request with a note, reopens it, or sends a webhook delivery that failed or
+ * never went out. The same operations exist as API routes; see docs/api.md.
+ *
+ * The URL carries what a link needs to reproduce: ?status=resolved picks the
+ * tab (open is the default), and ?id= the open request. A linked request that
+ * is not on the current list page is fetched on its own, so a link from a
+ * webhook message opens the right request whatever tab it lands on.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Inbox } from 'lucide-react'
 import {
+  getEscalation,
   getEscalations,
   updateEscalation,
   retryEscalationDelivery,
   escalationErrorMessage,
 } from '../api/escalations'
+import EscalationDetail, { type EscalationAction } from '../components/Escalations/EscalationDetail'
+import EscalationListItem from '../components/Escalations/EscalationListItem'
+import { useMediaQuery } from '../hooks/useMediaQuery'
+import { READING_COLUMN, READING_GUTTER } from '../lib/layout'
 import type { Escalation, EscalationStatus } from '../types'
 
-const DETAIL_SCROLL: ScrollIntoViewOptions = { block: 'start', behavior: 'smooth' }
+/** Tailwind's `lg`, the same breakpoint as the Policy Library. */
+const TWO_PANE_QUERY = '(min-width: 1024px)'
+const NO_ITEMS: Escalation[] = []
+const TABS: { status: EscalationStatus; label: string }[] = [
+  { status: 'open', label: 'Open' },
+  { status: 'resolved', label: 'Resolved' },
+]
 
-const DELIVERY_LABELS: Record<Escalation['delivery_status'], string> = {
-  pending: 'Pending',
-  delivered: 'Delivered',
-  failed: 'Failed',
-  not_configured: 'No webhook configured',
+/** What the last list fetch returned, and for which tab. */
+interface ListState {
+  status: EscalationStatus
+  items: Escalation[]
+  /** The list returns at most 50 items; `total` is the full count for the tab. */
+  total: number
+  error: boolean
 }
 
-function deliveryNotice(escalation: Escalation): string {
-  if (escalation.delivery_status !== 'failed') {
-    return 'This request has not been sent to the HR webhook yet.'
-  }
-  if (escalation.delivery_retryable) {
-    return 'Delivery to the configured HR webhook failed.'
-  }
-  return `Delivery failed after ${escalation.delivery_attempts} attempts, the most the server allows.`
-}
-
-function formatCreatedTime(value: string) {
-  return new Date(value).toLocaleString()
+/** A request named by ?id= that the current list page does not contain. */
+interface Linked {
+  id: string
+  escalation: Escalation | null
 }
 
 export default function EscalationsPage() {
-  const [status, setStatus] = useState<EscalationStatus>('open')
-  const [escalations, setEscalations] = useState<Escalation[]>([])
-  // The list returns at most 50 items; `total` is the full count for the status.
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const status: EscalationStatus = searchParams.get('status') === 'resolved' ? 'resolved' : 'open'
+  const linkedId = searchParams.get('id')
+  const twoPane = useMediaQuery(TWO_PANE_QUERY)
 
-  const [resolution, setResolution] = useState('')
-  const [action, setAction] = useState<
-    'resolve' | 'reopen' | 'retry' | null
-  >(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const [list, setList] = useState<ListState | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [linked, setLinked] = useState<Linked | null>(null)
+  const [action, setAction] = useState<EscalationAction | null>(null)
+  // Tied to the request it came from, so opening another one hides it.
+  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null)
 
-  async function loadEscalations(currentStatus: EscalationStatus) {
-    try {
-      setLoading(true)
-      setError(null)
+  // A request just resolved or reopened has left this tab. React Router
+  // commits the URL change in a transition, after the state updates below, so
+  // for a render the URL still names it. Treat it as closed until the URL
+  // moves on, or the page would fetch it by id or auto-select it again.
+  const [closedId, setClosedId] = useState<string | null>(null)
+  if (closedId !== null && linkedId !== closedId) setClosedId(null)
+  const selectedId = linkedId === closedId ? null : linkedId
 
-      const data = await getEscalations(currentStatus)
-      setEscalations(data.items)
-      setTotal(data.total)
-    } catch {
-      setError('Unable to load HR requests.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Back and Forward change the tab through the URL, so loading is derived
+  // from which tab the list holds rather than set by the click.
+  const loaded = list !== null && list.status === status
+  const items = useMemo(
+    () => (loaded ? list.items.filter((escalation) => escalation.escalation_id !== closedId) : NO_ITEMS),
+    [loaded, list, closedId],
+  )
 
   useEffect(() => {
     let cancelled = false
-
-    async function fetchEscalations() {
-      try {
-        const data = await getEscalations(status)
-
-        if (!cancelled) {
-          setEscalations(data.items)
-          setTotal(data.total)
-          setError(null)
-          setLoading(false)
-        }
-      } catch {
-        if (!cancelled) {
-          setError('Unable to load HR requests.')
-          setLoading(false)
-        }
-      }
-    }
-
-    void fetchEscalations()
-
+    getEscalations(status)
+      .then((data) => {
+        if (!cancelled) setList({ status, items: data.items, total: data.total, error: false })
+      })
+      .catch(() => {
+        if (!cancelled) setList({ status, items: [], total: 0, error: true })
+      })
     return () => {
       cancelled = true
     }
-  }, [status])
+  }, [status, reloadKey])
 
-  const selectedEscalation =
-    escalations.find(
-      (escalation) => escalation.escalation_id === selectedId
-    ) ?? null
-
-  // The detail panel renders below the list, so picking a request scrolls to
-  // it. The effect runs after the panel for the new selection has mounted.
-  const detailRef = useRef<HTMLDivElement>(null)
+  const inList = items.find((escalation) => escalation.escalation_id === selectedId) ?? null
+  const selected = inList ?? (linked?.id === selectedId ? linked.escalation : null)
 
   useEffect(() => {
-    if (selectedId) {
-      detailRef.current?.scrollIntoView(DETAIL_SCROLL)
+    if (!selectedId || !loaded || inList || linked?.id === selectedId) return
+    let cancelled = false
+    getEscalation(selectedId)
+      .then((escalation) => {
+        if (!cancelled) setLinked({ id: selectedId, escalation })
+      })
+      .catch(() => {
+        if (!cancelled) setLinked({ id: selectedId, escalation: null })
+      })
+    return () => {
+      cancelled = true
     }
-  }, [selectedId])
+  }, [selectedId, loaded, inList, linked])
 
-  function selectEscalation(escalationId: string) {
-    if (escalationId === selectedId) {
-      // Already open: scroll back to it and keep any note being typed.
-      detailRef.current?.scrollIntoView(DETAIL_SCROLL)
-      return
-    }
+  // Two panes with nothing on the right is a wasted page. Open the newest
+  // request when the URL names none. Replaced, so Back skips it.
+  const newestId = items[0]?.escalation_id
+  useEffect(() => {
+    if (!twoPane || selectedId || !newestId) return
+    const next = new URLSearchParams(searchParams)
+    next.set('id', newestId)
+    setSearchParams(next, { replace: true })
+  }, [twoPane, selectedId, newestId, searchParams, setSearchParams])
 
-    setSelectedId(escalationId)
-    setResolution('')
-    setActionError(null)
+  function select(escalationId: string | null) {
+    // Re-clicking the open row would only add a history entry for Back to walk.
+    if (escalationId === selectedId) return
+    const next = new URLSearchParams(searchParams)
+    if (escalationId) next.set('id', escalationId)
+    else next.delete('id')
+    setSearchParams(next)
   }
 
   function changeStatus(nextStatus: EscalationStatus) {
-    if (nextStatus === status) {
-      return
-    }
+    if (nextStatus === status) return
+    const next = new URLSearchParams(searchParams)
+    if (nextStatus === 'open') next.delete('status')
+    else next.set('status', nextStatus)
+    next.delete('id')
+    setSearchParams(next, { replace: true })
+  }
 
-    setSelectedId(null)
-    setResolution('')
+  /** After resolve or reopen the request leaves this tab: close it and refetch. */
+  function closeAndReload(id: string) {
+    setClosedId(id)
+    setLinked(null)
+    const next = new URLSearchParams(searchParams)
+    next.delete('id')
+    setSearchParams(next, { replace: true })
+    setReloadKey((key) => key + 1)
+  }
+
+  function replaceRecord(updated: Escalation) {
+    const swap = (escalation: Escalation) =>
+      escalation.escalation_id === updated.escalation_id ? updated : escalation
+    setList((current) => (current ? { ...current, items: current.items.map(swap) } : current))
+    setLinked((current) =>
+      current?.id === updated.escalation_id ? { ...current, escalation: updated } : current,
+    )
+  }
+
+  async function run(kind: EscalationAction, fallback: string, work: (id: string) => Promise<void>) {
+    if (!selected) return
+    const id = selected.escalation_id
+    setAction(kind)
     setActionError(null)
-    setLoading(true)
-    setStatus(nextStatus)
-  }
-
-  async function handleResolve() {
-    if (!selectedEscalation || !resolution.trim()) {
-      return
-    }
-
     try {
-      setAction('resolve')
-      setActionError(null)
-
-      await updateEscalation(
-        selectedEscalation.escalation_id,
-        'resolved',
-        resolution.trim()
-      )
-
-      setSelectedId(null)
-      setResolution('')
-      await loadEscalations('open')
+      await work(id)
     } catch (error) {
-      setActionError(escalationErrorMessage(error, 'Unable to resolve this request.'))
+      setActionError({ id, message: escalationErrorMessage(error, fallback) })
     } finally {
       setAction(null)
     }
   }
 
-  async function handleReopen() {
-    if (!selectedEscalation) {
-      return
-    }
+  const handleResolve = (resolution: string) =>
+    run('resolve', 'Unable to resolve this request.', async (id) => {
+      await updateEscalation(id, 'resolved', resolution)
+      closeAndReload(id)
+    })
 
-    try {
-      setAction('reopen')
-      setActionError(null)
+  const handleReopen = () =>
+    run('reopen', 'Unable to reopen this request.', async (id) => {
+      await updateEscalation(id, 'open')
+      closeAndReload(id)
+    })
 
-      await updateEscalation(
-        selectedEscalation.escalation_id,
-        'open'
-      )
-
-      setSelectedId(null)
-      await loadEscalations('resolved')
-    } catch (error) {
-      setActionError(escalationErrorMessage(error, 'Unable to reopen this request.'))
-    } finally {
-      setAction(null)
-    }
-  }
-
-  async function handleRetryDelivery() {
-    if (!selectedEscalation) {
-      return
-    }
-
-    try {
-      setAction('retry')
-      setActionError(null)
-
-      const updated = await retryEscalationDelivery(
-        selectedEscalation.escalation_id
-      )
-
-      setEscalations((current) =>
-        current.map((escalation) =>
-          escalation.escalation_id === updated.escalation_id
-            ? updated
-            : escalation
-        )
-      )
-
+  const handleRetry = () =>
+    run('retry', 'Unable to retry delivery.', async (id) => {
+      const updated = await retryEscalationDelivery(id)
+      replaceRecord(updated)
       if (updated.delivery_status !== 'delivered') {
-        setActionError('Delivery was retried and failed again.')
+        setActionError({ id, message: 'Delivery was retried and failed again.' })
       }
-    } catch (error) {
-      setActionError(escalationErrorMessage(error, 'Unable to retry delivery.'))
-    } finally {
-      setAction(null)
-    }
-  }
+    })
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col bg-paper">
-      <header className="flex h-15 shrink-0 items-center justify-between border-b border-rule px-5">
-        <h1 className="font-display text-[22px] font-medium tracking-tight text-ink">
+  const shownTotal = loaded ? list.total - (list.items.length - items.length) : 0
+  const count = !loaded ? 'Loading…' : list.error ? '' : `${shownTotal} ${status}`
+
+  const listPane = (
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex h-15 shrink-0 items-baseline justify-between gap-3 border-b border-rule px-5 pt-[19px]">
+        <h1 className="font-display text-[22px] leading-none font-medium tracking-tight text-ink">
           HR Requests
         </h1>
-
-        {!loading && !error && (
-          <span className="text-[13px] text-ink-3">
-            {total} {status}
-          </span>
-        )}
+        <span className="tnum text-[12.5px] text-ink-2" aria-live="polite">{count}</span>
       </header>
-
-      <div className="flex-1 overflow-y-auto p-5">
-        <div className="mb-5 flex gap-2">
+      <div className="flex gap-1.5 px-5 pt-4 pb-3" role="group" aria-label="Filter by status">
+        {TABS.map((tab) => (
           <button
+            key={tab.status}
             type="button"
-            onClick={() => changeStatus('open')}
-            className={`cursor-pointer rounded-full border px-4 py-1.5 text-[13px] font-medium transition-colors ${
-              status === 'open'
-                ? 'border-accent bg-accent text-white'
-                : 'border-rule-strong bg-paper-2 text-ink-2 hover:bg-paper-3'
+            onClick={() => changeStatus(tab.status)}
+            aria-pressed={tab.status === status}
+            className={`h-7 cursor-pointer rounded-full border px-3 text-[12.5px] transition-colors ${
+              tab.status === status
+                ? 'border-accent bg-accent text-paper'
+                : 'border-rule bg-paper-3 text-ink-2 hover:border-ink-3 hover:text-ink'
             }`}
           >
-            Open
+            {tab.label}
           </button>
+        ))}
+      </div>
 
-          <button
-            type="button"
-            onClick={() => changeStatus('resolved')}
-            className={`cursor-pointer rounded-full border px-4 py-1.5 text-[13px] font-medium transition-colors ${
-              status === 'resolved'
-                ? 'border-accent bg-accent text-white'
-                : 'border-rule-strong bg-paper-2 text-ink-2 hover:bg-paper-3'
-            }`}
-          >
-            Resolved
-          </button>
-        </div>
-
-        {loading && (
-          <p className="text-[14px] text-ink-3">
-            Loading requests...
-          </p>
-        )}
-
-        {error && (
-          <div className="rounded-md border border-rule bg-paper-2 p-4">
-            <p role="alert" className="text-[14px] text-ink">
-              {error}
-            </p>
-
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-6 sm:px-3">
+        {loaded && list.error ? (
+          <div className="px-3">
+            <p role="alert" className="text-[14px] text-brick">Unable to load HR requests.</p>
             <button
               type="button"
-              onClick={() => loadEscalations(status)}
-              className="mt-3 cursor-pointer text-[13px] font-medium text-accent hover:underline"
+              onClick={() => setReloadKey((key) => key + 1)}
+              className="mt-2 cursor-pointer text-[13px] font-medium text-accent hover:underline"
             >
               Try again
             </button>
           </div>
-        )}
-
-        {!loading && !error && escalations.length === 0 && (
-          <div className="rounded-md border border-rule bg-paper-2 p-5">
-            <h2 className="font-display text-[18px] font-medium text-ink">
-              {status === 'open'
-                ? 'No open requests'
-                : 'No resolved requests'}
-            </h2>
-
-            <p className="mt-1 text-[13.5px] text-ink-3">
-              {status === 'open'
-                ? 'Employee escalations that need Human Resources review will appear here.'
-                : 'Requests resolved by Human Resources will appear here.'}
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && escalations.length > 0 && (
-          <div className="flex max-w-3xl flex-col gap-3">
-            {escalations.map((escalation) => (
-              <button
+        ) : loaded && items.length === 0 ? (
+          <p className="px-3 text-[14px] text-ink-2">
+            {status === 'open'
+              ? 'No open requests. Employee escalations that need Human Resources will appear here.'
+              : 'No resolved requests yet.'}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-0.5">
+            {items.map((escalation) => (
+              <EscalationListItem
                 key={escalation.escalation_id}
-                type="button"
-                onClick={() => selectEscalation(escalation.escalation_id)}
-                className={`w-full cursor-pointer rounded-md border p-4 text-left transition-colors ${
-                  selectedId === escalation.escalation_id
-                    ? 'border-accent bg-accent-soft'
-                    : 'border-rule bg-paper-2 hover:bg-paper-3'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <span className="font-medium text-ink">
-                    {escalation.question}
-                  </span>
-
-                  <span className="shrink-0 text-[12px] text-ink-3">
-                    {formatCreatedTime(escalation.created_at)}
-                  </span>
-                </div>
-
-                <p className="mt-2 line-clamp-2 text-[13.5px] text-ink-2">
-                  {escalation.answer_excerpt}
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-ink-3">
-                  <span>
-                    Reason: {escalation.reason}
-                  </span>
-
-                  <span>
-                    Confidence:{' '}
-                    {escalation.confidence === null
-                      ? 'Unavailable'
-                      : `${Math.round(escalation.confidence)}%`}
-                  </span>
-
-                  <span>
-                    Delivery: {DELIVERY_LABELS[escalation.delivery_status]}
-                  </span>
-                </div>
-              </button>
+                escalation={escalation}
+                selected={escalation.escalation_id === selectedId}
+                onSelect={select}
+              />
             ))}
-          </div>
-        )}
-
-        {selectedEscalation && (
-          <div ref={detailRef} className="mt-5 max-w-3xl scroll-mt-5 rounded-md border border-rule bg-paper-2 p-5">
-            <div className="flex items-start justify-between gap-4 border-b border-rule pb-4">
-              <div>
-                <p className="caps text-ink-3">
-                  HR Request
-                </p>
-
-                <h2 className="mt-1 font-display text-[20px] font-medium text-ink">
-                  {selectedEscalation.question}
-                </h2>
-              </div>
-
-              <span className="shrink-0 text-[12px] text-ink-3">
-                {formatCreatedTime(selectedEscalation.created_at)}
-              </span>
-            </div>
-
-            <div className="mt-5">
-              <p className="caps text-ink-3">
-                Assistant response
-              </p>
-
-              <p className="mt-2 text-[14px] leading-6 text-ink-2">
-                {selectedEscalation.answer_excerpt ||
-                  'No answer was provided.'}
-              </p>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="caps text-ink-3">
-                  Reason
-                </p>
-
-                <p className="mt-1 text-[14px] capitalize text-ink">
-                  {selectedEscalation.reason}
-                </p>
-              </div>
-
-              <div>
-                <p className="caps text-ink-3">
-                  Confidence
-                </p>
-
-                <p className="mt-1 text-[14px] text-ink">
-                  {selectedEscalation.confidence === null
-                    ? 'Unavailable'
-                    : `${Math.round(selectedEscalation.confidence)}%`}
-                </p>
-              </div>
-
-              <div>
-                <p className="caps text-ink-3">
-                  Delivery status
-                </p>
-
-                <p className="mt-1 text-[14px] text-ink">
-                  {DELIVERY_LABELS[selectedEscalation.delivery_status]}
-                </p>
-              </div>
-
-              <div>
-                <p className="caps text-ink-3">
-                  Delivery attempts
-                </p>
-
-                <p className="mt-1 text-[14px] text-ink">
-                  {selectedEscalation.delivery_attempts}
-                </p>
-              </div>
-            </div>
-
-            {selectedEscalation.delivery_last_attempt_at && (
-              <div className="mt-5">
-                <p className="caps text-ink-3">
-                  Last delivery attempt
-                </p>
-
-                <p className="mt-1 text-[14px] text-ink">
-                  {formatCreatedTime(
-                    selectedEscalation.delivery_last_attempt_at
-                  )}
-                </p>
-              </div>
-            )}
-
-            {(selectedEscalation.delivery_retryable ||
-              selectedEscalation.delivery_status === 'failed') && (
-              <div className="mt-5 rounded-md border border-rule bg-paper-3 p-4">
-                <p className="text-[13.5px] text-ink-2">
-                  {deliveryNotice(selectedEscalation)}
-                </p>
-
-                {/* The server says whether a retry would send; the attempt
-                    limit and an in-flight claim both turn it off. */}
-                {selectedEscalation.delivery_retryable && (
-                  <button
-                    type="button"
-                    onClick={handleRetryDelivery}
-                    disabled={action !== null}
-                    className="mt-3 cursor-pointer rounded-md border border-rule-strong bg-paper-2 px-4 py-2 text-[13.5px] font-medium text-ink transition-colors hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {action === 'retry'
-                      ? 'Sending...'
-                      : selectedEscalation.delivery_status === 'failed'
-                        ? 'Retry delivery'
-                        : 'Send to webhook'}
-                  </button>
-                )}
-              </div>
-            )}
-
-            <div className="mt-5">
-              <p className="caps text-ink-3">
-                Sources
-              </p>
-
-              {selectedEscalation.sources.length > 0 ? (
-                <ul className="mt-2 space-y-1 text-[14px] text-ink">
-                  {selectedEscalation.sources.map((source) => (
-                    <li key={source}>
-                      {source}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1 text-[14px] text-ink-3">
-                  No sources available.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-5">
-              <p className="caps text-ink-3">
-                Employee note
-              </p>
-
-              <p className="mt-2 text-[14px] leading-6 text-ink">
-                {selectedEscalation.note || 'No note provided.'}
-              </p>
-            </div>
-
-            {selectedEscalation.status === 'resolved' &&
-              selectedEscalation.resolution && (
-                <div className="mt-5">
-                  <p className="caps text-ink-3">
-                    Resolution
-                  </p>
-
-                  <p className="mt-2 text-[14px] leading-6 text-ink">
-                    {selectedEscalation.resolution}
-                  </p>
-                </div>
-              )}
-
-            {actionError && (
-              <p role="alert" className="mt-5 text-[13px] text-brick">
-                {actionError}
-              </p>
-            )}
-
-            {selectedEscalation.status === 'open' && (
-              <div className="mt-5 border-t border-rule pt-5">
-                <label
-                  htmlFor="resolution"
-                  className="caps text-ink-3"
-                >
-                  Resolution note
-                </label>
-
-                <textarea
-                  id="resolution"
-                  value={resolution}
-                  onChange={(event) => setResolution(event.target.value)}
-                  placeholder="Describe how this request was resolved..."
-                  rows={4}
-                  className="mt-2 w-full resize-y rounded-md border border-rule-strong bg-paper-3 p-3 text-[14px] text-ink outline-none placeholder:text-ink-3 focus:border-accent"
-                />
-
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleResolve}
-                    disabled={!resolution.trim() || action !== null}
-                    className="cursor-pointer rounded-md bg-accent px-4 py-2 text-[13.5px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {action === 'resolve'
-                      ? 'Resolving...'
-                      : 'Resolve request'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {selectedEscalation.status === 'resolved' && (
-              <div className="mt-5 border-t border-rule pt-5">
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleReopen}
-                    disabled={action !== null}
-                    className="cursor-pointer rounded-md border border-rule-strong bg-paper-3 px-4 py-2 text-[13.5px] font-medium text-ink transition-colors hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {action === 'reopen'
-                      ? 'Reopening...'
-                      : 'Reopen request'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          </ul>
         )}
       </div>
+    </div>
+  )
+
+  let detailBody: React.ReactNode
+  if (selected) {
+    detailBody = (
+      <EscalationDetail
+        key={selected.escalation_id}
+        escalation={selected}
+        action={action}
+        actionError={actionError?.id === selected.escalation_id ? actionError.message : null}
+        onResolve={handleResolve}
+        onReopen={handleReopen}
+        onRetry={handleRetry}
+      />
+    )
+  } else if (selectedId && linked?.id === selectedId) {
+    detailBody = <p className="text-[14px] text-ink-2">That request was not found.</p>
+  } else if (selectedId) {
+    detailBody = <p className="text-[14px] text-ink-3">Loading…</p>
+  }
+
+  const detailPane = detailBody ? (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className={`flex h-15 shrink-0 items-center gap-4 border-b border-rule ${READING_GUTTER}`}>
+        {twoPane ? (
+          <span className="caps text-ink-3">HR request</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => select(null)}
+            className="inline-flex h-10 cursor-pointer items-center gap-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
+          >
+            <ArrowLeft size={14} aria-hidden="true" />
+            All requests
+          </button>
+        )}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className={`${READING_GUTTER} py-7 sm:py-8`}>
+          <div className={READING_COLUMN}>{detailBody}</div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+      <Inbox size={28} strokeWidth={1.5} aria-hidden="true" className="text-ink-3" />
+      <p className="max-w-80 text-[14px] leading-normal text-ink-2">
+        {loaded && items.length === 0 ? 'Nothing to review.' : 'Pick a request to review it.'}
+      </p>
+    </div>
+  )
+
+  if (!twoPane) {
+    return <div className="min-h-0 flex-1">{selectedId ? detailPane : listPane}</div>
+  }
+
+  return (
+    <div className="grid min-h-0 flex-1 grid-cols-[400px_minmax(0,1fr)]">
+      <div className="min-h-0 border-r border-rule bg-paper-2">{listPane}</div>
+      <div className="min-h-0 bg-paper">{detailPane}</div>
     </div>
   )
 }

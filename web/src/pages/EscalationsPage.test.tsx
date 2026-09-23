@@ -1,7 +1,8 @@
 import { AxiosError } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import client from '../api/client'
 import type { Escalation } from '../types'
@@ -34,6 +35,8 @@ function escalation(overrides: Partial<Escalation> = {}): Escalation {
   }
 }
 
+const second = escalation({ escalation_id: 'esc-2', question: 'Is there a sabbatical program?' })
+
 function axiosError(status: number, data: unknown): AxiosError {
   return new AxiosError('failed', String(status), undefined, undefined, {
     status,
@@ -44,13 +47,57 @@ function axiosError(status: number, data: unknown): AxiosError {
   })
 }
 
-function mockList(items: Escalation[], total = items.length) {
-  return vi.spyOn(client, 'get').mockResolvedValue({ data: { items, total } } as AxiosResponse)
+interface Api {
+  open?: Escalation[]
+  resolved?: Escalation[]
+  total?: number
+  byId?: Record<string, Escalation>
+}
+
+/** Route GETs: the list by ?status, or one record by id (404 when unknown). */
+function mockApi({ open = [], resolved = [], total, byId = {} }: Api) {
+  return vi.spyOn(client, 'get').mockImplementation(async (url, config) => {
+    if (url === '/api/escalations') {
+      const params = config?.params as { status?: string } | undefined
+      const items = params?.status === 'resolved' ? resolved : open
+      return { data: { items, total: total ?? items.length } } as AxiosResponse
+    }
+    const id = url.split('/').pop() as string
+    if (byId[id]) return { data: byId[id] } as AxiosResponse
+    throw axiosError(404, { detail: 'Escalation not found.' })
+  })
+}
+
+function Location() {
+  const location = useLocation()
+  return <output data-testid="location">{location.pathname + location.search}</output>
+}
+
+function renderPage(url = '/escalations') {
+  const user = userEvent.setup()
+  render(
+    <MemoryRouter initialEntries={[url]}>
+      <Routes>
+        <Route path="/escalations" element={<><EscalationsPage /><Location /></>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  return user
+}
+
+const location = () => screen.getByTestId('location').textContent
+
+/** Report the two-pane breakpoint as matched, on top of the shared stub. */
+function stubTwoPane() {
+  const original = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+    const list = original(query)
+    return { ...list, matches: query.includes('1024') ? true : list.matches } as MediaQueryList
+  })
 }
 
 async function openFirstRequest() {
-  const user = userEvent.setup()
-  render(<EscalationsPage />)
+  const user = renderPage()
   await user.click(await screen.findByRole('button', { name: /pet insurance/ }))
   return user
 }
@@ -58,38 +105,92 @@ async function openFirstRequest() {
 describe('EscalationsPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    Element.prototype.scrollIntoView = vi.fn()
   })
 
   it('shows the server total, not the length of the capped page', async () => {
-    mockList([escalation()], 80)
-    render(<EscalationsPage />)
+    mockApi({ open: [escalation()], total: 80 })
+    renderPage()
     expect(await screen.findByText('80 open')).toBeInTheDocument()
   })
 
-  it('scrolls the detail panel into view when a request is picked', async () => {
-    mockList([escalation()])
-    await openFirstRequest()
-    expect(screen.getByText('HR Request')).toBeInTheDocument()
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
-      block: 'start',
-      behavior: 'smooth',
+  describe('one pane at a time (below lg)', () => {
+    it('opens a request into the URL and goes back to the list', async () => {
+      mockApi({ open: [escalation()] })
+      const user = await openFirstRequest()
+
+      expect(location()).toBe('/escalations?id=esc-1')
+      expect(screen.getByRole('heading', { name: /pet insurance/ })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'HR Requests' })).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'All requests' }))
+      expect(location()).toBe('/escalations')
+      expect(await screen.findByRole('heading', { name: 'HR Requests' })).toBeInTheDocument()
+    })
+
+    it('opens the request a link names', async () => {
+      mockApi({ open: [escalation(), second] })
+      renderPage('/escalations?id=esc-2')
+      expect(await screen.findByRole('heading', { name: /sabbatical/ })).toBeInTheDocument()
+    })
+
+    it('fetches a linked request that is not on the current list page', async () => {
+      const get = mockApi({ open: [escalation()], byId: { 'esc-9': escalation({ escalation_id: 'esc-9', question: 'Old one?' }) } })
+      renderPage('/escalations?id=esc-9')
+      expect(await screen.findByRole('heading', { name: 'Old one?' })).toBeInTheDocument()
+      expect(get).toHaveBeenCalledWith('/api/escalations/esc-9')
+    })
+
+    it('says so when a linked request does not exist', async () => {
+      mockApi({ open: [escalation()] })
+      renderPage('/escalations?id=missing')
+      expect(await screen.findByText('That request was not found.')).toBeInTheDocument()
     })
   })
 
-  it('scrolls back to an open request without clearing its note', async () => {
-    mockList([escalation()])
+  describe('list beside the request (lg and up)', () => {
+    beforeEach(stubTwoPane)
+
+    it('opens the newest request when the URL names none', async () => {
+      mockApi({ open: [escalation(), second] })
+      renderPage()
+      expect(await screen.findByRole('heading', { name: /pet insurance/ })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'HR Requests' })).toBeInTheDocument()
+      expect(location()).toBe('/escalations?id=esc-1')
+    })
+
+    it('moves to the next request after a resolve, not back to the resolved one', async () => {
+      const get = mockApi({ open: [escalation(), second] })
+      vi.spyOn(client, 'patch').mockImplementation(async () => {
+        get.mockImplementation(async () => ({ data: { items: [second], total: 1 } }) as AxiosResponse)
+        return { data: escalation({ status: 'resolved' }) } as AxiosResponse
+      })
+      const user = renderPage()
+      await screen.findByRole('heading', { name: /pet insurance/ })
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+
+      expect(await screen.findByRole('heading', { name: /sabbatical/ })).toBeInTheDocument()
+      await waitFor(() => expect(location()).toBe('/escalations?id=esc-2'))
+      expect(screen.getByText('1 open')).toBeInTheDocument()
+      expect(get).not.toHaveBeenCalledWith('/api/escalations/esc-1')
+    })
+  })
+
+  it('switches tabs through the URL and drops the open request', async () => {
+    mockApi({ open: [escalation()], resolved: [second] })
     const user = await openFirstRequest()
-    await user.type(screen.getByLabelText('Resolution note'), 'Half written')
+    await user.click(screen.getByRole('button', { name: 'All requests' }))
 
-    await user.click(screen.getByRole('button', { name: /pet insurance/ }))
+    await user.click(await screen.findByRole('button', { name: 'Resolved' }))
 
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2)
-    expect(screen.getByLabelText('Resolution note')).toHaveValue('Half written')
+    expect(location()).toBe('/escalations?status=resolved')
+    expect(screen.getByRole('button', { name: 'Resolved' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: /sabbatical/ })).toBeInTheDocument()
   })
 
   it('says so when a retried delivery fails again', async () => {
-    mockList([escalation()])
+    mockApi({ open: [escalation()] })
     vi.spyOn(client, 'post').mockResolvedValue({
       data: escalation({ delivery_attempts: 2 }),
     } as AxiosResponse)
@@ -97,26 +198,11 @@ describe('EscalationsPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Retry delivery' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Delivery was retried and failed again.',
-    )
-  })
-
-  it('shows no error when the retry is delivered', async () => {
-    mockList([escalation()])
-    vi.spyOn(client, 'post').mockResolvedValue({
-      data: escalation({ delivery_status: 'delivered', delivery_attempts: 2 }),
-    } as AxiosResponse)
-    const user = await openFirstRequest()
-
-    await user.click(screen.getByRole('button', { name: 'Retry delivery' }))
-
-    expect(await screen.findByText('Delivered', { selector: 'p' })).toBeInTheDocument()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Delivery was retried and failed again.')
   })
 
   it("shows the server's reason when a retry is refused", async () => {
-    mockList([escalation()])
+    mockApi({ open: [escalation()] })
     vi.spyOn(client, 'post').mockRejectedValue(
       axiosError(409, { detail: 'Maximum delivery attempts reached.' }),
     )
@@ -127,8 +213,48 @@ describe('EscalationsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Maximum delivery attempts reached.')
   })
 
-  it('resolves with the trimmed note and reloads the open queue', async () => {
-    const get = mockList([escalation()])
+  it('labels a request with no webhook and offers no retry', async () => {
+    mockApi({
+      open: [
+        escalation({
+          delivery_status: 'not_configured',
+          delivery_attempts: 0,
+          delivery_last_attempt_at: null,
+          delivery_retryable: false,
+        }),
+      ],
+    })
+    await openFirstRequest()
+
+    expect(screen.getByText('No webhook configured')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Retry delivery|Send to webhook/ })).not.toBeInTheDocument()
+  })
+
+  it('explains the attempt limit instead of offering a retry that cannot send', async () => {
+    mockApi({ open: [escalation({ delivery_attempts: 5, delivery_retryable: false })] })
+    await openFirstRequest()
+
+    expect(screen.getByText(/failed after 5 attempts, the most the server allows/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry delivery' })).not.toBeInTheDocument()
+  })
+
+  it('sends a request that was filed before a webhook was configured', async () => {
+    mockApi({ open: [escalation({ delivery_status: 'pending', delivery_attempts: 0 })] })
+    const post = vi.spyOn(client, 'post').mockResolvedValue({
+      data: escalation({ delivery_status: 'delivered', delivery_attempts: 1, delivery_retryable: false }),
+    } as AxiosResponse)
+    const user = await openFirstRequest()
+
+    expect(screen.getByText('This request has not been sent to the HR webhook yet.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Send to webhook' }))
+
+    expect(post).toHaveBeenCalledWith('/api/escalations/esc-1/retry-delivery')
+    expect(await screen.findByText('Delivered')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('resolves with the trimmed note and returns to the refreshed list', async () => {
+    const get = mockApi({ open: [escalation()] })
     const patch = vi.spyOn(client, 'patch').mockResolvedValue({
       data: escalation({ status: 'resolved' }),
     } as AxiosResponse)
@@ -141,63 +267,42 @@ describe('EscalationsPage', () => {
       status: 'resolved',
       resolution: 'Not covered; told them.',
     })
-    expect(get).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(location()).toBe('/escalations'))
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+    // The list refetch only: the resolved request is not fetched again by id.
+    expect(get).not.toHaveBeenCalledWith('/api/escalations/esc-1')
+  })
+
+  it('keeps the resolution draft to the request it was typed for', async () => {
+    mockApi({ open: [escalation(), second] })
+    const user = await openFirstRequest()
+    await user.type(screen.getByLabelText('Resolution note'), 'Half written')
+
+    await user.click(screen.getByRole('button', { name: 'All requests' }))
+    await user.click(await screen.findByRole('button', { name: /sabbatical/ }))
+
+    expect(screen.getByLabelText('Resolution note')).toHaveValue('')
   })
 
   it("shows the server's reason when a reopen fails", async () => {
-    mockList([escalation({ status: 'resolved', resolution: 'Done.', delivery_status: 'delivered' })])
+    mockApi({ resolved: [escalation({ status: 'resolved', resolution: 'Done.', delivery_status: 'delivered', delivery_retryable: false })] })
     vi.spyOn(client, 'patch').mockRejectedValue(axiosError(404, { detail: 'Escalation not found.' }))
-    const user = userEvent.setup()
-    render(<EscalationsPage />)
+    const user = renderPage('/escalations?status=resolved&id=esc-1')
 
-    await user.click(await screen.findByRole('button', { name: 'Resolved' }))
-    await user.click(await screen.findByRole('button', { name: /pet insurance/ }))
+    expect(await screen.findByText('Done.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Reopen request' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Escalation not found.')
   })
 
-  it('labels a request with no webhook and offers no retry', async () => {
-    mockList([
-      escalation({
-        delivery_status: 'not_configured',
-        delivery_attempts: 0,
-        delivery_last_attempt_at: null,
-        delivery_retryable: false,
-      }),
-    ])
-    await openFirstRequest()
-
-    expect(screen.getAllByText(/No webhook configured/)).toHaveLength(2)
-    expect(screen.queryByRole('button', { name: /Retry delivery|Send to webhook/ })).not.toBeInTheDocument()
-  })
-
-  it('explains the attempt limit instead of offering a retry that cannot send', async () => {
-    mockList([escalation({ delivery_attempts: 5, delivery_retryable: false })])
-    await openFirstRequest()
-
-    expect(screen.getByText(/failed after 5 attempts, the most the server allows/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Retry delivery' })).not.toBeInTheDocument()
-  })
-
-  it('offers to send a request that was filed before a webhook was configured', async () => {
-    mockList([escalation({ delivery_status: 'pending', delivery_attempts: 0 })])
-    const post = vi.spyOn(client, 'post').mockResolvedValue({
-      data: escalation({ delivery_status: 'delivered', delivery_attempts: 1, delivery_retryable: false }),
-    } as AxiosResponse)
-    const user = await openFirstRequest()
-
-    expect(screen.getByText('This request has not been sent to the HR webhook yet.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Send to webhook' }))
-
-    expect(post).toHaveBeenCalledWith('/api/escalations/esc-1/retry-delivery')
-    expect(await screen.findByText('Delivered', { selector: 'p' })).toBeInTheDocument()
-  })
-
   it('offers a retry when the list fails to load', async () => {
-    vi.spyOn(client, 'get').mockRejectedValue(new Error('network'))
-    render(<EscalationsPage />)
+    const get = vi.spyOn(client, 'get').mockRejectedValue(new Error('network'))
+    const user = renderPage()
+
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load HR requests.')
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    get.mockResolvedValue({ data: { items: [escalation()], total: 1 } } as AxiosResponse)
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByRole('button', { name: /pet insurance/ })).toBeInTheDocument()
   })
 })

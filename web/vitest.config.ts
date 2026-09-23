@@ -19,6 +19,7 @@ export default defineConfig({
         'src/lib/theme.ts',
         'src/api/escalations.ts',
         'src/pages/EscalationsPage.tsx',
+        'src/components/Escalations/**',
       ],
       thresholds: {
         lines: 80,
