@@ -15,6 +15,23 @@ import type { Escalation, EscalationStatus } from '../types'
 
 const DETAIL_SCROLL: ScrollIntoViewOptions = { block: 'start', behavior: 'smooth' }
 
+const DELIVERY_LABELS: Record<Escalation['delivery_status'], string> = {
+  pending: 'Pending',
+  delivered: 'Delivered',
+  failed: 'Failed',
+  not_configured: 'No webhook configured',
+}
+
+function deliveryNotice(escalation: Escalation): string {
+  if (escalation.delivery_status !== 'failed') {
+    return 'This request has not been sent to the HR webhook yet.'
+  }
+  if (escalation.delivery_retryable) {
+    return 'Delivery to the configured HR webhook failed.'
+  }
+  return `Delivery failed after ${escalation.delivery_attempts} attempts, the most the server allows.`
+}
+
 function formatCreatedTime(value: string) {
   return new Date(value).toLocaleString()
 }
@@ -313,8 +330,8 @@ export default function EscalationsPage() {
                       : `${Math.round(escalation.confidence)}%`}
                   </span>
 
-                  <span className="capitalize">
-                    Delivery: {escalation.delivery_status}
+                  <span>
+                    Delivery: {DELIVERY_LABELS[escalation.delivery_status]}
                   </span>
                 </div>
               </button>
@@ -379,8 +396,8 @@ export default function EscalationsPage() {
                   Delivery status
                 </p>
 
-                <p className="mt-1 text-[14px] capitalize text-ink">
-                  {selectedEscalation.delivery_status}
+                <p className="mt-1 text-[14px] text-ink">
+                  {DELIVERY_LABELS[selectedEscalation.delivery_status]}
                 </p>
               </div>
 
@@ -409,22 +426,29 @@ export default function EscalationsPage() {
               </div>
             )}
 
-            {selectedEscalation.delivery_status === 'failed' && (
+            {(selectedEscalation.delivery_retryable ||
+              selectedEscalation.delivery_status === 'failed') && (
               <div className="mt-5 rounded-md border border-rule bg-paper-3 p-4">
                 <p className="text-[13.5px] text-ink-2">
-                  Delivery to the configured HR webhook failed.
+                  {deliveryNotice(selectedEscalation)}
                 </p>
 
-                <button
-                  type="button"
-                  onClick={handleRetryDelivery}
-                  disabled={action !== null}
-                  className="mt-3 cursor-pointer rounded-md border border-rule-strong bg-paper-2 px-4 py-2 text-[13.5px] font-medium text-ink transition-colors hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {action === 'retry'
-                    ? 'Retrying...'
-                    : 'Retry delivery'}
-                </button>
+                {/* The server says whether a retry would send; the attempt
+                    limit and an in-flight claim both turn it off. */}
+                {selectedEscalation.delivery_retryable && (
+                  <button
+                    type="button"
+                    onClick={handleRetryDelivery}
+                    disabled={action !== null}
+                    className="mt-3 cursor-pointer rounded-md border border-rule-strong bg-paper-2 px-4 py-2 text-[13.5px] font-medium text-ink transition-colors hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {action === 'retry'
+                      ? 'Sending...'
+                      : selectedEscalation.delivery_status === 'failed'
+                        ? 'Retry delivery'
+                        : 'Send to webhook'}
+                  </button>
+                )}
               </div>
             )}
 
