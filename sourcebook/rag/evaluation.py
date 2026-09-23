@@ -17,6 +17,7 @@ import argparse
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import traceback
@@ -152,16 +153,48 @@ def require_live_env(environ: Mapping[str, str] | None = None) -> None:
     validate_mongodb_db_name(str(env.get("MONGODB_DB", "")))
 
 
+# Live Actions / results identity require a full object name — never a short
+# SHA, branch, tag, or other ref. Uppercase A-F is rejected (lowercase only).
+_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_COMMIT_SHA_HEX_ANYCASE_RE = re.compile(r"^[0-9A-Fa-f]+$")
+_COMMIT_SHA_REF_LIKE_RE = re.compile(
+    r"^(refs/|origin/)|[/:]|\.\.|"
+    r"^(HEAD|main|master)$|"
+    r"^[A-Za-z0-9._/-]+$"
+)
+
+
 def _normalize_sha(value: str) -> str:
     """Strip whitespace; empty after strip is invalid."""
     return value.strip()
 
 
+def _commit_sha_rejection_reason(value: str) -> str:
+    """Return a sanitized fail-closed reason for a non-40-hex commit SHA."""
+    if _COMMIT_SHA_HEX_ANYCASE_RE.fullmatch(value):
+        if len(value) < 40:
+            return "short SHA is not allowed (require exactly 40 lowercase hex)"
+        if len(value) > 40:
+            return "malformed length (require exactly 40 lowercase hex)"
+        return "must be lowercase hex (A-F not allowed)"
+    if _COMMIT_SHA_REF_LIKE_RE.search(value):
+        return "branch, tag, or ref name is not allowed (require exactly 40 lowercase hex)"
+    return "malformed input (require exactly 40 lowercase hex)"
+
+
 def require_nonempty_commit_sha(value: str | None, *, label: str = "commit_sha") -> str:
-    """Fail closed when a requested commit SHA is missing or blank."""
+    """Fail closed unless ``value`` is exactly 40 lowercase hex characters.
+
+    Short SHAs, branch/tag/ref names, mixed-case hex, and other malformed
+    inputs are rejected with a sanitized reason (no raw attacker-controlled
+    echo beyond the label).
+    """
     if value is None or not _normalize_sha(value):
-        raise ValueError(f"{label} is required and must be a non-empty git commit SHA")
-    return _normalize_sha(value)
+        raise ValueError(f"{label} is required and must be exactly 40 lowercase hex characters")
+    normalized = _normalize_sha(value)
+    if not _COMMIT_SHA_RE.fullmatch(normalized):
+        raise ValueError(f"{label} rejected: {_commit_sha_rejection_reason(normalized)}")
+    return normalized
 
 
 def git_rev_parse(rev: str, *, cwd: str | Path | None = None) -> str:
@@ -182,14 +215,61 @@ def git_rev_parse(rev: str, *, cwd: str | Path | None = None) -> str:
     sha = completed.stdout.strip()
     if not sha:
         raise ValueError(f"Unable to resolve git commit {rev!r}")
-    return sha
+    return require_nonempty_commit_sha(sha, label="git rev-parse")
+
+
+def require_commit_ancestor_of_ref(
+    commit_sha: str,
+    ancestor_of: str = "origin/main",
+    *,
+    cwd: str | Path | None = None,
+) -> str:
+    """Fail closed unless ``commit_sha`` is an ancestor of ``ancestor_of``.
+
+    Used by the Live evaluation trust boundary so Actions only measures
+    merged canonical-main history. Nonexistent, fork-only, and same-repo
+    but not-on-main commits (including unmerged ``refs/pull/*/head`` tips)
+    must raise before any checkout of the eval target or paid work.
+    """
+    sha = require_nonempty_commit_sha(commit_sha, label="commit_sha")
+    try:
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError("commit_sha is not a known commit object in this repository") from exc
+    try:
+        completed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", sha, ancestor_of],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+    except OSError as exc:
+        raise ValueError(f"Unable to verify ancestry of {sha!r} against {ancestor_of!r}") from exc
+    if completed.returncode == 0:
+        return sha
+    if completed.returncode == 1:
+        raise ValueError(
+            "commit_sha is not an ancestor of "
+            f"{ancestor_of}; Actions evaluates merged canonical-main history only"
+        )
+    detail = (completed.stderr or completed.stdout or "").strip()
+    suffix = f": {detail}" if detail else ""
+    raise ValueError(f"Unable to verify ancestry of {sha!r} against {ancestor_of!r}{suffix}")
 
 
 def require_exact_checkout_sha(requested_sha: str, tested_sha: str) -> str:
     """Fail closed unless the checked-out HEAD equals the requested commit SHA.
 
-    Comparison is exact on the resolved full object names. Call this before any
-    paid provider or Atlas admission so a wrong checkout cannot spend budget.
+    Comparison is exact on full 40-hex object names. Call this after the
+    ancestry gate and detached checkout, before any paid provider or Atlas
+    admission so a wrong checkout cannot spend budget.
     """
     requested = require_nonempty_commit_sha(requested_sha, label="requested_sha")
     tested = require_nonempty_commit_sha(tested_sha, label="tested_sha")

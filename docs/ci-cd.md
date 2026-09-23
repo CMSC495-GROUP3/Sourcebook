@@ -136,17 +136,22 @@ Workflow: [`.github/workflows/evaluation.yml`](../.github/workflows/evaluation.y
 [Actions history](https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/evaluation.yml) ·
 [method and metric definitions](evaluation.md)
 
-**Trigger.** A maintainer starts `workflow_dispatch` and selects `smoke` or
-`full`. The job uses the protected `evaluation` environment because it calls
-the real model provider and MongoDB Atlas.
+**Trigger.** A maintainer starts `workflow_dispatch`, selects `smoke` or
+`full`, and supplies an exact 40-hex `commit_sha` that is an ancestor of
+`origin/main`. The job uses the protected `evaluation` environment because it
+calls the real model provider and MongoDB Atlas. Unmerged pull-request heads
+are not evaluated here; see the host procedure in
+[evaluation/README.md](../evaluation/README.md).
 
-**What it measures.** Configuration is checked first, including empty secrets
-and an empty or illegal `MONGODB_DB`, so a bad database name fails at
-preflight instead of after Atlas admission and paid calls. The runner's
-address is admitted to the Atlas project, the labeled set runs with
-`CACHE_ENABLED=0`, metrics are validated, and the address is removed after a
-completed admission even when later evaluation fails. Results stay as an
-artifact for 90 days.
+**What it measures.** Format and `origin/main` ancestry are checked on a
+trusted main checkout before the job detaches onto the requested SHA,
+installs dependencies, or touches secrets. Configuration is checked next,
+including empty secrets and an empty or illegal `MONGODB_DB`, so a bad
+database name fails at preflight instead of after Atlas admission and paid
+calls. The runner's address is admitted to the Atlas project, the labeled
+set runs with `CACHE_ENABLED=0`, metrics are validated, and the address is
+removed after a completed admission even when later evaluation fails.
+Results stay as an artifact for 90 days.
 
 Empty secrets, a nonzero evaluator exit, missing results, or malformed metrics
 fail closed. The results validator runs with `if: always()` so a missing file

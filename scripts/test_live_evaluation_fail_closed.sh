@@ -265,6 +265,9 @@ assert_file_contains "workflow enables pipefail" "set -euo pipefail"
 assert_file_contains "workflow validates results" "validate_live_evaluation.py --results"
 assert_file_contains "workflow admits the runner to Atlas" "atlas_access_list.sh add"
 assert_file_contains "workflow removes the runner from Atlas even on failure" "if: always() && steps.atlas.outputs.ip != ''"
+assert_file_contains "workflow requires 40-hex commit_sha" '^[0-9a-f]{40}$'
+assert_file_contains "workflow requires origin/main ancestry" "git merge-base --is-ancestor"
+assert_file_contains "workflow detaches only after ancestry" "git checkout --detach"
 
 # The access-list helper must refuse to run without its key, before any call.
 set +e

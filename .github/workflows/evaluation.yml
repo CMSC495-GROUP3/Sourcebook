@@ -2,6 +2,13 @@
 # provider, corpus, and vector index. It costs money and needs secrets, so it
 # runs only when a maintainer starts it from the Actions tab.
 #
+# Trust boundary: this workflow evaluates merged canonical-main history only.
+# `commit_sha` must be exactly 40 lowercase hex characters and an ancestor of
+# `origin/main` (`git merge-base --is-ancestor`). Unmerged pull-request heads
+# (including `refs/pull/*/head`) are NOT evaluated here — use the separately
+# controlled host procedure in evaluation/README.md (checkout the head on the
+# pilot host, run the smoke tier locally, post results.json on the PR).
+#
 # Setup, once: create a repository environment named "evaluation" with the
 # secrets OPENAI_API_KEY, MONGODB_URI, and MONGODB_DB. Restricting the
 # environment to the main branch keeps fork PRs away from the secrets.
@@ -26,12 +33,12 @@
 # and artifact upload still run for diagnostics and do not by themselves
 # make the job green.
 #
-# Commit pin: workflow_dispatch requires an explicit commit_sha. The job
-# checks out that SHA and fails closed if HEAD does not match before any
-# secrets gate, Atlas admit, or paid OpenAI call. The evaluation environment
-# still allows only protected `main`; evaluating an arbitrary feature-branch
-# commit remains a human policy/path problem (HTTP 422 on unprotected refs),
-# not something this workflow bypasses.
+# Commit pin: workflow_dispatch requires an explicit 40-hex commit_sha.
+# The job checks out trusted main first, verifies ancestry against
+# origin/main, and only then detaches onto the requested SHA — before any
+# dependency install, repository-code execution, secrets gate, Atlas admit,
+# or paid OpenAI call. Historical merged main ancestors are allowed;
+# tip-of-main-only is not required.
 
 name: Live evaluation
 
@@ -47,7 +54,7 @@ on:
         default: smoke
         required: true
       commit_sha:
-        description: Exact git commit SHA to evaluate (full object name; required — no floating default)
+        description: Exact 40-char lowercase hex commit SHA on origin/main history (required — no floating default)
         type: string
         required: true
 
@@ -61,29 +68,84 @@ jobs:
     environment: evaluation
     timeout-minutes: 60
     steps:
-      - name: Require non-empty commit_sha input
+      - name: Require exact 40-hex commit_sha input
         env:
           REQUESTED_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          if [ -z "${REQUESTED_SHA// }" ]; then
-            echo "commit_sha is required and must be a non-empty git commit SHA" >&2
+          sha="${REQUESTED_SHA}"
+          if [ -z "${sha// }" ]; then
+            echo "commit_sha is required and must be exactly 40 lowercase hex characters" >&2
             exit 1
           fi
-      - uses: actions/checkout@v7
+          # Strip incidental surrounding whitespace only; do not rewrite case.
+          sha="${sha#"${sha%%[![:space:]]*}"}"
+          sha="${sha%"${sha##*[![:space:]]}"}"
+          if [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "commit_sha format ok"
+            exit 0
+          fi
+          if [[ "$sha" =~ ^[0-9A-Fa-f]{1,39}$ ]]; then
+            echo "commit_sha rejected: short SHA is not allowed (require exactly 40 lowercase hex)" >&2
+          elif [[ "$sha" =~ ^[0-9A-Fa-f]{41,}$ ]]; then
+            echo "commit_sha rejected: malformed length (require exactly 40 lowercase hex)" >&2
+          elif [[ "$sha" =~ ^[0-9A-Fa-f]{40}$ ]]; then
+            echo "commit_sha rejected: must be lowercase hex (A-F not allowed)" >&2
+          elif [[ "$sha" =~ [/:] ]] || [[ "$sha" == *..* ]] || [[ "$sha" =~ ^(refs/|origin/) ]] \
+            || [[ "$sha" =~ ^(HEAD|main|master)$ ]] || [[ "$sha" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "commit_sha rejected: branch, tag, or ref name is not allowed (require exactly 40 lowercase hex)" >&2
+          else
+            echo "commit_sha rejected: malformed input (require exactly 40 lowercase hex)" >&2
+          fi
+          exit 1
+      - name: Checkout canonical main for ancestry check
+        uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.commit_sha }}
+          # Dispatch ref is protected main (evaluation environment). Never
+          # materialize the requested SHA until ancestry passes.
+          fetch-depth: 0
+      - name: Require commit_sha is ancestor of origin/main
+        id: ancestry
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          sha="${REQUESTED_SHA#"${REQUESTED_SHA%%[![:space:]]*}"}"
+          sha="${sha%"${sha##*[![:space:]]}"}"
+          git fetch --no-tags origin main
+          if ! git rev-parse --verify "origin/main^{commit}" >/dev/null 2>&1; then
+            echo "origin/main is not available after fetch" >&2
+            exit 1
+          fi
+          if ! git cat-file -e "${sha}^{commit}" 2>/dev/null; then
+            echo "commit_sha is not a known commit object in this repository" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "${sha}" origin/main; then
+            echo "commit_sha is not an ancestor of origin/main; Actions evaluates merged canonical-main history only" >&2
+            exit 1
+          fi
+          echo "requested_sha=${sha}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Live evaluation trust boundary"
+            echo
+            echo "- requested_sha: \`${sha}\`"
+            echo "- ancestry: ancestor of \`origin/main\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Checkout requested evaluation SHA
+        env:
+          REQUESTED_SHA: ${{ steps.ancestry.outputs.requested_sha }}
+        run: |
+          set -euo pipefail
+          git checkout --detach "${REQUESTED_SHA}"
       - name: Require exact checkout SHA
         id: sha
         env:
-          REQUESTED_SHA: ${{ inputs.commit_sha }}
+          REQUESTED_SHA: ${{ steps.ancestry.outputs.requested_sha }}
         run: |
           set -euo pipefail
           tested="$(git rev-parse HEAD)"
-          if ! requested="$(git rev-parse --verify "${REQUESTED_SHA}^{commit}")"; then
-            echo "commit_sha is not a known commit object: ${REQUESTED_SHA}" >&2
-            exit 1
-          fi
+          requested="${REQUESTED_SHA}"
           if [ "$requested" != "$tested" ]; then
             echo "Checkout SHA mismatch: requested_sha=${requested} tested_sha=${tested}" >&2
             exit 1
@@ -245,7 +307,7 @@ jobs:
             echo
             echo "Review each cited passage by hand before reporting these numbers."
             echo "Ambiguous clarifications remain a manual review; they are not auto-scored."
-            echo "A green job requires the SHA gate, the secrets gate, a zero evaluator exit, and validated metrics."
+            echo "A green job requires the SHA format gate, origin/main ancestry, the secrets gate, a zero evaluator exit, and validated metrics."
             echo "A green job is still measurement-only — not a product-quality PASS."
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7

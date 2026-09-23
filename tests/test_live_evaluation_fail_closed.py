@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -11,6 +13,7 @@ import yaml
 from scripts.validate_live_evaluation import main as validate_cli_main
 from sourcebook.rag.evaluation import (
     _validate_rate_metric,
+    require_commit_ancestor_of_ref,
     require_exact_checkout_sha,
     require_live_env,
     require_nonempty_commit_sha,
@@ -114,6 +117,119 @@ def test_require_exact_checkout_sha_accepts_match_and_rejects_mismatch():
         require_nonempty_commit_sha("")
     with pytest.raises(ValueError, match="required"):
         require_nonempty_commit_sha("   ")
+
+
+@pytest.mark.parametrize(
+    ("value", "needle"),
+    [
+        ("abc123", "short SHA"),
+        ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "short SHA"),  # 39
+        ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "malformed length"),  # 41
+        ("AAAAAAAAAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "lowercase"),  # mixed case 40
+        ("main", "branch, tag, or ref"),
+        ("HEAD", "branch, tag, or ref"),
+        ("refs/heads/main", "branch, tag, or ref"),
+        ("origin/main", "branch, tag, or ref"),
+        ("v1.0.0", "branch, tag, or ref"),
+        ("feature/eval", "branch, tag, or ref"),
+        ("not a sha!!!", "malformed"),
+    ],
+)
+def test_require_nonempty_commit_sha_rejects_non_40_hex(value: str, needle: str):
+    with pytest.raises(ValueError, match=needle):
+        require_nonempty_commit_sha(value)
+
+
+def test_require_nonempty_commit_sha_accepts_exact_40_hex():
+    assert require_nonempty_commit_sha(_FAKE_SHA_A) == _FAKE_SHA_A
+    assert require_nonempty_commit_sha(f"  {_FAKE_SHA_B}  ") == _FAKE_SHA_B
+
+
+def test_require_commit_ancestor_of_ref_accepts_main_ancestors(tmp_path: Path):
+    """Historical merged main commits pass; tip-only is not required."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.com",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.com",
+    }
+
+    def git(*args: str) -> str:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        return completed.stdout.strip()
+
+    git("init", "-b", "main")
+    (repo / "a.txt").write_text("a\n", encoding="utf-8")
+    git("add", "a.txt")
+    git("commit", "-m", "root")
+    root = git("rev-parse", "HEAD")
+    (repo / "b.txt").write_text("b\n", encoding="utf-8")
+    git("add", "b.txt")
+    git("commit", "-m", "second")
+    tip = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/main", tip)
+
+    assert require_commit_ancestor_of_ref(root, "origin/main", cwd=repo) == root
+    assert require_commit_ancestor_of_ref(tip, "origin/main", cwd=repo) == tip
+
+
+def test_require_commit_ancestor_of_ref_rejects_non_ancestor_and_missing(tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.com",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.com",
+    }
+
+    def git(*args: str) -> str:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        return completed.stdout.strip()
+
+    git("init", "-b", "main")
+    (repo / "a.txt").write_text("a\n", encoding="utf-8")
+    git("add", "a.txt")
+    git("commit", "-m", "root")
+    main_tip = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/main", main_tip)
+
+    git("checkout", "-b", "feature")
+    (repo / "f.txt").write_text("f\n", encoding="utf-8")
+    git("add", "f.txt")
+    git("commit", "-m", "fork-only tip")
+    feature_tip = git("rev-parse", "HEAD")
+
+    with pytest.raises(ValueError, match="not an ancestor of origin/main"):
+        require_commit_ancestor_of_ref(feature_tip, "origin/main", cwd=repo)
+
+    missing = "cccccccccccccccccccccccccccccccccccccccc"
+    with pytest.raises(ValueError, match="not a known commit object"):
+        require_commit_ancestor_of_ref(missing, "origin/main", cwd=repo)
+
+    with pytest.raises(ValueError, match="short SHA"):
+        require_commit_ancestor_of_ref(feature_tip[:7], "origin/main", cwd=repo)
+
+    with pytest.raises(ValueError, match="branch, tag, or ref"):
+        require_commit_ancestor_of_ref("main", "origin/main", cwd=repo)
 
 
 def test_resolve_evaluation_shas_fail_closed_under_actions(monkeypatch: pytest.MonkeyPatch):
@@ -441,30 +557,92 @@ def test_workflow_fail_closed_contract():
     by_name = {step.get("name"): step for step in steps}
     # PyYAML turns the workflow key `on` into boolean True.
     inputs = workflow[True]["workflow_dispatch"]["inputs"]
+    text = WORKFLOW.read_text(encoding="utf-8")
 
     assert "commit_sha" in inputs
     assert inputs["commit_sha"]["required"] is True
     assert "default" not in inputs["commit_sha"]
 
-    checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
-    assert checkout["with"]["ref"] == "${{ inputs.commit_sha }}"
+    format_step = by_name["Require exact 40-hex commit_sha input"]
+    assert r"^[0-9a-f]{40}$" in format_step["run"]
+    assert "short SHA" in format_step["run"]
+    assert "branch, tag, or ref" in format_step["run"]
+
+    checkouts = [
+        step for step in steps if str(step.get("uses", "")).startswith("actions/checkout@")
+    ]
+    assert len(checkouts) == 1
+    assert checkouts[0]["name"] == "Checkout canonical main for ancestry check"
+    assert checkouts[0]["with"]["fetch-depth"] == 0
+    assert "ref" not in checkouts[0].get("with", {})
+    assert "inputs.commit_sha" not in str(checkouts[0])
+
+    ancestry = by_name["Require commit_sha is ancestor of origin/main"]
+    assert "git merge-base --is-ancestor" in ancestry["run"]
+    assert "origin/main" in ancestry["run"]
+    assert "not an ancestor of origin/main" in ancestry["run"]
+
+    detach = by_name["Checkout requested evaluation SHA"]
+    assert "git checkout --detach" in detach["run"]
+    assert "steps.ancestry.outputs.requested_sha" in detach["env"]["REQUESTED_SHA"]
 
     sha_step = by_name["Require exact checkout SHA"]
     assert "Checkout SHA mismatch" in sha_step["run"]
     assert "git rev-parse HEAD" in sha_step["run"]
 
-    secrets_index = next(
-        i for i, step in enumerate(steps) if step.get("name") == "Require live evaluation secrets"
+    format_index = next(
+        i
+        for i, step in enumerate(steps)
+        if step.get("name") == "Require exact 40-hex commit_sha input"
+    )
+    main_checkout_index = next(
+        i
+        for i, step in enumerate(steps)
+        if step.get("name") == "Checkout canonical main for ancestry check"
+    )
+    ancestry_index = next(
+        i
+        for i, step in enumerate(steps)
+        if step.get("name") == "Require commit_sha is ancestor of origin/main"
+    )
+    detach_index = next(
+        i for i, step in enumerate(steps) if step.get("name") == "Checkout requested evaluation SHA"
     )
     sha_index = next(
         i for i, step in enumerate(steps) if step.get("name") == "Require exact checkout SHA"
+    )
+    setup_index = next(
+        i
+        for i, step in enumerate(steps)
+        if str(step.get("uses", "")).startswith("actions/setup-python@")
+    )
+    pip_index = next(
+        i
+        for i, step in enumerate(steps)
+        if step.get("run") == "pip install -r requirements/api.txt -r requirements/ingest.txt"
+    )
+    secrets_index = next(
+        i for i, step in enumerate(steps) if step.get("name") == "Require live evaluation secrets"
     )
     atlas_index = next(
         i
         for i, step in enumerate(steps)
         if step.get("name") == "Admit this runner to the Atlas IP access list"
     )
-    assert sha_index < secrets_index < atlas_index
+    assert (
+        format_index
+        < main_checkout_index
+        < ancestry_index
+        < detach_index
+        < sha_index
+        < setup_index
+        < pip_index
+        < secrets_index
+        < atlas_index
+    )
+
+    assert "merged canonical-main history only" in text
+    assert "host procedure" in text.lower() or "host" in text
 
     assert "--check-env" in by_name["Require live evaluation secrets"]["run"]
     assert "set -euo pipefail" in by_name["Run the evaluation"]["run"]
