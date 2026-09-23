@@ -288,6 +288,20 @@ known-unanswerable questions, then set the threshold between the two clusters.
 Too high refuses legitimate questions. Too low means the refusal never fires.
 The [query log](#learning-from-the-query-log) is where those scores come from.
 
+Because cosine alone cannot separate them, a second check runs whenever the
+threshold clears: a coverage judge. The utility model gets the selected
+excerpts and the question, both marked as untrusted data, and must reply with
+exactly `{"covered": true}` or `{"covered": false}`. Anything else refuses. On a
+follow-up it judges the standalone rewrite and also sees the employee's own
+wording, so an instruction to ignore the excerpts is caught even when the
+rewrite reads cleanly. A busy provider still returns the retryable 503, and a
+timeout, dropped connection, 429, or provider 5xx during the judge is an
+ordinary error. None of those is stored or cached as a refusal. The live smoke
+tier on the #192 fix ([PR #253](https://github.com/CMSC495-GROUP3/Sourcebook/pull/253))
+moved unsupported-question refusal and prompt-injection refusal from 0% to
+100%, while recall, citation correctness, and grounded answers stayed at 100%.
+The cost is one utility call on every turn that clears the threshold.
+
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
 "that policy isn't loaded yet." The library shows each document whole; the
@@ -962,12 +976,12 @@ The product name lives in three places: `APP_NAME` in
 - **Authentication is a shared password** (or two), not per-employee accounts, and
   conversations are not scoped to a user. Fine for a pilot. It is the first
   thing to change before a real deployment.
-- **The similarity threshold is untuned** against a real corpus, and on the
-  sample corpus it does not separate covered questions from uncovered ones on
-  nearby topics. Such a question gets a prose decline under a score badge and
-  source chips instead of the refusal card (#192), and an uncovered follow-up
-  can clear the gate the same way (#189). The escalation link under the answer
-  still works. See [above](#hallucination-refuse-rather-than-guess).
+- **The similarity threshold is untuned** against a real corpus. On the sample
+  corpus it does not separate covered questions from uncovered ones on nearby
+  topics, so the coverage judge behind it does that work (#192). The judge is a
+  model call: it adds latency and cost to every grounded turn, and it was
+  measured on the 20-case smoke tier, not a real corpus. See
+  [above](#hallucination-refuse-rather-than-guess).
 - **Frontend unit coverage is intentionally focused.** Vitest and React Testing
   Library cover the chat stream, message and escalation behavior, theme toggle,
   and theme storage. `tsc`, ESLint, and the production build cover the wider web
