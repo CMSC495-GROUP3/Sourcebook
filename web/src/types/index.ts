@@ -75,4 +75,9 @@ export interface Escalation {
   created_at: string
   updated_at: string
   resolved_at: string | null
+
+  delivery_status: 'pending' | 'delivered' | 'failed'
+  delivery_attempts: number
+  delivery_last_attempt_at: string | null
+  delivery_claimed_at: string | null
 }
