@@ -140,6 +140,48 @@ describe('Message', () => {
     expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument()
   })
 
+  it('shows Retry for an eligible provider-busy error when it is last', () => {
+    const onRetry = vi.fn()
+    renderMessage(
+      {
+        role: 'assistant',
+        content: 'The assistant is answering as many questions as it can right now. Please try again in a moment.',
+        error: true,
+        retryable: true,
+        retryAfter: 0,
+      },
+      { isLast: true, onRetry },
+    )
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
+
+  it('suppresses Retry for an eligible provider-busy error when it is not last', () => {
+    const onRetry = vi.fn()
+    renderMessage(
+      {
+        role: 'assistant',
+        content: 'The assistant is answering as many questions as it can right now. Please try again in a moment.',
+        error: true,
+        retryable: true,
+        retryAfter: 0,
+      },
+      { isLast: false, onRetry },
+    )
+    expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument()
+  })
+
+  it('does not offer Retry on ordinary errors even when last', () => {
+    renderMessage(
+      {
+        role: 'assistant',
+        content: 'Sorry, something went wrong. Please try again.',
+        error: true,
+      },
+      { isLast: true, onRetry: vi.fn() },
+    )
+    expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument()
+  })
+
   it('holds the retry control until Retry-After elapses', async () => {
     vi.useFakeTimers()
     const onRetry = vi.fn()

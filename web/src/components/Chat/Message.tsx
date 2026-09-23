@@ -124,8 +124,9 @@ export default function Message({
           )}
           {/* An error bubble is this client's own text; the server stored no
               turn to hand to a person. See #84. A provider-busy error can be
-              retried once; generic failures stay as copy only. */}
-          {message.error && message.retryable && onRetry ? (
+              retried once, and only while it is still the last message;
+              generic failures stay as copy only. */}
+          {isLast && message.error && message.retryable && onRetry ? (
             <RetryControl retryAfter={message.retryAfter ?? 1} onRetry={onRetry} />
           ) : null}
           {!message.error && (
