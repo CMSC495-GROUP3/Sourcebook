@@ -164,11 +164,6 @@ _COMMIT_SHA_REF_LIKE_RE = re.compile(
 )
 
 
-def _normalize_sha(value: str) -> str:
-    """Strip whitespace; empty after strip is invalid."""
-    return value.strip()
-
-
 def _commit_sha_rejection_reason(value: str) -> str:
     """Return a sanitized fail-closed reason for a non-40-hex commit SHA."""
     if _COMMIT_SHA_HEX_ANYCASE_RE.fullmatch(value):
@@ -189,12 +184,11 @@ def require_nonempty_commit_sha(value: str | None, *, label: str = "commit_sha")
     inputs are rejected with a sanitized reason (no raw attacker-controlled
     echo beyond the label).
     """
-    if value is None or not _normalize_sha(value):
+    if value is None or not value.strip():
         raise ValueError(f"{label} is required and must be exactly 40 lowercase hex characters")
-    normalized = _normalize_sha(value)
-    if not _COMMIT_SHA_RE.fullmatch(normalized):
-        raise ValueError(f"{label} rejected: {_commit_sha_rejection_reason(normalized)}")
-    return normalized
+    if not _COMMIT_SHA_RE.fullmatch(value):
+        raise ValueError(f"{label} rejected: {_commit_sha_rejection_reason(value)}")
+    return value
 
 
 def git_rev_parse(rev: str, *, cwd: str | Path | None = None) -> str:

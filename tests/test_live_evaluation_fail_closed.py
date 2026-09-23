@@ -132,6 +132,7 @@ def test_require_exact_checkout_sha_accepts_match_and_rejects_mismatch():
         ("origin/main", "branch, tag, or ref"),
         ("v1.0.0", "branch, tag, or ref"),
         ("feature/eval", "branch, tag, or ref"),
+        (f"  {_FAKE_SHA_B}  ", "malformed"),
         ("not a sha!!!", "malformed"),
     ],
 )
@@ -142,7 +143,7 @@ def test_require_nonempty_commit_sha_rejects_non_40_hex(value: str, needle: str)
 
 def test_require_nonempty_commit_sha_accepts_exact_40_hex():
     assert require_nonempty_commit_sha(_FAKE_SHA_A) == _FAKE_SHA_A
-    assert require_nonempty_commit_sha(f"  {_FAKE_SHA_B}  ") == _FAKE_SHA_B
+    assert require_nonempty_commit_sha(_FAKE_SHA_B) == _FAKE_SHA_B
 
 
 def test_require_commit_ancestor_of_ref_accepts_main_ancestors(tmp_path: Path):
@@ -567,6 +568,7 @@ def test_workflow_fail_closed_contract():
     assert r"^[0-9a-f]{40}$" in format_step["run"]
     assert "short SHA" in format_step["run"]
     assert "branch, tag, or ref" in format_step["run"]
+    assert "%%[![:space:]]" not in format_step["run"]
 
     checkouts = [
         step for step in steps if str(step.get("uses", "")).startswith("actions/checkout@")
@@ -581,6 +583,7 @@ def test_workflow_fail_closed_contract():
     assert "git merge-base --is-ancestor" in ancestry["run"]
     assert "origin/main" in ancestry["run"]
     assert "not an ancestor of origin/main" in ancestry["run"]
+    assert "%%[![:space:]]" not in ancestry["run"]
 
     detach = by_name["Checkout requested evaluation SHA"]
     assert "git checkout --detach" in detach["run"]

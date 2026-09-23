@@ -78,9 +78,6 @@ jobs:
             echo "commit_sha is required and must be exactly 40 lowercase hex characters" >&2
             exit 1
           fi
-          # Strip incidental surrounding whitespace only; do not rewrite case.
-          sha="${sha#"${sha%%[![:space:]]*}"}"
-          sha="${sha%"${sha##*[![:space:]]}"}"
           if [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
             echo "commit_sha format ok"
             exit 0
@@ -110,8 +107,7 @@ jobs:
           REQUESTED_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          sha="${REQUESTED_SHA#"${REQUESTED_SHA%%[![:space:]]*}"}"
-          sha="${sha%"${sha##*[![:space:]]}"}"
+          sha="${REQUESTED_SHA}"
           git fetch --no-tags origin main
           if ! git rev-parse --verify "origin/main^{commit}" >/dev/null 2>&1; then
             echo "origin/main is not available after fetch" >&2
