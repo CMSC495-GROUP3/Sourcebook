@@ -11,11 +11,11 @@ They are interim. The portfolio cut expects a beta browser pass under
 `docs/releases/v0.2.0-beta.1/evidence/` once that release folder exists; each
 section that still waits on beta names a **screenshot placeholder**.
 
-There is no in-app Human Resources queue on `main` yet. Open queue and resolve
-are API (and webhook) workflows. The proposed UI is tracked as
-[#159](https://github.com/CMSC495-GROUP3/Sourcebook/issues/159) /
-[pull request #250](https://github.com/CMSC495-GROUP3/Sourcebook/pull/250) and
-is **not** documented here as shipped.
+Human Resources works escalations from the **HR Requests** page in the app
+([#159](https://github.com/CMSC495-GROUP3/Sourcebook/issues/159), shipped in
+[pull request #250](https://github.com/CMSC495-GROUP3/Sourcebook/pull/250)).
+The same operations are API routes, with an optional webhook, for a script or
+a chat channel.
 
 ## For employees
 
@@ -138,14 +138,36 @@ page for open tickets on `main`.
 | Policy Library | sidebar **Policy Library**, or `/documents` | browse and read indexed policies |
 | Conversations | sidebar list | reopen a prior `session_id` |
 | Projects | sidebar (when used) | group conversations; optional |
+| HR Requests | sidebar **HR Requests**, or `/escalations` | work the escalation queue; see below |
 
 > **Screenshot placeholder (beta).** Policy Library list/reader:
 > `docs/releases/v0.2.0-beta.1/evidence/08-policy-library.png`
 
 ## For Human Resources handlers
 
-Employee escalations are stored in MongoDB. Delivery to a chat channel is
-optional. Handling today is **API plus webhook**, not an in-app queue.
+Employee escalations are stored in MongoDB. Handlers work them from the
+**HR Requests** page. Delivery to a chat channel is optional, and every
+operation on the page is also an API route.
+
+### The HR Requests page
+
+Open **HR Requests** from the sidebar. The **Open** tab lists requests newest
+first, and **Resolved** lists closed ones. The count beside the title is the
+full number for the tab, even past the first 50 shown.
+
+Pick a request to see the question, the assistant's answer, the employee's
+note, the reason (`refused` or `unhelpful`), the match score, the sources, and
+webhook delivery.
+
+- **Resolve:** write what you told the employee in **Resolution note** and
+  choose **Resolve request**. It moves to the Resolved tab with the note.
+- **Reopen:** open a resolved request and choose **Reopen request**.
+- **Retry delivery:** shown when the webhook send failed and the server allows
+  another attempt. If it fails again, the page says so. Past the attempt
+  limit, the server's reason appears instead.
+
+> **Screenshot placeholder (beta).** HR Requests with a request open:
+> `docs/releases/v0.2.0-beta.1/evidence/09-hr-requests.png`
 
 ### Where escalations arrive
 
@@ -153,7 +175,9 @@ optional. Handling today is **API plus webhook**, not an in-app queue.
 API host, each new escalation is POSTed in the background after create. The
 JSON body includes a Slack/Teams-friendly top-level `text` summary and the
 full `escalation` object. Create never waits on the webhook. Delivery status
-on the record is `pending`, `delivered`, or `failed`. See
+on the record is `pending`, `delivered`, or `failed`. If no webhook is
+configured, nothing is sent: the request still reaches HR Requests and the
+API, and its delivery status does not mean a send is queued. See
 `.env.example` and [api.md](api.md).
 
 **2. Open queue endpoint.** Authenticate with the same shared password
@@ -169,16 +193,8 @@ includes `escalation_id`, `reason` (`refused` or `unhelpful`), `question`,
 `answer_excerpt`, `note`, `sources`, `confidence`, and delivery fields.
 `GET /api/escalations/{escalation_id}` returns one record.
 
-There is **no** Human Resources page in the React app on `main`. Do not
-treat [pull request #250](https://github.com/CMSC495-GROUP3/Sourcebook/pull/250)
-as present until it merges.
 
-> **Screenshot placeholder (beta / final).** In-app queue UI only after #159
-> ships. Until then, capture a webhook inbox message or an API client response
-> as operator evidence if needed:
-> `docs/releases/v0.2.0-beta.1/evidence/09-hr-queue-or-webhook.png`
-
-### Resolve an escalation
+### Resolve through the API
 
 ```http
 PATCH /api/escalations/{escalation_id}
@@ -192,7 +208,7 @@ Content-Type: application/json
 gains `resolved_at`. List resolved items with `?status=resolved` when you need
 history.
 
-### Retry a failed webhook
+### Retry delivery through the API
 
 If delivery failed and a webhook is configured:
 
@@ -240,4 +256,4 @@ old window can print empty. Details and flags: module docstring in
 | [api.md](api.md) | full escalation and chat contracts |
 | [evaluation.md](evaluation.md) | labeled questions and live scoring |
 | [releases/v0.1.0-alpha.1/handoff.md](releases/v0.1.0-alpha.1/handoff.md) | alpha scope and evidence map |
-| [README Known limitations](../README.md#known-limitations) | shared password, no HR UI, threshold caveats |
+| [README Known limitations](../README.md#known-limitations) | shared password, threshold caveats |
