@@ -86,6 +86,8 @@ To run it, read [docs/install.md](docs/install.md). To change it, read
 | [docs/design.md](docs/design.md) | the paper-and-ink design system |
 | [docs/evaluation.md](docs/evaluation.md) | the labeled question sets and how to score the live system |
 | [docs/load-testing.md](docs/load-testing.md) | throughput measurements and `THREADPOOL_TOKENS` |
+| [docs/ci-cd.md](docs/ci-cd.md) | the five workflows, the merge-to-deploy path, and the `v1.0.0` tag procedure |
+| [docs/quality.md](docs/quality.md) | code review, coverage, and performance evidence, with the source of every number |
 
 ### Releases
 
@@ -200,8 +202,11 @@ With `SITE_ADDRESS` unset, Caddy serves plain HTTP on localhost, which is what
 3. Atlas Vector Search returns the 5 nearest passages out of 100 candidates,
    each with a similarity score.
 4. The grounding gate. If the single best passage scores below
-   `SIMILARITY_THRESHOLD`, the system declines and makes no model call. See
-   [below](#hallucination-refuse-rather-than-guess).
+   `SIMILARITY_THRESHOLD`, the system declines and makes no model call. If
+   cosine clears, a coverage judge (one extra utility call) decides whether
+   those excerpts actually answer the question before any answer-role call.
+   See [below](#hallucination-refuse-rather-than-guess). A follow-up can
+   require condense, coverage, and answer calls plus two retrievals.
 5. Otherwise the passages, recent history, and previously cited documents go to
    the answer model with instructions to use only the supplied context.
 6. Tokens stream to the browser over server-sent events. Sources and the
@@ -211,9 +216,11 @@ With `SITE_ADDRESS` unset, Caddy serves plain HTTP on localhost, which is what
 7. The exchange, its sources, and its score are saved, so reopening a past
    conversation restores its citations and not just its text. First-turn
    answers are also cached for 24 hours under a key that includes the corpus
-   version, prompt version, and retrieval settings (`SIMILARITY_THRESHOLD` and
-   `RETRIEVAL_K`), so re-ingestion or a behavior change invalidates them with
-   no cache-clearing code to get wrong.
+   version, the answer model, the coverage/utility model, the answer prompt
+   version (`PROMPT_VERSION`), the coverage prompt version
+   (`COVERAGE_PROMPT_VERSION`), and retrieval settings (`SIMILARITY_THRESHOLD`
+   and `RETRIEVAL_K`), so re-ingestion or a behavior change invalidates them
+   with no cache-clearing code to get wrong.
 8. If the assistant refused, or the answer did not help, the employee can hand
    the question to a person from the same screen.
 
@@ -281,6 +288,20 @@ known-unanswerable questions, then set the threshold between the two clusters.
 Too high refuses legitimate questions. Too low means the refusal never fires.
 The [query log](#learning-from-the-query-log) is where those scores come from.
 
+Because cosine alone cannot separate them, a second check runs whenever the
+threshold clears: a coverage judge. The utility model gets the selected
+excerpts and the question, both marked as untrusted data, and must reply with
+exactly `{"covered": true}` or `{"covered": false}`. Anything else refuses. On a
+follow-up it judges the standalone rewrite and also sees the employee's own
+wording, so an instruction to ignore the excerpts is caught even when the
+rewrite reads cleanly. A busy provider still returns the retryable 503, and a
+timeout, dropped connection, 429, or provider 5xx during the judge is an
+ordinary error. None of those is stored or cached as a refusal. The live smoke
+tier on the #192 fix ([PR #253](https://github.com/CMSC495-GROUP3/Sourcebook/pull/253))
+moved unsupported-question refusal and prompt-injection refusal from 0% to
+100%, while recall, citation correctness, and grounded answers stayed at 100%.
+The cost is one utility call on every turn that clears the threshold.
+
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
 "that policy isn't loaded yet." The library shows each document whole; the
@@ -325,10 +346,17 @@ at-least-once: a receiver that accepts a request immediately before the worker
 dies may see the same escalation again, so consumers should deduplicate by
 `escalation_id`.
 
-Whoever handles the queue lists it with `GET /api/escalations?status=open` and
-closes an item with `PATCH /api/escalations/{id}` and a resolution note. There
-is no UI for that side yet. The endpoints are enough for a script or a
-webhook-fed channel.
+Responses report delivery as it stands, not the stored field. With no webhook
+configured, a record that was never attempted reads `not_configured`, and every
+record carries `delivery_retryable`, which is true only when the retry endpoint
+would send. Neither is stored, so setting `ESCALATION_WEBHOOK_URL` later turns
+those records back into `pending` and lets the HR Requests page send them.
+
+Human Resources works the queue from the **HR Requests** page in the web app,
+which lists open escalations, resolves or reopens them with a note, and retries
+failed webhook delivery. The same operations are available as
+`GET /api/escalations?status=open`, `PATCH /api/escalations/{id}`, and
+`POST /api/escalations/{id}/retry-delivery` for a script or a webhook-fed channel.
 
 ### Vendor lock-in: one interface, one env var
 
@@ -696,7 +724,8 @@ what changed since the last *successful* deploy, recorded in the local ref
 `/api/health` passes, or after a docs-only fast-forward that needs no rebuild.
 A failed `docker compose build` or `up` therefore leaves the ref behind, and
 the next tick retries the same tip instead of treating the fast-forwarded
-`HEAD` as already deployed.
+`HEAD` as already deployed. [docs/ci-cd.md](docs/ci-cd.md#from-merge-to-the-pilot-containers)
+walks the same path from merge to running containers.
 
 | Changed path                                       | What happens                                                                 |
 | -------------------------------------------------- | ---------------------------------------------------------------------------- |
@@ -872,7 +901,9 @@ reuse: `sourcebook-api:acceptance` and
 | PR path labels  | every PR                           | applies area labels from the changed paths                          
 | Live evaluation | by hand from the Actions tab       | scores the labeled question set against the real provider and index                                                                                                |
 
-CONTRIBUTING.md has the full table.
+CONTRIBUTING.md has the full table. [docs/ci-cd.md](docs/ci-cd.md) explains each
+workflow and what a green run does and does not prove. [docs/quality.md](docs/quality.md)
+collects the review, coverage, and performance evidence in one place.
 
 ## Document format
 
@@ -926,8 +957,9 @@ scripts/            auto_deploy.sh and its systemd units, deploy.sh, audit.sh, t
                     synthetic test, and the load-test harness in loadtest/
 evaluation/         smoke (20) and full-corpus labeled questions plus scoring notes
 data/               42 fictional sample policies
-docs/               design.md, evaluation.md, load-testing.md, and one folder per release
-                    under releases/ with its handoff, notes, measurements, and evidence
+docs/               install, api, design, evaluation, load-testing, ci-cd, and quality pages,
+                    and one folder per release under releases/ with its handoff, notes,
+                    measurements, and evidence
 assets/brand/       the Sourcebook mark, source PNGs; web/public/ holds the served copies
 requirements/       *.in are pip-compile inputs (base is shared; api is the Docker image; ingest;
                     lint; dev is everything); api, dev, and ingest compile to .txt locks
@@ -950,16 +982,16 @@ The product name lives in three places: `APP_NAME` in
 - **Authentication is a shared password** (or two), not per-employee accounts, and
   conversations are not scoped to a user. Fine for a pilot. It is the first
   thing to change before a real deployment.
-- **The similarity threshold is untuned** against a real corpus, and on the
-  sample corpus it does not separate covered questions from uncovered ones on
-  nearby topics. Such a question gets a prose decline under a score badge and
-  source chips instead of the refusal card (#192), and an uncovered follow-up
-  can clear the gate the same way (#189). The escalation link under the answer
-  still works. See [above](#hallucination-refuse-rather-than-guess).
-- **Escalations have no handler UI.** The open-queue and resolve endpoints
-  exist; a page for Human Resources to work through them does not.
-- **The React components have no unit tests.** The backend suite is the safety
-  net; `tsc` and ESLint check the web app.
+- **The similarity threshold is untuned** against a real corpus. On the sample
+  corpus it does not separate covered questions from uncovered ones on nearby
+  topics, so the coverage judge behind it does that work (#192). The judge is a
+  model call: it adds latency and cost to every grounded turn, and it was
+  measured on the 20-case smoke tier, not a real corpus. See
+  [above](#hallucination-refuse-rather-than-guess).
+- **Frontend unit coverage is intentionally focused.** Vitest and React Testing
+  Library cover the chat stream, message and escalation behavior, theme toggle,
+  and theme storage. `tsc`, ESLint, and the production build cover the wider web
+  application, but visual regression and full browser tests remain future work.
 - **Document search uses `$regex`**, which does not use an index. Fine at this
   corpus size. Move to Atlas Search if the library grows large.
 - **JWTs live in browser local storage.** Acceptable for an internal pilot

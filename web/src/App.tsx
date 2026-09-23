@@ -8,6 +8,7 @@ import { BrandMark, Wordmark } from './components/Layout/Brand'
 import { useSidebar } from './hooks/useSidebar'
 import ChatPage from './pages/ChatPage'
 import DocumentLibraryPage from './pages/DocumentLibraryPage'
+import EscalationsPage from './pages/EscalationsPage'
 
 /** True when localStorage holds a JWT that has not yet expired. */
 function readIsAuthenticated(): boolean {
@@ -81,6 +82,14 @@ export default function App() {
           element={
             <ProtectedLayout>
               <DocumentLibraryPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/escalations"
+          element={
+            <ProtectedLayout>
+              <EscalationsPage />
             </ProtectedLayout>
           }
         />
