@@ -201,25 +201,30 @@ jobs:
       - run: npm test
       - run: npm run build
       - uses: actions/upload-artifact@v7
-        # Vitest writes JSON coverage under node_modules/.tmp/coverage
-        # (vitest.config.ts). Keep it on failure so a red web job still has
-        # a downloadable report.
+        # Vitest writes coverage-final.json + coverage-summary.json under
+        # node_modules/.tmp/coverage (vitest.config.ts json + json-summary).
+        # Keep them on failure so a red web job still has a downloadable report.
         if: failure()
         with:
           name: web-coverage-failure-${{ github.sha }}
-          path: web/node_modules/.tmp/coverage
+          path: |
+            web/node_modules/.tmp/coverage/coverage-summary.json
+            web/node_modules/.tmp/coverage/coverage-final.json
           if-no-files-found: ignore
           retention-days: 14
       - uses: actions/upload-artifact@v7
         # Successful main runs keep a SHA-named Vitest coverage pack for
-        # release evidence once React tests land (#210 / #252).
+        # release evidence (#210). coverage-summary.json carries statement /
+        # branch / function / line totals for the later docs copy step.
         if: >
           success()
           && github.event_name == 'push'
           && github.ref == 'refs/heads/main'
         with:
           name: web-coverage-${{ github.sha }}
-          path: web/node_modules/.tmp/coverage
+          path: |
+            web/node_modules/.tmp/coverage/coverage-summary.json
+            web/node_modules/.tmp/coverage/coverage-final.json
           if-no-files-found: error
           retention-days: 90
       - uses: actions/upload-artifact@v7

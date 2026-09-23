@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import yaml
 
-WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ci.yml"
+ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+VITEST_CONFIG = ROOT / "web" / "vitest.config.ts"
+WEB_PACKAGE = ROOT / "web" / "package.json"
+WEB_COVERAGE_DIR = "web/node_modules/.tmp/coverage"
+COVERAGE_SUMMARY_PATH = f"{WEB_COVERAGE_DIR}/coverage-summary.json"
+COVERAGE_FINAL_PATH = f"{WEB_COVERAGE_DIR}/coverage-final.json"
 
 
 def _steps(job: str) -> list[dict]:
@@ -68,6 +75,22 @@ def test_python_main_success_uploads_sha_named_coverage_pack():
     assert main_upload["with"]["retention-days"] == 90
 
 
+def test_web_job_runs_vitest_with_coverage():
+    """The web job must execute Vitest coverage before any coverage upload."""
+    pkg = json.loads(WEB_PACKAGE.read_text(encoding="utf-8"))
+    assert "--coverage" in pkg["scripts"]["test"]
+
+    runs = [step.get("run") for step in _steps("web") if isinstance(step.get("run"), str)]
+    assert "npm test" in runs
+
+
+def test_web_vitest_emits_json_summary_for_release_totals():
+    """#210 needs statement/branch/function/line totals, not only per-statement JSON."""
+    config = VITEST_CONFIG.read_text(encoding="utf-8")
+    assert "json-summary" in config
+    assert "reportsDirectory: './node_modules/.tmp/coverage'" in config
+
+
 def test_web_main_success_uploads_sha_named_vitest_coverage():
     """Successful main pushes retain Vitest coverage under a commit SHA name."""
     uploads = _upload_steps("web")
@@ -80,8 +103,11 @@ def test_web_main_success_uploads_sha_named_vitest_coverage():
     assert "success()" in condition
     assert "github.event_name == 'push'" in condition
     assert "github.ref == 'refs/heads/main'" in condition
-    assert main_upload["with"]["path"] == "web/node_modules/.tmp/coverage"
+    paths = main_upload["with"]["path"]
+    assert COVERAGE_SUMMARY_PATH in paths
+    assert COVERAGE_FINAL_PATH in paths
     assert main_upload["with"]["retention-days"] == 90
+    assert main_upload["with"]["if-no-files-found"] == "error"
 
 
 def test_web_failure_still_uploads_vitest_coverage():
@@ -93,7 +119,9 @@ def test_web_failure_still_uploads_vitest_coverage():
         if step.get("with", {}).get("name") == "web-coverage-failure-${{ github.sha }}"
     )
     assert failure_upload["if"] == "failure()"
-    assert failure_upload["with"]["path"] == "web/node_modules/.tmp/coverage"
+    paths = failure_upload["with"]["path"]
+    assert COVERAGE_SUMMARY_PATH in paths
+    assert COVERAGE_FINAL_PATH in paths
     assert failure_upload["with"]["retention-days"] == 14
     assert failure_upload["with"]["if-no-files-found"] == "ignore"
 
