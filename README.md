@@ -23,10 +23,6 @@
   <a href="#architecture">Architecture</a> ·
   <a href="#deployment">Deployment</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="docs/releases/v0.1.0-alpha.1/handoff.md">Alpha handoff</a> ·
-  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a> ·
-  <a href="docs/releases/v0.2.0/handoff.md">Beta handoff</a> ·
-  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0">v0.2.0</a>
 </p>
 
 ---
