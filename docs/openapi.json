@@ -64,6 +64,21 @@
             ],
             "title": "Message Id"
           },
+          "refusal_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no_match",
+                  "not_covered"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal Reason"
+          },
           "refused": {
             "title": "Refused",
             "type": "boolean"

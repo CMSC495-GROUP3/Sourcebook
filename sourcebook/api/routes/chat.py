@@ -49,6 +49,7 @@ from sourcebook.rag.config import (
 )
 from sourcebook.rag.llm import ProviderBusyError, get_provider
 from sourcebook.rag.rag_chain import (
+    RefusalReason,
     build_messages,
     cited_sources,
     generate_follow_ups,
@@ -103,6 +104,9 @@ class ChatResponse(BaseModel):
     confidence: int | None
     follow_ups: list[str]
     refused: bool
+    # Which check refused: "no_match" (cosine below the threshold) or
+    # "not_covered" (the coverage judge). None on an answer. Issue #269.
+    refusal_reason: RefusalReason | None = None
     session_id: str | None
     # Stable name for the assistant turn, for escalation. None when the
     # request carried no session, because nothing was stored to name.
@@ -153,6 +157,7 @@ def _persist(
     refused: bool,
     follow_ups: list[str] | None = None,
     message_id: str | None = None,
+    refusal_reason: RefusalReason | None = None,
 ) -> None:
     """Append one exchange to the conversation record.
 
@@ -183,6 +188,7 @@ def _persist(
                             "sources": sources,
                             "confidence": confidence,
                             "refused": refused,
+                            "refusal_reason": refusal_reason,
                             "follow_ups": list(follow_ups or []),
                         },
                     ]
@@ -225,6 +231,7 @@ def _answer(question: str, history: list[dict]) -> dict:
             "confidence": grounding.confidence,
             "follow_ups": [],
             "refused": True,
+            "refusal_reason": grounding.refusal_reason,
         }
     else:
         answer = get_provider().complete(
@@ -238,6 +245,7 @@ def _answer(question: str, history: list[dict]) -> dict:
             "confidence": grounding.confidence,
             "follow_ups": generate_follow_ups(question, answer),
             "refused": False,
+            "refusal_reason": None,
         }
 
     # Refusals are cached too. A re-ingestion that adds the missing policy
@@ -297,6 +305,7 @@ def chat(request: Request, body: ChatRequest):
         result["refused"],
         result["follow_ups"],
         message_id=message_id,
+        refusal_reason=result.get("refusal_reason"),
     )
 
     log_query(
@@ -317,6 +326,7 @@ def chat(request: Request, body: ChatRequest):
         confidence=result["confidence"],
         follow_ups=result["follow_ups"],
         refused=result["refused"],
+        refusal_reason=result.get("refusal_reason"),
         session_id=body.session_id,
         message_id=message_id if body.session_id else None,
     )
@@ -390,6 +400,7 @@ def _finalize(
         state["refused"],
         follow_ups,
         message_id=state["message_id"],
+        refusal_reason=state["refusal_reason"],
     )
 
     if state["complete"] and state["cache_hit"] is None and is_cacheable_turn(history):
@@ -402,6 +413,7 @@ def _finalize(
                 "confidence": state["confidence"],
                 "follow_ups": follow_ups,
                 "refused": state["refused"],
+                "refusal_reason": state["refusal_reason"],
             },
         )
 
@@ -438,6 +450,7 @@ def _stream(body: ChatRequest):
         "sources": [],
         "confidence": None,
         "refused": False,
+        "refusal_reason": None,
         # None = not attempted; [] = attempted but unavailable (incl. provider fail).
         "follow_ups": None,
         "passages": [],
@@ -461,6 +474,7 @@ def _stream(body: ChatRequest):
                     sources=cached["sources"],
                     confidence=cached["confidence"],
                     refused=cached["refused"],
+                    refusal_reason=cached.get("refusal_reason"),
                     follow_ups=cached["follow_ups"],
                     cache_hit="answer",
                 )
@@ -468,16 +482,17 @@ def _stream(body: ChatRequest):
                 size = max(1, len(text) // CACHED_REPLAY_CHUNKS)
                 for offset in range(0, len(text), size):
                     yield _sse({"chunk": text[offset : offset + size]})
-                yield _sse(
-                    {
-                        "done": True,
-                        "message_id": state["message_id"],
-                        "sources": cached["sources"],
-                        "confidence": cached["confidence"],
-                        "refused": cached["refused"],
-                        "cached": True,
-                    }
-                )
+                done = {
+                    "done": True,
+                    "message_id": state["message_id"],
+                    "sources": cached["sources"],
+                    "confidence": cached["confidence"],
+                    "refused": cached["refused"],
+                    "cached": True,
+                }
+                if cached["refused"]:
+                    done["refusal_reason"] = cached.get("refusal_reason")
+                yield _sse(done)
                 if cached["follow_ups"]:
                     yield _sse({"follow_ups": cached["follow_ups"]})
                 return
@@ -506,11 +521,17 @@ def _stream(body: ChatRequest):
         # Grounding gate — below the threshold we decline without generating.
         if not grounding.grounded:
             logger.info(
-                "Refused: best score %.3f below threshold for session %s",
+                "Refused: best score %.3f (%s) for session %s",
                 grounding.best_score,
+                grounding.refusal_reason,
                 normalize_log_token(body.session_id),
             )
-            state.update(answer=REFUSAL_MESSAGE, refused=True, complete=True)
+            state.update(
+                answer=REFUSAL_MESSAGE,
+                refused=True,
+                refusal_reason=grounding.refusal_reason,
+                complete=True,
+            )
             yield _sse({"chunk": REFUSAL_MESSAGE})
             yield _sse(
                 {
@@ -519,6 +540,7 @@ def _stream(body: ChatRequest):
                     "sources": [],
                     "confidence": state["confidence"],
                     "refused": True,
+                    "refusal_reason": state["refusal_reason"],
                 }
             )
             return

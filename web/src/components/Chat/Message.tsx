@@ -61,6 +61,22 @@ function Question({ text, first, ref }: { text: string; first: boolean; ref?: Re
   )
 }
 
+// Issue #269: the coverage judge refuses questions whose passages cleared the
+// similarity threshold, so the no-match wording and a match meter would both
+// be wrong there. Turns stored before the reason existed keep the old wording.
+const REFUSAL_COPY = {
+  no_match: {
+    heading: 'No matching policy',
+    detail: 'This is different from a policy that exists but says no. Nothing indexed came close enough to answer from.',
+    showScore: true,
+  },
+  not_covered: {
+    heading: 'Not answered by any policy',
+    detail: 'Some policies mention related topics, but none of them answers this question.',
+    showScore: false,
+  },
+} as const
+
 export default function Message({
   ref, message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated, onRetry,
 }: Props) {
@@ -69,21 +85,20 @@ export default function Message({
   }
 
   if (message.refused) {
+    const copy = REFUSAL_COPY[message.refusal_reason ?? 'no_match']
     return (
       <div ref={ref} className="flex flex-col gap-3">
         <div className="rounded-lg border border-ochre-rule bg-ochre-soft">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-ochre-rule/70 px-4 py-2.5">
             <span className="caps inline-flex items-center gap-2 text-ochre-ink">
               <AlertCircle size={15} aria-hidden="true" className="text-ochre" />
-              No matching policy
+              {copy.heading}
             </span>
-            <ConfidenceBadge confidence={message.confidence} />
+            {copy.showScore && <ConfidenceBadge confidence={message.confidence} />}
           </div>
           <div className="flex flex-col gap-1.5 px-4 py-3.5">
             <p className="text-[15px] leading-[1.55] text-ink">{message.content}</p>
-            <p className="text-[13.5px] leading-normal text-ink-2">
-              This is different from a policy that exists but says no. Nothing indexed came close enough to answer from.
-            </p>
+            <p className="text-[13.5px] leading-normal text-ink-2">{copy.detail}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
             <EscalateButton

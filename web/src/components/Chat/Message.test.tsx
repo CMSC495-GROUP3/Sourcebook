@@ -61,6 +61,44 @@ describe('Message', () => {
     expect(screen.getByRole('heading', { name: 'Send to Human Resources' })).toBeInTheDocument()
   })
 
+  it('keeps the no-match wording and score for a similarity refusal', () => {
+    renderMessage({
+      role: 'assistant',
+      content: 'I cannot answer that from the indexed policies.',
+      refused: true,
+      refusal_reason: 'no_match',
+      confidence: 59,
+      message_id: 'm-ref',
+    })
+
+    expect(screen.getByText('No matching policy')).toBeInTheDocument()
+    expect(screen.getByText(/Nothing indexed came close enough/)).toBeInTheDocument()
+    expect(screen.getByText('Partial match')).toBeInTheDocument()
+  })
+
+  // Issue #269: the judge refuses questions that cleared the similarity
+  // threshold, so "nothing came close" and a "Strong match" meter are both wrong.
+  it('says related policies do not answer it when the coverage judge refused', () => {
+    renderMessage({
+      role: 'assistant',
+      content: 'I cannot answer that from the indexed policies.',
+      refused: true,
+      refusal_reason: 'not_covered',
+      confidence: 79,
+      message_id: 'm-judge',
+    })
+
+    expect(screen.getByText('Not answered by any policy')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Some policies mention related topics, but none of them answers this question/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('No matching policy')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Nothing indexed came close/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Strong match')).not.toBeInTheDocument()
+    expect(screen.queryByText(/79%/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ask Human Resources' })).toBeInTheDocument()
+  })
+
   it('forwards a refusal escalation id to the parent', async () => {
     const user = userEvent.setup()
     const onEscalated = vi.fn()

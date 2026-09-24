@@ -109,7 +109,7 @@ Every event type:
 | token | `{"chunk": "<text>"}` |
 | finished | `{"done": true, "message_id": "<32 hex>", "sources": ["…"], "confidence": 75, "refused": false}` |
 | finished from cache | same as finished, plus `"cached": true` |
-| refused | `{"done": true, "message_id": "…", "sources": [], "confidence": <int>, "refused": true}` after one `chunk` that is the refusal text |
+| refused | `{"done": true, "message_id": "…", "sources": [], "confidence": <int>, "refused": true, "refusal_reason": "no_match"}` after one `chunk` that is the refusal text. `refusal_reason` is `no_match` when retrieval similarity missed the threshold and `not_covered` when it cleared but the coverage judge refused. A cached refusal carries it too, and one cached before the field existed sends `null` |
 | suggestions | `{"follow_ups": ["…", "…", "…"]}` — omitted on refusal; may be skipped if the client hangs up after `done` |
 | generation failure | `{"error": "An error occurred while generating the response."}` |
 | provider busy after a token | `{"error": "<message>", "retryable": true}`; before the first token the whole response is the HTTP 503 above instead |
@@ -146,7 +146,9 @@ Content-Type: application/json
 
 A refusal returns `refused: true`, empty `sources` / `follow_ups`, and the
 fixed refusal text (it names Human Resources; see `REFUSAL_MESSAGE` in
-`sourcebook/rag/config.py`). `message_id` is null when the request had no
+`sourcebook/rag/config.py`). `refusal_reason` is `no_match` or `not_covered`
+as in the stream, and `null` on an answer. The stored assistant turn keeps the
+same field, so a reloaded conversation shows the same refusal card. `message_id` is null when the request had no
 session. A saturated provider returns the HTTP 503 described under the error
 envelope rather than a 200 with an error answer.
 
