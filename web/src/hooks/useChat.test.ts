@@ -645,6 +645,49 @@ describe('useChat', () => {
     })
   })
 
+  it('drains the stream when the user leaves before headers arrive', async () => {
+    vi.mocked(client.get).mockReturnValue(new Promise(() => {}))
+    const encoder = new TextEncoder()
+    let pulls = 0
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pulls += 1
+          if (pulls < 3) controller.enqueue(encoder.encode('data: {"chunk":"x"}\n\n'))
+          else controller.close()
+        },
+      },
+      { highWaterMark: 0 },
+    )
+    let resolveFetch!: (r: Response) => void
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveFetch = resolve
+          }),
+      ),
+    )
+    const { result, rerender } = renderHook(
+      ({ sessionId }) => useChat({ sessionId, onSessionCreated: vi.fn() }),
+      { initialProps: { sessionId: 'sess-a' as string | null } },
+    )
+
+    let sent: Promise<void> = Promise.resolve()
+    await act(async () => {
+      sent = result.current.sendMessage('Hello')
+      await Promise.resolve()
+    })
+    rerender({ sessionId: 'sess-b' })
+    await act(async () => {
+      resolveFetch(jsonResponse(stream))
+      await sent
+    })
+
+    expect(pulls).toBeGreaterThanOrEqual(3)
+  })
+
   it('shows a client error bubble when fetch rejects', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
 
