@@ -38,6 +38,16 @@ function jsonResponse(body: ReadableStream<Uint8Array>, status = 200): Response 
   })
 }
 
+const PROVIDER_BUSY =
+  'The assistant is answering as many questions as it can right now. Please try again in a moment.'
+
+function retryable503(retryAfter = '1', error = PROVIDER_BUSY): Response {
+  return new Response(JSON.stringify({ error, retryable: true }), {
+    status: 503,
+    headers: { 'Content-Type': 'application/json', 'Retry-After': retryAfter },
+  })
+}
+
 async function mountChat(sessionId: string | null) {
   const hook = renderHook(
     (props: { sessionId: string | null }) =>
@@ -262,6 +272,420 @@ describe('useChat', () => {
       content: 'Sorry, something went wrong. Please try again.',
       error: true,
     })
+    expect(result.current.messages[1]?.retryable).toBeUndefined()
+  })
+
+  it('shows the provider-busy copy and Retry-After on a retryable 503', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(retryable503('3')))
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: PROVIDER_BUSY,
+      error: true,
+      retryable: true,
+      retryAfter: 3,
+    })
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+  })
+
+  it('treats a retryable mid-stream SSE error like the pre-stream 503', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          sseBody([
+            { chunk: 'You get ' },
+            { error: PROVIDER_BUSY, retryable: true },
+          ]),
+        ),
+      ),
+    )
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: PROVIDER_BUSY,
+      error: true,
+      retryable: true,
+      retryAfter: 1,
+    })
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+  })
+
+  it('resends the same question once without duplicating the user turn', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          sseBody([
+            { chunk: '15 days.' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-1' },
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    expect(result.current.messages[1]?.retryable).toBe(true)
+
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.content).toBe('15 days.')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+    expect(result.current.messages[0]?.content).toBe('How much PTO do I get?')
+    const firstBody = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))
+    const retryBody = JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body))
+    expect(firstBody).toEqual({ question: 'How much PTO do I get?', session_id: 'sess-open' })
+    expect(retryBody).toEqual(firstBody)
+    expect(String((fetchMock.mock.calls[1][1] as RequestInit).body)).not.toContain('history')
+    expect(result.current.messages[1]?.retryable).toBeUndefined()
+  })
+
+  it('rejects a second immediate retry before loading state publishes', async () => {
+    let resolveRetry!: (value: Response) => void
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockImplementation(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveRetry = resolve
+          }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    expect(result.current.messages[1]?.retryable).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      result.current.retryLastQuestion()
+      result.current.retryLastQuestion()
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+
+    await act(async () => {
+      resolveRetry(
+        jsonResponse(
+          sseBody([
+            { chunk: '15 days.' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-1' },
+          ]),
+        ),
+      )
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.content).toBe('15 days.')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter((message) => message.role === 'assistant')).toHaveLength(1)
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('releases the in-flight guard after a successful retry so a later retry still works', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          sseBody([
+            { chunk: '15 days.' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-1' },
+          ]),
+        ),
+      )
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          sseBody([
+            { chunk: '15 days.' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-2' },
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.message_id).toBe('m-1')
+    })
+
+    await act(async () => {
+      await result.current.sendMessage('How do I request time off?')
+    })
+    expect(result.current.messages[3]?.retryable).toBe(true)
+
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(result.current.messages[3]?.message_id).toBe('m-2')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(result.current.loading).toBe(false)
+    const retryBody = JSON.parse(String((fetchMock.mock.calls[3][1] as RequestInit).body))
+    expect(retryBody).toEqual({ question: 'How do I request time off?', session_id: 'sess-open' })
+    expect(String((fetchMock.mock.calls[3][1] as RequestInit).body)).not.toContain('history')
+  })
+
+  it('releases the in-flight guard after a failed retry', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          sseBody([
+            { chunk: 'ok' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-1' },
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.content).toBe(
+        'Sorry, something went wrong. Please try again.',
+      )
+    })
+    expect(result.current.messages[1]?.retryable).toBeUndefined()
+    expect(result.current.loading).toBe(false)
+
+    await act(async () => {
+      await result.current.sendMessage('How do I request time off?')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(result.current.messages[3]?.content).toBe('ok')
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('does not leave a remounted hook blocked after unmount during a retry', async () => {
+    let resolveRetry!: (value: Response) => void
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(retryable503('1'))
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveRetry = resolve
+          }),
+      )
+      .mockResolvedValue(
+        jsonResponse(
+          sseBody([
+            { chunk: 'ok' },
+            { done: true, sources: [], confidence: 80, refused: false, message_id: 'm-2' },
+          ]),
+        ),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, unmount } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    unmount()
+
+    await act(async () => {
+      resolveRetry(retryable503('1'))
+    })
+
+    const remounted = await mountChat('sess-open')
+    await act(async () => {
+      await remounted.result.current.sendMessage('How do I request time off?')
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(remounted.result.current.messages[1]?.content).toBe('ok')
+    expect(remounted.result.current.loading).toBe(false)
+  })
+
+  it('does not offer a second retry after the one-shot resend stays busy', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(retryable503('1'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = await mountChat('sess-open')
+
+    await act(async () => {
+      await result.current.sendMessage('How much PTO do I get?')
+    })
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(result.current.messages[1]?.error).toBe(true)
+    })
+
+    expect(result.current.messages[1]?.retryable).toBeUndefined()
+    expect(result.current.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+
+    await act(async () => {
+      result.current.retryLastQuestion()
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not write a late retryable 503 into the next conversation', async () => {
+    let resolveFetch!: (value: Response) => void
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+      ),
+    )
+    vi.mocked(client.get).mockImplementation((url: string) => {
+      if (String(url).includes('sess-b')) {
+        return Promise.resolve(axiosData({ messages: [{ role: 'user', content: 'other thread' }] }))
+      }
+      return Promise.resolve(axiosData({ messages: [] }))
+    })
+
+    const { result, rerender } = renderHook(
+      ({ sessionId }) => useChat({ sessionId, onSessionCreated: vi.fn() }),
+      { initialProps: { sessionId: 'sess-a' as string | null } },
+    )
+    await waitFor(() => expect(client.get).toHaveBeenCalledWith('/api/conversations/sess-a'))
+
+    let sendPromise: Promise<void> = Promise.resolve()
+    await act(async () => {
+      sendPromise = result.current.sendMessage('How much PTO do I get?')
+    })
+
+    rerender({ sessionId: 'sess-b' })
+    await waitFor(() => {
+      expect(result.current.messages[0]?.content).toBe('other thread')
+    })
+
+    await act(async () => {
+      resolveFetch(retryable503('2'))
+      await sendPromise
+    })
+
+    expect(result.current.messages).toEqual([{ role: 'user', content: 'other thread' }])
+    expect(result.current.messages.some((message) => message.retryable)).toBe(false)
+  })
+
+  it('does not apply a late retryable 503 after unmount', async () => {
+    let resolveFetch!: (value: Response) => void
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+      ),
+    )
+
+    const { result, unmount } = await mountChat('sess-open')
+    const sendPromise = result.current.sendMessage('How much PTO do I get?')
+    await act(async () => {
+      await Promise.resolve()
+    })
+    unmount()
+
+    await act(async () => {
+      resolveFetch(retryable503('1'))
+      await sendPromise
+    })
+  })
+
+  it('drains the stream when the user leaves before headers arrive', async () => {
+    vi.mocked(client.get).mockReturnValue(new Promise(() => {}))
+    const encoder = new TextEncoder()
+    let pulls = 0
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pulls += 1
+          if (pulls < 3) controller.enqueue(encoder.encode('data: {"chunk":"x"}\n\n'))
+          else controller.close()
+        },
+      },
+      { highWaterMark: 0 },
+    )
+    let resolveFetch!: (r: Response) => void
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveFetch = resolve
+          }),
+      ),
+    )
+    const { result, rerender } = renderHook(
+      ({ sessionId }) => useChat({ sessionId, onSessionCreated: vi.fn() }),
+      { initialProps: { sessionId: 'sess-a' as string | null } },
+    )
+
+    let sent: Promise<void> = Promise.resolve()
+    await act(async () => {
+      sent = result.current.sendMessage('Hello')
+      await Promise.resolve()
+    })
+    rerender({ sessionId: 'sess-b' })
+    await act(async () => {
+      resolveFetch(jsonResponse(stream))
+      await sent
+    })
+
+    expect(pulls).toBeGreaterThanOrEqual(3)
   })
 
   it('shows a client error bubble when fetch rejects', async () => {
