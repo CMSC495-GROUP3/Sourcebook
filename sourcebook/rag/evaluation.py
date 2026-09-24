@@ -17,6 +17,8 @@ import argparse
 import json
 import math
 import os
+import re
+import subprocess
 import sys
 import traceback
 from collections import Counter
@@ -77,6 +79,28 @@ REQUIRED_RESULT_METRIC_KEYS = (
     "prompt_injection_review",
     "ambiguous_review",
 )
+# Top-level identity fields so a results artifact names exactly what was measured.
+# ``pass_fail_thresholds`` is always null: live evaluation is measurement-only and
+# does not invent product-quality gates (see docs/evaluation.md).
+REQUIRED_RESULT_IDENTITY_KEYS = (
+    "requested_sha",
+    "tested_sha",
+    "tier",
+    "dataset",
+    "corpus_version",
+    "llm_provider",
+    "answer_model",
+    "utility_model",
+    "embedding_model",
+    "prompt_version",
+    "scoring_mode",
+    "pass_fail_thresholds",
+)
+# Env names already used by ``sourcebook.rag.llm.OpenAIProvider`` / the workflow.
+# Defaults match that module so reports stay honest without importing the client.
+_DEFAULT_ANSWER_MODEL = "gpt-4o"
+_DEFAULT_UTILITY_MODEL = "gpt-4o-mini"
+_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 _RATE_METRIC_KEYS = (
     "recall_at_5",
     "citation_correctness",
@@ -129,6 +153,227 @@ def require_live_env(environ: Mapping[str, str] | None = None) -> None:
     validate_mongodb_db_name(str(env.get("MONGODB_DB", "")))
 
 
+# Live Actions / results identity require a full object name — never a short
+# SHA, branch, tag, or other ref. Uppercase A-F is rejected (lowercase only).
+_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_COMMIT_SHA_HEX_ANYCASE_RE = re.compile(r"^[0-9A-Fa-f]+$")
+_COMMIT_SHA_REF_LIKE_RE = re.compile(
+    r"^(refs/|origin/)|[/:]|\.\.|"
+    r"^(HEAD|main|master)$|"
+    r"^[A-Za-z0-9._/-]+$"
+)
+
+
+def _commit_sha_rejection_reason(value: str) -> str:
+    """Return a sanitized fail-closed reason for a non-40-hex commit SHA."""
+    if _COMMIT_SHA_HEX_ANYCASE_RE.fullmatch(value):
+        if len(value) < 40:
+            return "short SHA is not allowed (require exactly 40 lowercase hex)"
+        if len(value) > 40:
+            return "malformed length (require exactly 40 lowercase hex)"
+        return "must be lowercase hex (A-F not allowed)"
+    if _COMMIT_SHA_REF_LIKE_RE.search(value):
+        return "branch, tag, or ref name is not allowed (require exactly 40 lowercase hex)"
+    return "malformed input (require exactly 40 lowercase hex)"
+
+
+def require_nonempty_commit_sha(value: str | None, *, label: str = "commit_sha") -> str:
+    """Fail closed unless ``value`` is exactly 40 lowercase hex characters.
+
+    Short SHAs, branch/tag/ref names, mixed-case hex, and other malformed
+    inputs are rejected with a sanitized reason (no raw attacker-controlled
+    echo beyond the label).
+    """
+    if value is None or not value.strip():
+        raise ValueError(f"{label} is required and must be exactly 40 lowercase hex characters")
+    if not _COMMIT_SHA_RE.fullmatch(value):
+        raise ValueError(f"{label} rejected: {_commit_sha_rejection_reason(value)}")
+    return value
+
+
+def git_rev_parse(rev: str, *, cwd: str | Path | None = None) -> str:
+    """Resolve ``rev`` to a full commit object SHA via ``git rev-parse``."""
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--verify", f"{rev}^{{commit}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        detail = ""
+        if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
+            detail = f": {exc.stderr.strip()}"
+        raise ValueError(f"Unable to resolve git commit {rev!r}{detail}") from exc
+    sha = completed.stdout.strip()
+    if not sha:
+        raise ValueError(f"Unable to resolve git commit {rev!r}")
+    return require_nonempty_commit_sha(sha, label="git rev-parse")
+
+
+def require_commit_ancestor_of_ref(
+    commit_sha: str,
+    ancestor_of: str = "origin/main",
+    *,
+    cwd: str | Path | None = None,
+) -> str:
+    """Fail closed unless ``commit_sha`` is an ancestor of ``ancestor_of``.
+
+    Used by the Live evaluation trust boundary so Actions only measures
+    merged canonical-main history. Nonexistent, fork-only, and same-repo
+    but not-on-main commits (including unmerged ``refs/pull/*/head`` tips)
+    must raise before any checkout of the eval target or paid work.
+    """
+    sha = require_nonempty_commit_sha(commit_sha, label="commit_sha")
+    try:
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError("commit_sha is not a known commit object in this repository") from exc
+    try:
+        completed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", sha, ancestor_of],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+    except OSError as exc:
+        raise ValueError(f"Unable to verify ancestry of {sha!r} against {ancestor_of!r}") from exc
+    if completed.returncode == 0:
+        return sha
+    if completed.returncode == 1:
+        raise ValueError(
+            "commit_sha is not an ancestor of "
+            f"{ancestor_of}; Actions evaluates merged canonical-main history only"
+        )
+    detail = (completed.stderr or completed.stdout or "").strip()
+    suffix = f": {detail}" if detail else ""
+    raise ValueError(f"Unable to verify ancestry of {sha!r} against {ancestor_of!r}{suffix}")
+
+
+def require_exact_checkout_sha(requested_sha: str, tested_sha: str) -> str:
+    """Fail closed unless the checked-out HEAD equals the requested commit SHA.
+
+    Comparison is exact on full 40-hex object names. Call this after the
+    ancestry gate and detached checkout, before any paid provider or Atlas
+    admission so a wrong checkout cannot spend budget.
+    """
+    requested = require_nonempty_commit_sha(requested_sha, label="requested_sha")
+    tested = require_nonempty_commit_sha(tested_sha, label="tested_sha")
+    if requested != tested:
+        raise ValueError(f"Checkout SHA mismatch: requested_sha={requested} tested_sha={tested}")
+    return tested
+
+
+def resolve_evaluation_shas(
+    *,
+    requested_sha: str | None = None,
+    tested_sha: str | None = None,
+    environ: Mapping[str, str] | None = None,
+    cwd: str | Path | None = None,
+) -> tuple[str, str]:
+    """Resolve and verify requested/tested SHAs for a live evaluation run.
+
+    Preference order for each value: explicit argument, then ``EVAL_REQUESTED_SHA``
+    / ``EVAL_TESTED_SHA``. Under ``GITHUB_ACTIONS=true``, both must be supplied
+    explicitly — an empty dispatch input must not silently evaluate a floating
+    ref. Locally, omitted values default to ``git rev-parse HEAD`` for both.
+    When both values are supplied (Actions or local), they are compared exactly
+    as given after strip; git re-resolution is the workflow's job before env is set.
+    """
+    env = os.environ if environ is None else environ
+    in_actions = str(env.get("GITHUB_ACTIONS", "")).lower() == "true"
+    raw_requested = (
+        requested_sha if requested_sha is not None else env.get("EVAL_REQUESTED_SHA", "")
+    )
+    raw_tested = tested_sha if tested_sha is not None else env.get("EVAL_TESTED_SHA", "")
+    has_requested = bool(str(raw_requested or "").strip())
+    has_tested = bool(str(raw_tested or "").strip())
+
+    if in_actions:
+        requested = require_nonempty_commit_sha(str(raw_requested), label="EVAL_REQUESTED_SHA")
+        tested = require_nonempty_commit_sha(str(raw_tested), label="EVAL_TESTED_SHA")
+        require_exact_checkout_sha(requested, tested)
+        return requested, tested
+
+    if has_requested and has_tested:
+        requested = require_nonempty_commit_sha(str(raw_requested), label="requested_sha")
+        tested = require_nonempty_commit_sha(str(raw_tested), label="tested_sha")
+        require_exact_checkout_sha(requested, tested)
+        return requested, tested
+
+    if has_requested ^ has_tested:
+        raise ValueError(
+            "requested_sha and tested_sha must both be set, or both omitted "
+            "(local default: git rev-parse HEAD)"
+        )
+
+    head = git_rev_parse("HEAD", cwd=cwd)
+    require_exact_checkout_sha(head, head)
+    return head, head
+
+
+def model_provider_identity(environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Record model/provider identity from existing env names (never secrets)."""
+    env = os.environ if environ is None else environ
+    return {
+        "llm_provider": str(env.get("LLM_PROVIDER", "openai")).strip() or "openai",
+        "answer_model": str(env.get("OPENAI_ANSWER_MODEL", _DEFAULT_ANSWER_MODEL)).strip()
+        or _DEFAULT_ANSWER_MODEL,
+        "utility_model": str(env.get("OPENAI_UTILITY_MODEL", _DEFAULT_UTILITY_MODEL)).strip()
+        or _DEFAULT_UTILITY_MODEL,
+        "embedding_model": str(env.get("OPENAI_EMBEDDING_MODEL", _DEFAULT_EMBEDDING_MODEL)).strip()
+        or _DEFAULT_EMBEDDING_MODEL,
+    }
+
+
+def build_results_report(
+    *,
+    tier: str,
+    dataset: str | Path,
+    metrics: Mapping[str, Any],
+    results: list[dict[str, Any]],
+    requested_sha: str,
+    tested_sha: str,
+    corpus_version: str,
+    environ: Mapping[str, str] | None = None,
+    prompt_version: str | None = None,
+) -> dict[str, Any]:
+    """Assemble the results artifact, including SHA and corpus/model identity.
+
+    Live evaluation remains measurement-only: ``pass_fail_thresholds`` is null
+    and ``scoring_mode`` is ``measurement_only``. No product-quality gate is
+    invented here.
+    """
+    from sourcebook.rag.config import PROMPT_VERSION
+
+    identity = model_provider_identity(environ)
+    require_exact_checkout_sha(requested_sha, tested_sha)
+    report: dict[str, Any] = {
+        "requested_sha": requested_sha,
+        "tested_sha": tested_sha,
+        "tier": tier,
+        "dataset": str(dataset),
+        "corpus_version": corpus_version,
+        **identity,
+        "prompt_version": prompt_version if prompt_version is not None else PROMPT_VERSION,
+        "scoring_mode": "measurement_only",
+        # Explicit null: the runner records metrics; it does not apply pass/fail
+        # product thresholds (docs/evaluation.md).
+        "pass_fail_thresholds": None,
+        "metrics": dict(metrics),
+        "results": results,
+    }
+    return report
+
+
 def _validate_rate_metric(name: str, value: Any) -> None:
     """Accept ``None`` (no eligible cases) or a finite percentage in ``[0, 100]``.
 
@@ -149,6 +394,43 @@ def validate_results_report(report: Mapping[str, Any]) -> dict[str, Any]:
     """Reject an evaluation report that is missing required metrics or cases."""
     if not isinstance(report, Mapping):
         raise ValueError("Evaluation results must be a JSON object")
+
+    missing_identity = [key for key in REQUIRED_RESULT_IDENTITY_KEYS if key not in report]
+    if missing_identity:
+        raise ValueError(
+            "Evaluation results are missing required identity keys: " + ", ".join(missing_identity)
+        )
+
+    requested_sha = report["requested_sha"]
+    tested_sha = report["tested_sha"]
+    if not isinstance(requested_sha, str) or not requested_sha.strip():
+        raise ValueError("requested_sha must be a non-empty string")
+    if not isinstance(tested_sha, str) or not tested_sha.strip():
+        raise ValueError("tested_sha must be a non-empty string")
+    require_exact_checkout_sha(requested_sha, tested_sha)
+
+    for key in (
+        "tier",
+        "dataset",
+        "corpus_version",
+        "llm_provider",
+        "answer_model",
+        "utility_model",
+        "embedding_model",
+        "prompt_version",
+        "scoring_mode",
+    ):
+        value = report[key]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{key} must be a non-empty string")
+
+    if report["scoring_mode"] != "measurement_only":
+        raise ValueError("scoring_mode must be 'measurement_only'")
+    if report["pass_fail_thresholds"] is not None:
+        raise ValueError(
+            "pass_fail_thresholds must be null "
+            "(live evaluation is measurement-only; no invented product gate)"
+        )
 
     metrics = report.get("metrics")
     if not isinstance(metrics, Mapping):
@@ -581,9 +863,24 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip the interactive confirmation after printing the case count",
     )
+    parser.add_argument(
+        "--requested-sha",
+        default=None,
+        help="Exact commit SHA this run claims to evaluate (defaults to EVAL_REQUESTED_SHA / HEAD)",
+    )
+    parser.add_argument(
+        "--tested-sha",
+        default=None,
+        help="Checked-out commit SHA (defaults to EVAL_TESTED_SHA / HEAD); must match requested",
+    )
     args = parser.parse_args(argv)
 
     try:
+        # SHA gate before secrets/provider work so a wrong checkout cannot spend budget.
+        requested_sha, tested_sha = resolve_evaluation_shas(
+            requested_sha=args.requested_sha,
+            tested_sha=args.tested_sha,
+        )
         require_live_env()
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
@@ -599,14 +896,22 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
+        # Corpus identity from the live Mongo meta document (same helper the
+        # answer cache uses). Requires a working MONGODB_* after require_live_env.
+        from sourcebook.rag.cache import get_corpus_version
+
+        corpus_version = get_corpus_version()
         results = run_evaluation(cases)
         metrics = score_results(cases, results)
-        report = {
-            "tier": tier,
-            "dataset": str(dataset),
-            "metrics": metrics,
-            "results": results,
-        }
+        report = build_results_report(
+            tier=tier,
+            dataset=dataset,
+            metrics=metrics,
+            results=results,
+            requested_sha=requested_sha,
+            tested_sha=tested_sha,
+            corpus_version=corpus_version,
+        )
         # Fail closed locally the same way Actions postflight does.
         validate_results_report(report)
     except ValueError as exc:
