@@ -1,4 +1,4 @@
-# Sourcebook v0.2.0-beta.1
+# Sourcebook v0.2.0
 
 The second tagged version of Sourcebook, released as a prerelease for the
 CMSC 495 Unit 6 beta. It is a pilot, not a production system, and the
@@ -91,7 +91,7 @@ The pilot host follows `main`, so it moves past this tag. The tag does not.
 ```bash
 git clone https://github.com/CMSC495-GROUP3/Sourcebook.git
 cd Sourcebook
-git checkout v0.2.0-beta.1
+git checkout v0.2.0
 make setup && make stub
 ```
 

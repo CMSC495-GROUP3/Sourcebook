@@ -12,7 +12,7 @@ and states what the beta does not establish. Nothing here is called verified
 without a link that shows it.
 
 **Status: candidate, not tagged.** The blocker table at the end of this page
-says what has to be true before `v0.2.0-beta.1` is cut. Until every row is
+says what has to be true before `v0.2.0` is cut. Until every row is
 done, treat every Pending cell below as unmeasured.
 
 ## Where to start
@@ -34,7 +34,7 @@ done, treat every Pending cell below as unmeasured.
 | Field | Value |
 | --- | --- |
 | Commit | Pending: the merge commit of the release pull request that adds this folder |
-| Tag and release | Pending: `v0.2.0-beta.1`, annotated, prerelease, on that commit |
+| Tag and release | Pending: `v0.2.0`, annotated, prerelease, on that commit |
 | Running at | <https://sourcebook.duckdns.org> |
 | Deployed commit | Pending: read `refs/deployed/main` on the pilot host and record it with the time checked |
 | CI | Pending: the push-to-`main` run on the merge commit |
@@ -143,10 +143,10 @@ below. The commands are the alpha's, with the version changed:
 
 ```bash
 git fetch upstream
-git tag -a v0.2.0-beta.1 <merge commit> -m "Unit 6 beta: verified per docs/releases/v0.2.0-beta.1/handoff.md"
-git push upstream v0.2.0-beta.1
-gh release create v0.2.0-beta.1 --repo CMSC495-GROUP3/Sourcebook --prerelease \
-  --title "v0.2.0-beta.1" --notes-file docs/releases/v0.2.0-beta.1/release-notes.md
+git tag -a v0.2.0 <merge commit> -m "Unit 6 beta: verified per docs/releases/v0.2.0/handoff.md"
+git push upstream v0.2.0
+gh release create v0.2.0 --repo CMSC495-GROUP3/Sourcebook --prerelease \
+  --title "v0.2.0" --notes-file docs/releases/v0.2.0/release-notes.md
 ```
 
 Rewrite relative links in the release body to absolute links into the tagged
