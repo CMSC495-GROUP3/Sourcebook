@@ -39,7 +39,7 @@ done, treat every Pending cell below as unmeasured.
 | Deployed commit | Pending: read `refs/deployed/main` on the pilot host and record it with the time checked |
 | CI | Pending: the push-to-`main` run on the merge commit |
 | Security | Pending: the push-to-`main` run on the merge commit |
-| Code under test | `231e65224efa3ecf688af0f89b8d4d0ce924d153`, `main` after [PR #268](https://github.com/CMSC495-GROUP3/Sourcebook/pull/268), for the live evaluation below. The release pull request adds documentation only, so its merge commit runs the same code |
+| Code under test | `231e65224efa3ecf688af0f89b8d4d0ce924d153`, `main` after [PR #268](https://github.com/CMSC495-GROUP3/Sourcebook/pull/268), for the live evaluation below. Since then only [PR #254](https://github.com/CMSC495-GROUP3/Sourcebook/pull/254) has merged, which changes the web client and none of the Python code the evaluation runs; the release pull request adds documentation only |
 
 ## What changed since the alpha
 
@@ -49,7 +49,7 @@ Every blocker the alpha listed for the beta in
 | Area | Change | Pull requests |
 | --- | --- | --- |
 | Refusal card follows the model's own decline | Follow-ups are gated on the question as asked, not only the condensed rewrite (#189). A fail-closed coverage judge runs after the cosine gate clears and refuses before answer generation when the passages do not answer the question (#192) | #245, #253 |
-| Provider saturation | Both chat routes answer HTTP 503 with `{"error", "retryable": true}` and `Retry-After`, and the stream sends the same as an event, instead of a generic error (#118) | #247 |
+| Provider saturation | Both chat routes answer HTTP 503 with `{"error", "retryable": true}` and `Retry-After`, and the stream sends the same as an event, instead of a generic error (#118). The web app shows the busy message with one Retry that resends the same question once (#246) | #247, #254 |
 | Passage identity | Unique index on `(source, chunk_index)` with a one-time migration, deployed to the pilot (#158) | #176 |
 | Knowledge-gap report | `python -m sourcebook.rag.query_log_reports` reads the query log for content gaps (#160) | #171 |
 | HR queue in the app | An HR Requests page lists open and resolved escalations, resolves and reopens them, and retries webhook delivery, laid out as list and detail with the request in the URL. Delivery state is reported as it stands | #250, #263, #264 |
@@ -111,7 +111,6 @@ id visible.
 
 | Issue | What a pilot user would see | Mitigation in the beta |
 | --- | --- | --- |
-| [#246](https://github.com/CMSC495-GROUP3/Sourcebook/issues/246) | provider saturation shows the server's busy message, but the web app offers no Retry button yet | the message says to try again; [PR #254](https://github.com/CMSC495-GROUP3/Sourcebook/pull/254) adds the button |
 | [#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266) | on a phone, Back can reopen the request or policy just left, and keyboard focus falls to the top of the page when the list and detail panes switch | use the "All requests" link; on a desktop both panes show at once |
 | [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | concurrent project assignment and deletion can race | a single-operator pilot makes this unlikely at this volume |
 | README known limitations | a shared password, a threshold set by judgement, non-atomic re-ingestion, one instance, a fictional corpus | documented in the README; none of them blocks a pilot |

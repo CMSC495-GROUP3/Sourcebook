@@ -33,7 +33,8 @@ streams back with the policies it drew on and a match score.
   escalations with the question and context, resolves and reopens them, and
   retries webhook delivery (PRs #250, #263, #264).
 - **A busy provider says so.** Saturation answers HTTP 503 with a retryable
-  error and `Retry-After` instead of a generic failure (PR #247).
+  error and `Retry-After` instead of a generic failure, and the web app offers
+  one Retry that resends the same question (PRs #247, #254).
 - **A knowledge-gap report** over the query log (PR #171).
 - **A unique index on passage identity**, migrated on the pilot (PR #176).
 - **Phone fixes** to the drawer and the source pane (PRs #234, #242, #240).
@@ -65,7 +66,6 @@ make web
 
 | Issue | What a user would see | Impact | Mitigation |
 | --- | --- | --- | --- |
-| [#246](https://github.com/CMSC495-GROUP3/Sourcebook/issues/246) | when the model provider is busy, the server's message says so, but there is no Retry button | the user has to send the question again by hand | retype or paste the question; [PR #254](https://github.com/CMSC495-GROUP3/Sourcebook/pull/254) adds the button |
 | [#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266) | on a phone, Back can reopen the request or policy just left, and focus falls to the top of the page when the panes switch | confusing navigation for keyboard and screen-reader users | use the "All requests" link, or a desktop window where both panes show |
 | [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | assigning and deleting a project at the same moment can race | a conversation can point at a deleted project; the list treats it as ungrouped | unlikely at pilot volume with one operator |
 
