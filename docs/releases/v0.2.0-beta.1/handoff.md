@@ -39,7 +39,7 @@ done, treat every Pending cell below as unmeasured.
 | Deployed commit | Pending: read `refs/deployed/main` on the pilot host and record it with the time checked |
 | CI | Pending: the push-to-`main` run on the merge commit |
 | Security | Pending: the push-to-`main` run on the merge commit |
-| Code under test | `d82749dfb2e89431b79b88699831655e1e0d3d3c`, `main` after PR #258, for the live evaluation below. The release pull request adds documentation only, so the merge commit runs the same code |
+| Code under test | Pending: `main` after [PR #268](https://github.com/CMSC495-GROUP3/Sourcebook/pull/268), which the live evaluation below needs. The release pull request adds documentation only, so its merge commit runs the same code |
 
 ## What changed since the alpha
 
@@ -67,7 +67,7 @@ Every blocker the alpha listed for the beta in
 | --- | --- | --- |
 | Python lint and tests on 3.11 to 3.14 with the 80% floor, web lint, types, tests, and build, both Docker images, Compose validation | Passed on `d82749d`; Pending on the release merge commit | [CI run 36057773007](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36057773007) |
 | CodeQL, dependency audit, secret scan | Passed on `d82749d`; Pending on the release merge commit | [Security run 36057772985](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36057772985) |
-| Answer quality against the live system, smoke tier | Pending: dispatched on `d82749d`, waiting for approval of the `evaluation` environment | [live-evaluation.md](live-evaluation.md), [run 36058677141](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36058677141) |
+| Answer quality against the live system, smoke tier | Pending: the first run failed before any paid call because of a defect from PR #258, fixed in PR #268. Re-run after #268 merges | [live-evaluation.md](live-evaluation.md) |
 | Real-service latency and error rate on the pilot | Pending: needs the operator to run `scripts/loadtest/live_benchmark.py` against the pilot | [live-benchmark.md](live-benchmark.md) |
 | End-to-end pass through the deployed app by hand | Pending: needs a tester with the reviewer password | [below](#end-to-end-pass-by-hand) |
 | Knowledge-gap report run once against the pilot's query log | Pending: [#203](https://github.com/CMSC495-GROUP3/Sourcebook/issues/203) asks for one run before the cut | none yet |
@@ -157,7 +157,7 @@ link, and the CI and Security run links into this page, the README, and
 
 | Blocker | State |
 | --- | --- |
-| Smoke-tier live evaluation on the code under test, recorded in [live-evaluation.md](live-evaluation.md) | Pending: run 36058677141 waits for environment approval |
+| Smoke-tier live evaluation on the code under test, recorded in [live-evaluation.md](live-evaluation.md) | Pending: PR #268 merged, then a smoke run on its merge commit |
 | Bounded benchmark against the pilot, recorded in [live-benchmark.md](live-benchmark.md) | Pending |
 | End-to-end pass by hand, recorded above with screenshots | Pending |
 | Knowledge-gap report run once against the pilot's query log | Pending |

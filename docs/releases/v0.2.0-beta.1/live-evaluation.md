@@ -7,17 +7,24 @@ method, metric definitions, and scoring rules are in
 [../v0.1.0-alpha.1/live-evaluation.md](../v0.1.0-alpha.1/live-evaluation.md)
 is the before.
 
-Status: **Pending.** The run below was dispatched on 2026-09-24 and waits for
-approval of the `evaluation` environment. Nothing on this page is a result
-until the run finishes and its results JSON is copied here.
+Status: **Pending.** Nothing on this page is a result until a run finishes
+and its results JSON is copied here.
+
+The first attempt, [run 36058677141](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36058677141)
+on `d82749d` (2026-09-24), failed before any paid call. PR #258 made the
+evaluator record the corpus version through a helper that writes to the `meta`
+collection, and the evaluation's database user is read-only, so Atlas refused
+the write. [PR #268](https://github.com/CMSC495-GROUP3/Sourcebook/pull/268)
+reads the version without writing. The measurement runs on `main` after it
+merges.
 
 ## The run
 
 | Field | Value |
 | --- | --- |
-| Workflow run | [36058677141](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36058677141) |
+| Workflow run | Pending |
 | Tier | smoke, 20 cases |
-| `requested_sha` | `d82749dfb2e89431b79b88699831655e1e0d3d3c` |
+| `requested_sha` | Pending: `main` after PR #268 |
 | `tested_sha` | Pending, from the results JSON |
 | Corpus version, models, prompt version | Pending, from the results JSON |
 | Results | Pending: save the `evaluation-results` artifact as `live-evaluation-results.json` beside this page |
