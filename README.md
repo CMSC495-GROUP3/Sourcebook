@@ -22,7 +22,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#deployment">Deployment</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 ---
