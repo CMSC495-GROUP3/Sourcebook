@@ -15,7 +15,7 @@ sessions, which the script creates without a title.
 | `03-answer-with-sources.png` | a covered question answered at "Strong match · 76%" with three source chips |
 | `04-cited-source-open.png` | the cited Paid Time Off policy open in the source pane |
 | `05-follow-up.png` | a follow-up answered against the conversation history |
-| `06-after-reload.png` | both turns and their sources restored after a reload |
+| `06-after-reload.png` | the same conversation after a reload, scrolled to the top: all three turns (including the #189 turn from step 07) with their scores and chips. Retaken at 22:04 UTC because the first capture was identical to `05` |
 | `07-uncovered-follow-up.png` | an uncovered question asked as a follow-up refused at 59% (#189) |
 | `08-refusal.png` | the same question refused in a new conversation |
 | `09-pet-insurance-refusal.png` | `unanswerable_01` refused by the coverage judge (#192), with the misleading "Strong match · 79%" badge |
