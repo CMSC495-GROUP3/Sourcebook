@@ -24,6 +24,7 @@ the deployed system, and the evidence behind them.
 
 | Release | Handoff | Notes | Measured |
 | --- | --- | --- | --- |
+| [v0.2.0](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0) | [handoff](releases/v0.2.0/handoff.md) | [release notes](releases/v0.2.0/release-notes.md) | [benchmark](releases/v0.2.0/live-benchmark.md), [evaluation](releases/v0.2.0/live-evaluation.md) |
 | [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](releases/v0.1.0-alpha.1/handoff.md) | [release notes](releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](releases/v0.1.0-alpha.1/live-evaluation.md) |
 
 ## Conventions

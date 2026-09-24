@@ -5,7 +5,7 @@ CMSC 495 Unit 6 beta. It is a pilot, not a production system, and the
 sections below say plainly what it does, what is broken, and what nobody has
 measured yet.
 
-Tagged commit: Pending. The evidence behind every claim here is in
+Tagged commit: `383cea5a5c2154fa4d7688e642d94299191a88a1`. The evidence behind every claim here is in
 [handoff.md](handoff.md), which is the page to read if you are grading this.
 
 ## What it does
