@@ -1,0 +1,191 @@
+{
+  "run_id": "657f00d0",
+  "date": "2026-09-24T21:49:36+00:00",
+  "url": "https://sourcebook.duckdns.org",
+  "label": "v0.2.0 beta",
+  "deployed_sha": "231e65224efa3ecf688af0f89b8d4d0ce924d153",
+  "client": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "python": "3.13.2",
+    "location": "operator laptop, home network"
+  },
+  "plan": {
+    "burst": 3,
+    "max_requests": 8,
+    "max_errors": 2,
+    "pause_s": 2.0
+  },
+  "records": [
+    {
+      "step": "uncached answer",
+      "expected": "generated",
+      "observed": "generated",
+      "session_id": "bench-657f00d0-first",
+      "http_status": 200,
+      "ttft_s": 4.108504083007574,
+      "total_s": 4.353625999996439,
+      "follow_ups_s": 5.072519749999628,
+      "chunks": 47,
+      "sources": 2,
+      "confidence": 75,
+      "error": null,
+      "answer": null,
+      "started_at": "2026-09-24T21:49:17+00:00",
+      "matched": true
+    },
+    {
+      "step": "cached repeat",
+      "expected": "cached",
+      "observed": "cached",
+      "session_id": "bench-657f00d0-repeat",
+      "http_status": 200,
+      "ttft_s": 0.035451541989459656,
+      "total_s": 0.03585608299181331,
+      "follow_ups_s": 0.03592179199040402,
+      "chunks": 8,
+      "sources": 2,
+      "confidence": 75,
+      "error": null,
+      "answer": null,
+      "started_at": "2026-09-24T21:49:24+00:00",
+      "matched": true
+    },
+    {
+      "step": "follow-up",
+      "expected": "generated",
+      "observed": "generated",
+      "session_id": "bench-657f00d0-first",
+      "http_status": 200,
+      "ttft_s": 2.8802778749959543,
+      "total_s": 3.568744083007914,
+      "follow_ups_s": 4.142014833007124,
+      "chunks": 66,
+      "sources": 2,
+      "confidence": 77,
+      "error": null,
+      "answer": null,
+      "started_at": "2026-09-24T21:49:26+00:00",
+      "matched": true
+    },
+    {
+      "step": "refusal",
+      "expected": "refused",
+      "observed": "refused",
+      "session_id": "bench-657f00d0-refusal",
+      "http_status": 200,
+      "ttft_s": 0.07492841700150166,
+      "total_s": 0.07507929200073704,
+      "follow_ups_s": null,
+      "chunks": 1,
+      "sources": 0,
+      "confidence": 59,
+      "error": null,
+      "answer": null,
+      "started_at": "2026-09-24T21:49:32+00:00",
+      "matched": true
+    },
+    {
+      "step": "burst 1",
+      "expected": "generated",
+      "observed": "generated",
+      "session_id": "bench-657f00d0-burst-0",
+      "http_status": 200,
+      "ttft_s": 1.0894524169998476,
+      "total_s": 1.4424906249914784,
+      "follow_ups_s": 2.288241874994128,
+      "chunks": 59,
+      "sources": 3,
+      "confidence": 75,
+      "error": null,
+      "answer": null,
+      "started_at": "2026-09-24T21:49:34+00:00",
+      "matched": true
+    },
+    {
+      "step": "burst 2",
+      "expected": "generated",
+      "observed": "generated",
+      "session_id": "bench-657f00d0-burst-1",
+      "http_status": 200,
+      "ttft_s": 1.1341560830042,
+      "total_s": 1.4994985000084853,
+      "follow_ups_s": 2.4971554160001688,
+      "chunks": 75,
+      "sources": 2,
+      "confidence": 74,
+      "error": null,
+      "answer": null,
+      "started_at": "2026-09-24T21:49:34+00:00",
+      "matched": true
+    },
+    {
+      "step": "burst 3",
+      "expected": "generated",
+      "observed": "generated",
+      "session_id": "bench-657f00d0-burst-2",
+      "http_status": 200,
+      "ttft_s": 1.2134097920061322,
+      "total_s": 1.481088250002358,
+      "follow_ups_s": 2.1635958749975543,
+      "chunks": 48,
+      "sources": 3,
+      "confidence": 78,
+      "error": null,
+      "answer": null,
+      "started_at": "2026-09-24T21:49:34+00:00",
+      "matched": true
+    }
+  ],
+  "summary": {
+    "requests": 7,
+    "by_path": {
+      "generated": 5,
+      "cached": 1,
+      "refused": 1
+    },
+    "rate_limited": 0,
+    "errors": 0,
+    "error_rate": 0.0,
+    "path_mismatches": [],
+    "generated_ttft_s": {
+      "n": 5,
+      "p50": 1.2134097920061322,
+      "max": 4.108504083007574
+    },
+    "generated_total_s": {
+      "n": 5,
+      "p50": 1.4994985000084853,
+      "max": 4.353625999996439
+    },
+    "cached_ttft_s": {
+      "n": 1,
+      "max": 0.035451541989459656
+    },
+    "refused_total_s": {
+      "n": 1,
+      "max": 0.07507929200073704
+    },
+    "estimated_cost_usd": 0.05,
+    "targets": {
+      "generated_ttft_p50_s": 4.0,
+      "generated_total_max_s": 30.0,
+      "cached_ttft_max_s": 1.5,
+      "refused_total_max_s": 3.0,
+      "error_rate_max": 0.0
+    },
+    "observed": {
+      "generated_ttft_p50_s": 1.2134097920061322,
+      "generated_total_max_s": 4.353625999996439,
+      "cached_ttft_max_s": 0.035451541989459656,
+      "refused_total_max_s": 0.07507929200073704,
+      "error_rate_max": 0.0
+    },
+    "checks": {
+      "generated_ttft_p50_s": true,
+      "generated_total_max_s": true,
+      "cached_ttft_max_s": true,
+      "refused_total_max_s": true,
+      "error_rate_max": true
+    }
+  }
+}
