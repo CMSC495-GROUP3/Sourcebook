@@ -1,0 +1,57 @@
+query_logs report
+window: [2026-06-26T00:00:00+00:00, 2026-09-24T21:47:31+00:00)
+top: 20  min_repeat: 2
+
+1. Content gaps (refused question_hash groups)
+    1. count=3       hash=990458c2387a9bf1e3343e9f77cc6b9cb12f6a4805915461ff6cacf6ff84ef53
+       sample: What is the boiling point of mercury at sea level?
+    2. count=1       hash=5579cbdcb94b2ea36ea2fc3da38af3ce28fad60c5806ebf4db7060f1ad42c136
+       sample: How do I go about eating an elephant?
+    3. count=1       hash=9390298f3fb0c5b160498935d79cb139aef28e1c47358b4bbba61862b9c26e59
+       sample: no
+
+2. FAQ candidates (repeated question_hash groups)
+    1. count=12      refused=0  hash=19f453bc143aeba53ab6345fae3ee9f12714bcd12e26c1c3faaaaa93acb623a5
+       sample: How many PTO days do I get in my first year?
+    2. count=4       refused=0  hash=b61ebbcfecfe412e9e1a83a33afe9b803b2cd9e332c28af325df68c4d86ce9b3
+       sample: How many PTO days do full time employees with two years of service receive each year?
+    3. count=3       refused=3  hash=990458c2387a9bf1e3343e9f77cc6b9cb12f6a4805915461ff6cacf6ff84ef53
+       sample: What is the boiling point of mercury at sea level?
+    4. count=2       refused=0  hash=623173264f564e3d5a62d5ffcf9cc80a7dafa51eeb394dadacd609422cd7f719
+       sample: How much does the company match on my 401(k)?
+
+3. Answered vs refused best_score
+  rows in window: 55
+  answered:
+    count=50  null_scores=8  min=0.6341  max=0.8565  avg=0.7901
+  refused:
+    count=5  null_scores=2  min=0.5816  max=0.5994  avg=0.5889
+  answered histogram:
+  [0.0, 0.1)       0
+  [0.1, 0.2)       0
+  [0.2, 0.3)       0
+  [0.3, 0.4)       0
+  [0.4, 0.5)       0
+  [0.5, 0.6)       0
+  [0.6, 0.7)       6
+  [0.7, 0.8)       16
+  [0.8, 0.9)       20
+  [0.9, 1.0]       0
+  refused histogram:
+  [0.0, 0.1)       0
+  [0.1, 0.2)       0
+  [0.2, 0.3)       0
+  [0.3, 0.4)       0
+  [0.4, 0.5)       0
+  [0.5, 0.6)       3
+  [0.6, 0.7)       0
+  [0.7, 0.8)       0
+  [0.8, 0.9)       0
+  [0.9, 1.0]       0
+
+Notes:
+  - Grouping key is question_hash.
+  - Sample text is from already-logged truncated question_raw /
+    question_condensed when present; hashes alone if samples are absent.
+  - Aggregations $match the window first, then $group/$sort/$limit;
+    score distributions use $facet + $bucket (no full-collection download).
