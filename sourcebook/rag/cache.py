@@ -83,6 +83,17 @@ def get_corpus_version() -> str:
     return doc["version"]
 
 
+def read_corpus_version() -> str | None:
+    """Current corpus version, or None if the corpus has never been versioned.
+
+    For callers whose database user is read-only, such as the live evaluation:
+    `get_corpus_version` upserts, and Atlas rejects that write for a read-only
+    user even when the document already exists.
+    """
+    doc = get_collection("meta").find_one({"_id": "corpus"}, {"version": 1})
+    return doc["version"] if doc else None
+
+
 def bump_corpus_version() -> str:
     """Invalidate every cached answer. Called after ingestion or a reindex."""
     version = uuid.uuid4().hex
@@ -235,4 +246,5 @@ __all__ = [
     "normalize",
     "put_cached_answer",
     "question_hash",
+    "read_corpus_version",
 ]

@@ -896,11 +896,17 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        # Corpus identity from the live Mongo meta document (same helper the
-        # answer cache uses). Requires a working MONGODB_* after require_live_env.
-        from sourcebook.rag.cache import get_corpus_version
+        # Corpus identity from the live Mongo meta document. Read-only: the
+        # evaluation's database user cannot write (docs/evaluation.md), so this
+        # must not use get_corpus_version, which upserts.
+        from sourcebook.rag.cache import read_corpus_version
 
-        corpus_version = get_corpus_version()
+        corpus_version = read_corpus_version()
+        if corpus_version is None:
+            raise ValueError(
+                "The corpus has no version in the meta collection. Ingest or "
+                "reindex the corpus before evaluating it."
+            )
         results = run_evaluation(cases)
         metrics = score_results(cases, results)
         report = build_results_report(

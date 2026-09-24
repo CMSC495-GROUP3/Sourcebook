@@ -13,6 +13,7 @@ from sourcebook.rag.cache import (
     normalize,
     put_cached_answer,
     question_hash,
+    read_corpus_version,
 )
 
 RESULT = {
@@ -39,6 +40,17 @@ def test_corpus_version_is_stable_until_bumped():
     bumped = bump_corpus_version()
     assert bumped != first
     assert get_corpus_version() == bumped
+
+
+def test_read_corpus_version_never_writes():
+    # The live evaluation's database user is read-only, so this path must not
+    # create the meta document the way get_corpus_version does.
+    assert read_corpus_version() is None
+    assert FAKE_DB["meta"].find_one({"_id": "corpus"}) is None
+    version = get_corpus_version()
+    assert read_corpus_version() == version
+    bumped = bump_corpus_version()
+    assert read_corpus_version() == bumped
 
 
 def test_answer_cache_round_trip_counts_hits():

@@ -30,7 +30,7 @@ from sourcebook.rag.evaluation import (
 # dotted path rather than through a second import of the module.
 RUN_EVALUATION = "sourcebook.rag.evaluation.run_evaluation"
 SCORE_RESULTS = "sourcebook.rag.evaluation.score_results"
-GET_CORPUS_VERSION = "sourcebook.rag.cache.get_corpus_version"
+READ_CORPUS_VERSION = "sourcebook.rag.cache.read_corpus_version"
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "evaluation.yml"
 
@@ -474,7 +474,7 @@ def test_evaluation_main_rejects_sha_mismatch_before_results_or_paid_path(
     monkeypatch.setenv("EVAL_REQUESTED_SHA", _FAKE_SHA_A)
     monkeypatch.setenv("EVAL_TESTED_SHA", _FAKE_SHA_B)
     monkeypatch.setattr(RUN_EVALUATION, boom_run)
-    monkeypatch.setattr(GET_CORPUS_VERSION, boom_corpus)
+    monkeypatch.setattr(READ_CORPUS_VERSION, boom_corpus)
     output = tmp_path / "results.json"
     assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
     assert not output.exists()
@@ -502,8 +502,29 @@ def _run_main_with_live_env(monkeypatch: pytest.MonkeyPatch, output: Path) -> in
         monkeypatch.setenv(key, value)
     monkeypatch.setenv("EVAL_REQUESTED_SHA", _FAKE_SHA_A)
     monkeypatch.setenv("EVAL_TESTED_SHA", _FAKE_SHA_A)
-    monkeypatch.setattr(GET_CORPUS_VERSION, lambda: "test-corpus-version")
+    monkeypatch.setattr(READ_CORPUS_VERSION, lambda: "test-corpus-version")
     return evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)])
+
+
+def test_evaluation_main_fails_closed_without_a_corpus_version(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """A missing corpus version stops the run before any paid call."""
+
+    def boom_run(cases):
+        raise AssertionError("paid path must not run without a corpus version")
+
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    for key, value in _complete_env().items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("EVAL_REQUESTED_SHA", _FAKE_SHA_A)
+    monkeypatch.setenv("EVAL_TESTED_SHA", _FAKE_SHA_A)
+    monkeypatch.setattr(READ_CORPUS_VERSION, lambda: None)
+    monkeypatch.setattr(RUN_EVALUATION, boom_run)
+    output = tmp_path / "results.json"
+    assert evaluation_main(["--tier", "smoke", "--yes", "--output", str(output)]) == 1
+    assert not output.exists()
+    assert "no version in the meta collection" in capsys.readouterr().err
 
 
 def test_evaluation_main_reports_runner_failure_without_writing(
