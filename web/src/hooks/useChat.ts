@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import client, { TOKEN_KEY, signOut } from '../api/client'
+import type { RefusalReason } from '../types'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -7,8 +8,10 @@ export interface ChatMessage {
   sources?: string[]
   confidence?: number | null
   follow_ups?: string[]
-  /** True when the assistant declined because retrieval was too weak to ground an answer. */
+  /** True when the assistant declined without generating an answer. */
   refused?: boolean
+  /** Which check declined; undefined on turns stored before #269. */
+  refusal_reason?: RefusalReason | null
   /** Set once this turn has been handed to a person. See EscalateButton. */
   escalation_id?: string
   /**
@@ -148,6 +151,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
         sources?: string[]
         confidence?: number | null
         refused?: boolean
+        refusal_reason?: RefusalReason | null
         escalation_id?: string
         message_id?: string
         follow_ups?: string[]
@@ -158,6 +162,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
         sources: m.sources,
         confidence: m.confidence,
         refused: m.refused,
+        refusal_reason: m.refusal_reason,
         escalation_id: m.escalation_id,
         message_id: m.message_id,
         follow_ups: m.follow_ups,
@@ -298,6 +303,7 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
                   sources: data.sources as string[],
                   confidence: data.confidence as number | null,
                   refused: Boolean(data.refused),
+                  refusal_reason: data.refusal_reason as RefusalReason | null | undefined,
                   message_id: data.message_id as string | undefined,
                 },
               ]

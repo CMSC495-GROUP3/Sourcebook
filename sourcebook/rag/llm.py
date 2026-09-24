@@ -306,6 +306,8 @@ class FakeProvider(LLMProvider):
     UTILITY_DELAY_MS = int(os.getenv("FAKE_UTILITY_DELAY_MS", "300"))
     EMBED_DELAY_MS = int(os.getenv("FAKE_EMBED_DELAY_MS", "50"))
     DIMENSIONS = int(os.getenv("FAKE_EMBED_DIMENSIONS", "1536"))
+    # FAKE_COVERED=0 makes the stub's coverage judge refuse every question.
+    COVERED = os.getenv("FAKE_COVERED", "1") != "0"
 
     ANSWER = (
         "Based on the policy documents provided, full-time employees accrue 15 days "
@@ -367,7 +369,7 @@ class FakeProvider(LLMProvider):
         # system-prompt identity, not by JSON literals in the user message, so
         # ordinary utility prompts that mention those strings still rewrite.
         if system.startswith("You are a coverage judge"):
-            return '{"covered": true}'
+            return '{"covered": true}' if self.COVERED else '{"covered": false}'
         # Utility calls ask for three newline-separated questions.
         return (
             "How do I request time off?\n"

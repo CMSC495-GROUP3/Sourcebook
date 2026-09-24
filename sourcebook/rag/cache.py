@@ -192,6 +192,8 @@ def get_cached_answer(question: str, corpus_version: str) -> dict | None:
         "confidence": doc.get("confidence"),
         "follow_ups": doc.get("follow_ups", []),
         "refused": doc.get("refused", False),
+        # Absent on entries cached before issue #269; the client falls back.
+        "refusal_reason": doc.get("refusal_reason"),
     }
 
 
@@ -212,6 +214,7 @@ def put_cached_answer(question: str, corpus_version: str, result: dict) -> None:
                 "confidence": result.get("confidence"),
                 "follow_ups": result.get("follow_ups", []),
                 "refused": result.get("refused", False),
+                "refusal_reason": result.get("refusal_reason"),
                 "created_at": datetime.now(UTC),
             },
             "$setOnInsert": {"hits": 0},

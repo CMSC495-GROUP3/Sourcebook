@@ -3,13 +3,21 @@ export interface Message {
   content: string
 }
 
+/**
+ * Which check refused a turn. `no_match`: retrieval similarity missed the
+ * threshold. `not_covered`: similarity cleared it but the coverage judge said
+ * the passages do not answer the question. Absent on turns stored before #269.
+ */
+export type RefusalReason = 'no_match' | 'not_covered'
+
 export interface ChatResponse {
   answer: string
   sources: string[]
   confidence: number | null
   follow_ups: string[]
-  /** True when retrieval fell below the grounding threshold and no answer was generated. */
+  /** True when the grounding gate or the coverage judge refused and no answer was generated. */
   refused: boolean
+  refusal_reason?: RefusalReason | null
   session_id: string | null
 }
 

@@ -126,7 +126,14 @@ describe('useChat', () => {
       jsonResponse(
         sseBody([
           { chunk: 'I cannot answer that from the indexed policies.' },
-          { done: true, sources: [], confidence: 41, refused: true, message_id: 'm-ref' },
+          {
+            done: true,
+            sources: [],
+            confidence: 41,
+            refused: true,
+            refusal_reason: 'no_match',
+            message_id: 'm-ref',
+          },
         ]),
       ),
     )
@@ -140,6 +147,7 @@ describe('useChat', () => {
 
     const assistant = result.current.messages[1]
     expect(assistant.refused).toBe(true)
+    expect(assistant.refusal_reason).toBe('no_match')
     expect(assistant.sources).toEqual([])
     expect(assistant.message_id).toBe('m-ref')
   })
@@ -159,6 +167,15 @@ describe('useChat', () => {
             message_id: 'm-1',
             follow_ups: ['How do I request it?'],
           },
+          { role: 'user', content: 'Pet insurance?' },
+          {
+            role: 'assistant',
+            content: 'No policy.',
+            confidence: 79,
+            refused: true,
+            refusal_reason: 'not_covered',
+            message_id: 'm-2',
+          },
         ],
       }),
     )
@@ -168,9 +185,13 @@ describe('useChat', () => {
     )
 
     await waitFor(() => {
-      expect(result.current.messages).toHaveLength(2)
+      expect(result.current.messages).toHaveLength(4)
     })
     expect(client.get).toHaveBeenCalledWith('/api/conversations/sess-stored')
+    expect(result.current.messages[3]).toMatchObject({
+      refused: true,
+      refusal_reason: 'not_covered',
+    })
     expect(result.current.messages[1]).toMatchObject({
       role: 'assistant',
       content: '15 days.',

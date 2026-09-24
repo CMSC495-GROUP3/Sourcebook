@@ -116,12 +116,14 @@ class TestChat:
             "/api/chat", json={"question": "q", "session_id": conversation}, headers=auth
         ).json()
         assert body["refused"] is True
+        assert body["refusal_reason"] == "no_match"
         assert body["answer"] == REFUSAL_MESSAGE
         assert body["sources"] == [] and body["follow_ups"] == []
         assert body["confidence"] == 45
 
         stored = _messages(conversation)[-1]
         assert stored["refused"] is True and stored["sources"] == []
+        assert stored["refusal_reason"] == "no_match"
         assert FAKE_DB["query_logs"].find_one({})["refused"] is True
 
     def test_answers_above_threshold_with_sources(self, client, auth, retrieval, conversation):
@@ -131,6 +133,7 @@ class TestChat:
             headers=auth,
         ).json()
         assert body["refused"] is False
+        assert body["refusal_reason"] is None
         assert body["answer"] == FAKE_ANSWER
         assert body["sources"] == ["Paid Time Off (PTO) Policy"]
         assert body["confidence"] == 75
@@ -317,10 +320,12 @@ class TestCoverageChat:
             headers=auth,
         ).json()
         assert body["refused"] is True
+        assert body["refusal_reason"] == "not_covered"
         assert body["answer"] == REFUSAL_MESSAGE
         assert body["sources"] == [] and body["follow_ups"] == []
         stored = _messages(conversation)[-1]
         assert stored["refused"] is True and stored["sources"] == []
+        assert stored["refusal_reason"] == "not_covered"
         log = FAKE_DB["query_logs"].find_one({})
         assert log["refused"] is True
 
@@ -332,9 +337,22 @@ class TestCoverageChat:
         assert events[0] == {"chunk": REFUSAL_MESSAGE}
         done = events[1]
         assert done["refused"] is True and done["sources"] == []
+        assert done["refusal_reason"] == "not_covered"
         stored = _messages(conversation)[-1]
         assert stored["refused"] is True and stored["sources"] == []
+        assert stored["refusal_reason"] == "not_covered"
         assert FAKE_DB["query_logs"].find_one({})["refused"] is True
+
+    def test_cached_coverage_refusal_keeps_its_reason(self, client, auth, retrieval, monkeypatch):
+        _stub_coverage(monkeypatch, covered=False, forbid_answer=True)
+        question = "Does the company reimburse pet insurance?"
+        first = next(e for e in _ask(client, auth, question, None) if e.get("done"))
+        second = next(e for e in _ask(client, auth, question, None) if e.get("done"))
+        assert first["refusal_reason"] == "not_covered"
+        assert second.get("cached") is True
+        assert second["refusal_reason"] == "not_covered"
+        http = client.post("/api/chat", json={"question": question}, headers=auth).json()
+        assert http["refusal_reason"] == "not_covered"
 
     def test_uncovered_does_not_serve_a_prior_answered_cache_entry(
         self, client, auth, retrieval, monkeypatch
@@ -535,9 +553,11 @@ class TestStream:
             "sources": [],
             "confidence": 30,
             "refused": True,
+            "refusal_reason": "no_match",
         }
         stored = _messages(conversation)[-1]
         assert stored["refused"] is True
+        assert stored["refusal_reason"] == "no_match"
         # A refusal is escalated more often than an answer, so it must be nameable.
         assert done["message_id"] == stored["message_id"]
 
@@ -584,7 +604,7 @@ class TestStream:
         refused_line = next(
             r.getMessage() for r in caplog.records if r.getMessage().startswith("Refused:")
         )
-        assert refused_line.startswith("Refused: best score 0.590")
+        assert refused_line.startswith("Refused: best score 0.590 (no_match)")
 
         stored = _messages(conversation)[-1]
         assert stored["refused"] is True and stored["sources"] == []

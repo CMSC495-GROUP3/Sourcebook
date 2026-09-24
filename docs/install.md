@@ -66,6 +66,9 @@ suggested follow-ups are canned too. Retrieval scores are fixed rather than
 computed, so either every question answers or every question refuses. The
 default is to answer. `make stub REFUSE=1` flips it, and that is how you see
 the refusal card and the button that hands the question to a person.
+`make stub REFUSE=judge` keeps the scores above the threshold and has the
+coverage judge refuse instead, which shows the card for a question the
+policies touch on but do not answer.
 Conversations and escalations live in memory and are gone when you stop the
 API. Because the scores are made up, this mode tells you nothing about answer
 quality, and `SIMILARITY_THRESHOLD` should never be tuned against it.
