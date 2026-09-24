@@ -422,8 +422,10 @@ function ConversationItem({
 
   // The actions overlay the end of the row on hover, and stay while any of
   // them has keyboard focus, so the title keeps the full width until then.
+  // They also stay while the project menu is open: the menu renders outside
+  // the row, and Headless UI closes it as soon as its button is hidden.
   const actionClass = `${ICON_BUTTON} h-6 w-6 text-ink-3`
-  const overlayClass = `absolute inset-y-0 right-1 hidden items-center gap-0.5 pl-5 group-hover:flex group-focus-within:flex bg-linear-to-l to-transparent ${
+  const overlayClass = `absolute inset-y-0 right-1 hidden items-center gap-0.5 pl-5 group-hover:flex group-focus-within:flex has-data-open:flex bg-linear-to-l to-transparent ${
     isActive ? 'from-accent-soft from-70%' : 'from-paper-3 from-70%'
   }`
 
