@@ -12,6 +12,9 @@
 <p align="center">
   <a href="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/ci.yml"><img src="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/security.yml"><img src="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/security.yml/badge.svg?branch=main" alt="Security"></a>
+  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases"><img src="https://img.shields.io/github/v/release/CMSC495-GROUP3/Sourcebook?include_prereleases&sort=semver&label=release" alt="Latest release"></a>
+  <a href="https://sourcebook.duckdns.org"><img src="https://img.shields.io/website?url=https%3A%2F%2Fsourcebook.duckdns.org&label=pilot%20site&up_message=up&down_message=down" alt="Pilot site status"></a>
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-3776ab" alt="Python 3.11 to 3.14">
   <img src="https://img.shields.io/badge/react-19-007ec6" alt="React 19">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-007ec6" alt="MIT license"></a>
