@@ -11,9 +11,9 @@ commit under review, lists what changed since the
 and states what the beta does not establish. Nothing here is called verified
 without a link that shows it.
 
-**Status: candidate, not tagged.** The blocker table at the end of this page
-says what has to be true before `v0.2.0` is cut. Until every row is
-done, treat every Pending cell below as unmeasured.
+**Status: tagged.** [`v0.2.0`](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0) is on `383cea5`, the merge of the
+release pull request, after every row in the blocker table at the end of this
+page was done.
 
 ## Where to start
 
@@ -33,12 +33,12 @@ done, treat every Pending cell below as unmeasured.
 
 | Field | Value |
 | --- | --- |
-| Commit | Pending: the merge commit of the release pull request that adds this folder |
-| Tag and release | Pending: `v0.2.0`, annotated, prerelease, on that commit |
+| Commit | `383cea5a5c2154fa4d7688e642d94299191a88a1`, the merge of PR #267 into `main` on 2026-09-24 |
+| Tag and release | [`v0.2.0`](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0), annotated, prerelease, on that commit |
 | Running at | <https://sourcebook.duckdns.org> |
 | Deployed commit | `201754eb64b3d8a83d9d8da47b658ba0176a40c0`, the merge of PR #254, from `HEAD` and `refs/deployed/main` on the pilot host on 2026-09-24 at 22:05 UTC. The auto-deploy recreated only the web container, at 21:52:35 UTC. The API container has run `231e652` since 21:39 UTC, and #254 changed no Python. So the benchmark at 21:49 ran entirely on `231e652`, and the browser pass from 21:53 ran the #254 web client against that same API |
-| CI | Pending: the push-to-`main` run on the merge commit |
-| Security | Pending: the push-to-`main` run on the merge commit |
+| CI | [run 36065801208](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36065801208), success |
+| Security | [run 36065801170](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36065801170), success |
 | Code under test | `231e65224efa3ecf688af0f89b8d4d0ce924d153`, `main` after [PR #268](https://github.com/CMSC495-GROUP3/Sourcebook/pull/268), for the live evaluation below. Since then only [PR #254](https://github.com/CMSC495-GROUP3/Sourcebook/pull/254) has merged, which changes the web client and none of the Python code the evaluation runs; the release pull request adds documentation only |
 
 ## What changed since the alpha
@@ -65,8 +65,8 @@ Every blocker the alpha listed for the beta in
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Python lint and tests on 3.11 to 3.14 with the 80% floor, web lint, types, tests, and build, both Docker images, Compose validation | Passed on `d82749d`; Pending on the release merge commit | [CI run 36057773007](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36057773007) |
-| CodeQL, dependency audit, secret scan | Passed on `d82749d`; Pending on the release merge commit | [Security run 36057772985](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36057772985) |
+| Python lint and tests on 3.11 to 3.14 with the 80% floor, web lint, types, tests, and build, both Docker images, Compose validation | Passed on `d82749d` and on the release merge commit `383cea5` | [CI run 36057773007](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36057773007), [CI run 36065801208](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36065801208) |
+| CodeQL, dependency audit, secret scan | Passed on `d82749d` and on the release merge commit `383cea5` | [Security run 36057772985](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36057772985), [Security run 36065801170](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36065801170) |
 | Answer quality against the live system, smoke tier | Measured on `231e652`: all five scored metrics 100%, including both refusal metrics that were 0% in the alpha. All three injections resisted; one of three ambiguous questions is now refused instead of answered | [live-evaluation.md](live-evaluation.md), [run 36062704072](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36062704072), `live-evaluation-results.json` |
 | Real-service latency and error rate on the pilot | Passed on 2026-09-24: all five targets met in 7 requests, no errors, no rate limiting | [live-benchmark.md](live-benchmark.md), `live-benchmark-results.json` |
 | End-to-end pass through the deployed app by hand | Passed on 2026-09-24, all eleven steps, with one defect found in the refusal card's wording | [below](#end-to-end-pass-by-hand), [evidence/](evidence/README.md) |
@@ -189,4 +189,4 @@ link, and the CI and Security run links into this page, the README, and
 | Bounded benchmark against the pilot, recorded in [live-benchmark.md](live-benchmark.md) | Done: every target met |
 | End-to-end pass by hand, recorded above with screenshots | Done: eleven of eleven steps pass, one defect recorded |
 | Knowledge-gap report run once against the pilot's query log | Done: `knowledge-gap-report.txt` |
-| Release pull request merged, with its CI and Security runs green and linked in the table at the top of this page | Pending |
+| Release pull request merged, with its CI and Security runs green and linked in the table at the top of this page | Done: PR #267 merged as `383cea5`; CI and Security green |

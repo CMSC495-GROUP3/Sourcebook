@@ -24,7 +24,9 @@
   <a href="#deployment">Deployment</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
   <a href="docs/releases/v0.1.0-alpha.1/handoff.md">Alpha handoff</a> ·
-  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a>
+  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a> ·
+  <a href="docs/releases/v0.2.0/handoff.md">Beta handoff</a> ·
+  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0">v0.2.0</a>
 </p>
 
 ---
@@ -96,6 +98,7 @@ its handoff, release notes, live benchmark, live evaluation, and evidence.
 
 | Release | Handoff | Notes | Measured |
 | --- | --- | --- | --- |
+| [v0.2.0](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0) | [handoff](docs/releases/v0.2.0/handoff.md) | [release notes](docs/releases/v0.2.0/release-notes.md) | [benchmark](docs/releases/v0.2.0/live-benchmark.md), [evaluation](docs/releases/v0.2.0/live-evaluation.md) |
 | [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](docs/releases/v0.1.0-alpha.1/handoff.md) | [release notes](docs/releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](docs/releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](docs/releases/v0.1.0-alpha.1/live-evaluation.md) |
 
 Coding agents get the condensed version of all of this in
