@@ -224,8 +224,6 @@ export function useChat({ sessionId, onSessionCreated }: UseChatOptions) {
         return
       }
 
-      if (!isLive(sid)) return
-
       if (!response.ok) {
         const busy = await readRetryableBusy(response)
         if (!isLive(sid)) return
