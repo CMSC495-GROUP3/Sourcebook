@@ -2,14 +2,17 @@
 
 Pending. After the Monday 28 September freeze, the green push-to-`main` CI
 run on the candidate uploads two SHA-named artifacts, kept for 90 days
-([#261](https://github.com/CMSC495-GROUP3/Sourcebook/pull/261)):
+([#261](https://github.com/CMSC495-GROUP3/Sourcebook/pull/261),
+[#275](https://github.com/CMSC495-GROUP3/Sourcebook/pull/275)):
 
 - `python-coverage-<sha>`: `coverage.xml` and `coverage-table.md`
-- `web-coverage-<sha>`: `coverage-summary.json` and `coverage-final.json`
+- `web-coverage-<sha>`: `coverage-table.md`, `coverage-summary.json`, and
+  `coverage-final.json`
 
-Copy the Python table from `coverage-table.md` and the web totals from
-`coverage-summary.json` into the tables below, with the run link. Web
-coverage is measured on the source files listed in `web/vitest.config.ts`,
+Paste each pack's `coverage-table.md` into its section below, and fill in the
+commit and run link. The steps are in
+[docs/quality.md](../../../quality.md#where-the-release-coverage-comes-from).
+Web coverage is measured on the source files listed in `web/vitest.config.ts`,
 not all of `web/src`. Say so wherever the figure is quoted.
 
 | Field | Value |
@@ -19,10 +22,11 @@ not all of `web/src`. Say so wherever the figure is quoted.
 
 ## Python
 
-Pending: the table from `coverage-table.md`. CI fails below 80%.
+Pending: the table from `python-coverage-<sha>/coverage-table.md`. CI fails
+below 80%.
 
 ## Web
 
-| Statements | Branches | Functions | Lines |
-| ---: | ---: | ---: | ---: |
-| Pending | Pending | Pending | Pending |
+Pending: the table from `web-coverage-<sha>/coverage-table.md`, one row per
+file with a total. CI fails below 80% on statements, branches, functions, or
+lines.
