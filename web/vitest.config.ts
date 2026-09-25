@@ -20,6 +20,9 @@ export default defineConfig({
         'src/api/escalations.ts',
         'src/pages/EscalationsPage.tsx',
         'src/components/Escalations/**',
+        'src/pages/DocumentLibraryPage.tsx',
+        'src/hooks/usePaneFocus.ts',
+        'src/lib/history.ts',
       ],
       thresholds: {
         lines: 80,
