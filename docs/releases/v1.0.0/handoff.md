@@ -50,6 +50,7 @@ Pending until the freeze. So far:
 | --- | --- | --- |
 | Refusal card | The card says which check refused. A question refused by the coverage judge no longer shows "Strong match" under "No matching policy" or claims nothing indexed came close ([#269](https://github.com/CMSC495-GROUP3/Sourcebook/issues/269)) | #271 |
 | Projects | The move-to-project menu stays open when the pointer leaves the row | #272 |
+| HR Requests and Policy Library on a phone | Back from the list leaves the page instead of reopening the item just left, and a resolve leaves one list entry. Focus moves to the item's heading when it opens, back to its row when you return, and to the list heading after a resolve or reopen, which is announced to screen readers ([#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266)) | #277 |
 | README | Release, pilot site, and Ruff badges | #273 |
 | Documentation | User guide ([#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206)), team page and `.mailmap` ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)), portfolio page | Pending: #259, #231, #230 |
 
@@ -72,7 +73,7 @@ Pending until the freeze. So far:
 ### End-to-end pass by hand
 
 Pending. Repeat the beta's pass with the same steps and expected results, and
-add one step for the #271 fix. Save sanitized screenshots to
+add one step each for the #271 and #277 fixes. Save sanitized screenshots to
 [evidence/](evidence/README.md): no password, token, or session id visible.
 
 | Field | Value |
@@ -95,6 +96,7 @@ add one step for the #271 fix. Save sanitized screenshots to
 | Escalate the refusal with a note | confirmation in the UI; the record appears on the HR Requests page | Pending |
 | Escalate the same message again | the first record comes back, not a second one | Pending |
 | Resolve the request on the HR Requests page, then reopen it | the request moves between the open and resolved lists | Pending |
+| At 390px wide, keyboard only: open a request on the HR Requests page, choose "All requests", then press Back (#266) | focus lands on the request's heading, then on its row; Back leaves the page instead of reopening the request | Pending |
 
 ## Known defects and limitations
 
@@ -102,7 +104,6 @@ Carried from the beta unless fixed before the freeze. Update at the freeze.
 
 | Issue | What a pilot user would see | Mitigation |
 | --- | --- | --- |
-| [#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266) | on a phone, Back can reopen the request or policy just left, and focus falls to the top of the page when the panes switch | use the "All requests" link; on a desktop both panes show at once |
 | [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | concurrent project assignment and deletion can race | a single-operator pilot makes this unlikely at this volume |
 | Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms ([beta evaluation](../v0.2.0/live-evaluation.md#manual-review)) | ask a more specific question, or use Ask Human Resources |
 | README known limitations | a shared password, a threshold set by judgement, non-atomic re-ingestion, one instance, a fictional corpus | documented in the README |

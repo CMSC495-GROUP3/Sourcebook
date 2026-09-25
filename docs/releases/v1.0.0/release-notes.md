@@ -34,6 +34,11 @@ Pending until the freeze. So far:
   (#269, PR #271).
 - **The move-to-project menu stays open** when the pointer leaves the row
   (PR #272).
+- **On a phone, Back and keyboard focus behave on the HR Requests page and
+  the Policy Library.** Back from the list leaves the page instead of
+  reopening the item just left. Focus moves to the item when it opens and
+  back to its row on return, and a resolve or reopen is announced to screen
+  readers (#266, PR #277).
 
 ## Getting access
 
@@ -60,7 +65,6 @@ Pending: confirm at the freeze.
 
 | Issue | What a user would see | Impact | Mitigation |
 | --- | --- | --- | --- |
-| [#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266) | on a phone, Back can reopen the request or policy just left, and focus falls to the top of the page when the panes switch | confusing navigation for keyboard and screen-reader users | use the "All requests" link, or a desktop window where both panes show |
 | [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | assigning and deleting a project at the same moment can race | a conversation can point at a deleted project; the list treats it as ungrouped | unlikely at pilot volume with one operator |
 | Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms | the user gets the refusal card instead of a pointer to the travel policy | ask a more specific question, or use Ask Human Resources |
 
