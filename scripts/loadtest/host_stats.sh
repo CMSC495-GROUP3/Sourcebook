@@ -10,6 +10,11 @@
 # the container name, and what `docker stats` reports for it. Container names
 # carry the Compose project, so the file says which API container was busy.
 # Nothing in it identifies a user or a request.
+#
+# `docker stats --no-stream` takes a second or two to sample CPU, so rows land
+# every INTERVAL plus that, and each row's time is when its sample began. A
+# failed sample (the daemon busy, a container being recreated) writes one
+# docker-stats-failed row and the sampler keeps going.
 set -euo pipefail
 
 INTERVAL=${1:-2}
@@ -22,9 +27,11 @@ echo "time_utc,load_1m,container,cpu_percent,mem_usage,mem_percent"
 while true; do
   now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   load=$(cut -d ' ' -f 1 /proc/loadavg)
-  docker stats --no-stream --format '{{.Name}},{{.CPUPerc}},{{.MemUsage}},{{.MemPerc}}' |
+  if ! docker stats --no-stream --format '{{.Name}},{{.CPUPerc}},{{.MemUsage}},{{.MemPerc}}' |
     while IFS= read -r line; do
       echo "$now,$load,$line"
-    done
+    done; then
+    echo "$now,$load,docker-stats-failed,,,"
+  fi
   sleep "$INTERVAL"
 done

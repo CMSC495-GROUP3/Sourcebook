@@ -35,13 +35,29 @@ without the provider, but the fake provider refuses to start with
 | --- | --- | --- |
 | Levels | 5, 10, 20, 40 concurrent | 75 requests in all |
 | Request cap | 80 (`--max-requests`) | the script refuses to start if the levels add up to more |
-| Estimated cost | about $0.75 at $0.01 a generation | confirmed at the prompt before any request |
+| Estimated cost | about $0.75 at $0.01 a generation | an estimate, confirmed at the prompt; the request count is the hard bound. Record the actual cost from the OpenAI usage page |
 | Error stop | 5 errors in a level ends the run | a failing system is not measured by more load |
 | Questions | the 8 answerable questions `live_benchmark.py` uses, each virtual user in its own session | known to retrieve a policy |
+| Cleanup | the script deletes the conversations it created when the run ends, however it ends | the pilot lists every conversation to every user |
+
+The cost is an estimate because each generated answer makes four provider
+calls (an embedding, the coverage judge, the answer, the follow-ups),
+`OPENAI_MAX_RETRIES=1` can bill a failed call twice, and a request that gets a
+503 may already have paid for its embedding and judge call. The totals stay
+well under $2. Set a budget limit on the OpenAI project for the window if one
+is not set.
+
+**How the columns are measured.** req/s is completed requests over the time
+from the level's start to its last `done` event, the definition `run.py` uses.
+The stream stays open after `done` for the follow-up suggestions, a second
+model call; the report keeps the time including them as
+`wall_incl_follow_ups_s`. TTFT and total are over generated answers only, and
+total stops at `done`. The percentiles are nearest-rank, so at 5 and 10
+requests p95 is the slowest request.
 
 ## Settings that decide the result
 
-Four pilot settings shape the numbers. Record each one as it was during the
+These pilot settings shape the numbers. Record each one as it was during the
 run, in the table under Results.
 
 - **`CHAT_RATE_LIMIT`**, default `30/minute`, is per client address. From
@@ -53,32 +69,55 @@ run, in the table under Results.
   measure cache hits, so the window turns it off and every request generates.
   That is the worst case, as in the synthetic page's Finding 1.
 - **`OPENAI_MAX_CONCURRENT_REQUESTS`**, default 20, with
-  `OPENAI_CAPACITY_WAIT_SECONDS` of 1. Past 20 concurrent generations, the
-  extra requests wait a second for a slot, then get HTTP 503 with
-  `Retry-After` (provider busy). The 40 level is expected to show this. It is
-  the provider bound doing its job, and the script lists those failures as
-  `HTTP 503`, apart from any other error.
-- **One API worker, `THREADPOOL_TOKENS` 100.** The API container runs a
-  single uvicorn worker. Leave both unchanged: they are what the pilot runs.
+  `OPENAI_CAPACITY_WAIT_SECONDS` of 1. The bound covers every provider call:
+  the embedding, the coverage judge, the answer, and the follow-ups. Past 20
+  concurrent calls, the extra ones wait a second for a slot. Before the first
+  token that is an HTTP 503 with `Retry-After` (provider busy), which the
+  script lists as `HTTP 503`; a busy follow-up call only drops the
+  suggestions. The 40 level is expected to show 503s. It is the provider bound
+  doing its job.
+- **One API worker, `THREADPOOL_TOKENS` 100, `MONGO_MAX_POOL_SIZE` 20.** The
+  API container runs a single uvicorn worker unless `WEB_CONCURRENCY` is set,
+  and each worker has 20 Atlas connections, which the history lookup, vector
+  search, persist, and query log share. Leave these unchanged: they are what
+  the pilot runs. Step 1 prints them.
+- **The OpenAI account's own limits.** A request or token rate limit at
+  OpenAI comes back as a 429 from OpenAI, which the SDK retries once
+  (`OPENAI_MAX_RETRIES=1`). If it persists, the stream ends with "An error
+  occurred while generating the response.", which the script lists apart from
+  `HTTP 503`. That is OpenAI's limit, not the pilot's.
 
 ## Running it
 
 Two people or two shells: one on the pilot host, one on a client outside it.
-Pick a time when nobody else is using the pilot.
+Pick a time when nobody else is using the pilot, and tell the team not to
+merge or deploy during it.
 
-**1. On the host, open the window.**
+**1. On the host, open the window.** The checkout is the one the
+`auto-deploy` unit uses. The block runs in a subshell with `set -e`, so the
+first failure stops it without closing your SSH session, and the sampler only
+starts once everything before it worked.
 
 ```bash
-cd ~/Sourcebook
-sudo systemctl stop auto-deploy.timer          # no redeploy mid-run
-git rev-parse refs/deployed/main               # record: the deployed SHA
-cp .env .env.before-load-test
-printf '\nCHAT_RATE_LIMIT=600/minute\nCACHE_ENABLED=0\n' >> .env
-docker compose up -d api                       # recreate the API with the window settings
-scripts/loadtest/host_stats.sh 2 > /tmp/pilot-load-host.csv
+cd /home/ubuntu/CMSC495-CAP && (
+  set -e
+  export COMPOSE_FILE=docker-compose.yml       # as auto_deploy.sh does: no stray override file
+  sudo systemctl stop auto-deploy.timer        # no redeploy mid-run
+  while systemctl is-active --quiet auto-deploy.service; do sleep 5; done   # let a deploy in flight finish
+  git rev-parse refs/deployed/main             # record: the deployed SHA
+  cp .env ~/env.before-load-test               # outside the checkout, so git never sees it
+  printf '\nCHAT_RATE_LIMIT=600/minute\nCACHE_ENABLED=0\n' >> .env
+  docker compose up -d api                     # recreate the API with the window settings
+  until curl -fsS https://sourcebook.duckdns.org/api/health; do sleep 2; done
+  docker compose exec api printenv | grep -E '^(CHAT_RATE_LIMIT|CACHE_ENABLED|OPENAI_MAX_CONCURRENT_REQUESTS|OPENAI_CAPACITY_WAIT_SECONDS|OPENAI_MAX_RETRIES|THREADPOOL_TOKENS|WEB_CONCURRENCY|MONGO_MAX_POOL_SIZE)=' || true
+) && scripts/loadtest/host_stats.sh 2 > /tmp/pilot-load-host.csv
 ```
 
-Leave the sampler running.
+The `printenv` line prints no secrets. It confirms the window settings are
+live and gives the values for the Results table; a setting it does not print
+is at its default (`sourcebook/rag/config.py`), and no `WEB_CONCURRENCY` means
+one worker. The health wait matters because Nginx keeps the old API address for
+up to 10 seconds after a recreate. Leave the sampler running.
 
 **2. On the client, run the levels.**
 
@@ -90,21 +129,34 @@ BENCH_PASSWORD=... ./.venv/bin/python -m scripts.loadtest.pilot_load \
   --out docs/releases/v1.0.0/evidence/pilot-load.json
 ```
 
-The script asks for confirmation with the request count and the estimated
-cost, then prints one line per level and the results table.
+The script checks it can write `--out` before sending anything, asks for
+confirmation with the request count and the estimated cost, then prints one
+line per level and the results table. It rewrites the report after every
+level, so a run that stops early still leaves one. When it ends, it deletes
+the run's conversations and prints how many; `cleanup` in the report records
+the same. It exits 1 when any level had errors, which includes the 503s
+expected at 40: that is not a failed run.
 
 **3. On the host, close the window.** Do this even if the run failed.
 
 ```bash
 # Ctrl-C the sampler, then:
-mv .env.before-load-test .env
+cd /home/ubuntu/CMSC495-CAP
+export COMPOSE_FILE=docker-compose.yml
+# The run's query_logs rows; <run_id> is in the report and the script's first line.
+docker compose exec api python -c "from sourcebook.api.db import query_logs_col as c; print(c.delete_many({'session_id': {'\$regex': '^load-<run_id>-'}}).deleted_count)"
+mv ~/env.before-load-test .env
 docker compose up -d api
+until curl -fsS https://sourcebook.duckdns.org/api/health; do sleep 2; done
 sudo systemctl start auto-deploy.timer
-curl -fsS https://sourcebook.duckdns.org/api/health
 ```
 
-Ask one question in the browser to confirm the pilot answers with the cache
-back on.
+The `query_logs` rows would otherwise skew the measured cache hit rate and the
+knowledge-gap report; record the count it prints. If the script could not
+delete every conversation (`failed` above 0 in `cleanup`, or it was killed
+before cleaning up), the same `delete_many` on `conversations_col` removes
+the rest. Ask one question in the browser to confirm the pilot answers with
+the cache back on, and check the sidebar shows no `load-` conversations.
 
 **4. Commit the evidence.** Commit the JSON report, then copy the host
 samples to `docs/releases/v1.0.0/evidence/pilot-load-host.csv`. Neither
@@ -122,8 +174,10 @@ Pending.
 | Client location | Pending |
 | `CHAT_RATE_LIMIT` during the run | Pending |
 | `CACHE_ENABLED` during the run | Pending |
-| `OPENAI_MAX_CONCURRENT_REQUESTS` | Pending |
-| API workers, `THREADPOOL_TOKENS` | Pending |
+| `OPENAI_MAX_CONCURRENT_REQUESTS`, `OPENAI_CAPACITY_WAIT_SECONDS`, `OPENAI_MAX_RETRIES` | Pending |
+| API workers, `THREADPOOL_TOKENS`, `MONGO_MAX_POOL_SIZE` | Pending |
+| Actual OpenAI cost for the window | Pending: from the usage page |
+| Cleanup | Pending: conversations deleted, `query_logs` rows deleted |
 | Report | Pending: `releases/v1.0.0/evidence/pilot-load.json` |
 
 Paste the table the script prints:
@@ -149,8 +203,9 @@ Host during the run, from the sampler:
 Pending. After the run, say in plain terms:
 
 - the highest level with no errors, and its requests per second and TTFT p95
-- where failures started and of what kind (`HTTP 503`, provider busy, at 40
-  is the expected first one)
+- where failures started and of what kind: `HTTP 503` is the pilot's provider
+  bound (expected first, at 40), a generic generation error is OpenAI's own
+  limit, and anything else is a finding
 - how the measured requests per second compare with the synthetic page's
   83 req/s target, and what that says about the 10,000-user claim for this
   deployment

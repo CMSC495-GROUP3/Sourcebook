@@ -27,8 +27,20 @@ the operator passes them with --setting:
   With CACHE_ENABLED=0 for the window every request generates, which is the
   worst case. Left on, the report shows the mix of paths it got.
 
-docs/load-testing-pilot.md has the protocol and the results. Answer text is
-never stored, so the JSON report is safe to commit.
+Throughput is completed requests over the time from the level's start to its
+last `done` event, the definition run.py uses. The stream stays open after
+`done` for the follow-up suggestions, a second model call; the time including
+them is kept as a separate field.
+
+Each answered request leaves a conversation on the pilot, and the pilot lists
+every conversation to every user. When the run ends, however it ends, the
+script deletes the conversations it created (--keep-conversations skips this).
+Its query_logs rows need a step on the host; the page has it.
+
+The report is written after every level, so an interrupted run still leaves
+evidence. docs/load-testing-pilot.md has the protocol and the results. Answer
+text, the password, and the token are never stored, so the report is safe to
+commit.
 """
 
 from __future__ import annotations
@@ -45,6 +57,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from datetime import UTC, datetime
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 
@@ -88,9 +101,12 @@ def level_steps(run_id: str, concurrency: int) -> list[Step]:
     ]
 
 
-def summarize_level(concurrency: int, records: list[Record], wall_s: float) -> dict:
+def summarize_level(
+    concurrency: int, records: list[Record], to_last_done_s: float, wall_s: float | None = None
+) -> dict:
     """What one level did. Latency is over generated answers only, so a cache hit
-    or a refusal does not flatter the numbers; the path counts show the mix."""
+    or a refusal does not flatter the numbers; the path counts show the mix.
+    Throughput runs to the last `done`; wall_s also includes the follow-ups."""
     by_path: dict[str, int] = {}
     for r in records:
         by_path[r.observed] = by_path.get(r.observed, 0) + 1
@@ -115,8 +131,9 @@ def summarize_level(concurrency: int, records: list[Record], wall_s: float) -> d
         "errors": errors,
         "error_rate": errors / answered if answered else 0.0,
         "error_kinds": error_kinds,
-        "wall_s": wall_s,
-        "throughput_rps": completed / wall_s if wall_s else 0.0,
+        "to_last_done_s": to_last_done_s,
+        "wall_incl_follow_ups_s": wall_s if wall_s is not None else to_last_done_s,
+        "throughput_rps": completed / to_last_done_s if to_last_done_s else 0.0,
         "generated_ttft_s": {
             "n": len(ttft),
             "p50": pct(ttft, 50),
@@ -132,30 +149,90 @@ def summarize_level(concurrency: int, records: list[Record], wall_s: float) -> d
     }
 
 
+async def _send_level(send: Sender, steps: list[Step]) -> tuple[list[Record], float, float]:
+    """Send one level at once. Returns the records, the time to the last `done`
+    (or error), and the wall time, which also covers the follow-up suggestions."""
+    started = time.perf_counter()
+    done_at: list[float] = []
+
+    async def timed(step: Step) -> Record:
+        sent = time.perf_counter()
+        record = await send(step)
+        # total_s stops at `done` (or the error), not at the follow-ups.
+        if record.total_s is not None:
+            done_at.append(sent - started + record.total_s)
+        return record
+
+    batch = await asyncio.gather(*[timed(step) for step in steps])
+    wall = time.perf_counter() - started
+    return list(batch), max(done_at, default=wall), wall
+
+
 async def run_levels(
     send: Sender,
     run_id: str,
     levels: list[int],
     max_errors: int,
     settle_s: float = DEFAULT_SETTLE_S,
-    log: Callable[[dict], None] = lambda level: None,
+    log: Callable[[list[dict], list[Record]], None] = lambda levels, records: None,
 ) -> tuple[list[dict], list[Record]]:
     """Each level in turn, all of its requests at once. A level with max_errors or
-    more errors ends the run: the system is failing, and more load only costs."""
+    more errors ends the run: the system is failing, and more load only costs.
+    Rate limiting (429) is not an error and does not stop the run.
+
+    `log` gets the levels and records so far after each level."""
     levels_out: list[dict] = []
     records: list[Record] = []
     for index, concurrency in enumerate(levels):
         if index:
             await asyncio.sleep(settle_s)
-        started = time.perf_counter()
-        batch = await asyncio.gather(*[send(step) for step in level_steps(run_id, concurrency)])
-        summary = summarize_level(concurrency, list(batch), time.perf_counter() - started)
+        batch, to_last_done, wall = await _send_level(send, level_steps(run_id, concurrency))
+        summary = summarize_level(concurrency, batch, to_last_done, wall)
         records.extend(batch)
         levels_out.append(summary)
-        log(summary)
+        log(levels_out, records)
         if summary["errors"] >= max_errors:
             break
     return levels_out, records
+
+
+def _conversation_url(base_url: str, session_id: str) -> str:
+    parts = urlsplit(base_url)
+    path = "/api/conversations/" + quote(session_id, safe="")
+    return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
+
+
+async def delete_conversations(
+    client: httpx.AsyncClient, base_url: str, token: str, session_ids: list[str]
+) -> dict:
+    """Delete the conversations the run created. A 404 is a request that never
+    persisted one (rate limited, or failed before the answer), not a failure."""
+    counts = {"deleted": 0, "not_found": 0, "failed": 0}
+    for session_id in session_ids:
+        try:
+            response = await client.delete(
+                _conversation_url(base_url, session_id),
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30.0,
+            )
+        except httpx.HTTPError:
+            counts["failed"] += 1
+            continue
+        if response.status_code == 200:
+            counts["deleted"] += 1
+        elif response.status_code == 404:
+            counts["not_found"] += 1
+        else:
+            counts["failed"] += 1
+    return counts
+
+
+def write_report(path: str, report: dict) -> None:
+    """Replace the report in one step, so a crash mid-write leaves the last good one."""
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2)
+    os.replace(tmp, path)
 
 
 def render_markdown(levels: list[dict], cost_per_generation: float) -> str:
@@ -216,26 +293,6 @@ async def run(args: argparse.Namespace, password: str) -> dict:
     url = _stream_url(args.url)
     print(f"\n  pilot load -> {args.url}  (run id {run_id}, levels {args.levels})\n")
 
-    def show(level: dict) -> None:
-        ttft = level["generated_ttft_s"]
-        print(
-            f"  {level['concurrency']:>4} concurrent  {level['completed']:>3} completed  "
-            f"{level['rate_limited']:>3} x 429  {level['errors']:>3} errors  "
-            f"{level['throughput_rps']:6.2f} req/s  TTFT p50 {_fmt(ttft['p50'])} p95 {_fmt(ttft['p95'])}"
-        )
-
-    limits = httpx.Limits(max_connections=max(args.levels) + 10)
-    async with httpx.AsyncClient(limits=limits) as client:
-
-        async def send(step: Step) -> Record:
-            record = await run_step(client, url, token, step)
-            record.answer = None
-            return record
-
-        levels, records = await run_levels(
-            send, run_id, args.levels, args.max_errors, args.settle, log=show
-        )
-
     report = {
         "run_id": run_id,
         "date": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -255,9 +312,54 @@ async def run(args: argparse.Namespace, password: str) -> dict:
             "settle_s": args.settle,
             "cost_per_generation_usd": args.cost_per_generation,
         },
-        "levels": levels,
-        "records": [asdict(r) for r in records],
+        "levels": [],
+        "records": [],
+        "cleanup": None,
+        "complete": False,
     }
+
+    def save(levels: list[dict], records: list[Record]) -> None:
+        report["levels"] = levels
+        report["records"] = [asdict(r) for r in records]
+        if args.out:
+            write_report(args.out, report)
+
+    def show(levels: list[dict], records: list[Record]) -> None:
+        level = levels[-1]
+        ttft = level["generated_ttft_s"]
+        print(
+            f"  {level['concurrency']:>4} concurrent  {level['completed']:>3} completed  "
+            f"{level['rate_limited']:>3} x 429  {level['errors']:>3} errors  "
+            f"{level['throughput_rps']:6.2f} req/s  TTFT p50 {_fmt(ttft['p50'])} p95 {_fmt(ttft['p95'])}"
+        )
+        save(levels, records)
+
+    sent_sessions: list[str] = []
+    limits = httpx.Limits(max_connections=max(args.levels) + 10)
+    async with httpx.AsyncClient(limits=limits) as client:
+
+        async def send(step: Step) -> Record:
+            sent_sessions.append(step.session_id)
+            record = await run_step(client, url, token, step)
+            record.answer = None
+            return record
+
+        try:
+            levels, _ = await run_levels(
+                send, run_id, args.levels, args.max_errors, args.settle, log=show
+            )
+            report["complete"] = True
+        finally:
+            # Runs on an error or Ctrl-C too: the pilot lists every conversation
+            # to every user, so the run's own must not outlive it.
+            if not args.keep_conversations and sent_sessions:
+                report["cleanup"] = await delete_conversations(
+                    client, args.url, token, sent_sessions
+                )
+                print(f"  conversations cleaned up: {report['cleanup']}")
+            if args.out:
+                write_report(args.out, report)
+
     print("\n" + render_markdown(levels, args.cost_per_generation) + "\n")
     return report
 
@@ -304,7 +406,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--client-location", default="", help="Where the client ran, e.g. 'home, Maryland'."
     )
     parser.add_argument("--label", default="")
-    parser.add_argument("--out", default="", help="Write the JSON report here.")
+    parser.add_argument(
+        "--keep-conversations",
+        action="store_true",
+        help="Leave the run's conversations on the pilot instead of deleting them at the end.",
+    )
+    parser.add_argument(
+        "--out", default="", help="Write the JSON report here, after every level and at the end."
+    )
     parser.add_argument("--yes", action="store_true", help="Skip the paid-run confirmation.")
     return parser.parse_args(argv)
 
@@ -325,6 +434,11 @@ def validate(args: argparse.Namespace) -> str | None:
         parse_settings(args.setting)
     except ValueError as exc:
         return str(exc)
+    if args.out:
+        # Checked before the paid run, not after it.
+        directory = os.path.dirname(os.path.abspath(args.out))
+        if not os.path.isdir(directory) or not os.access(directory, os.W_OK):
+            return f"cannot write --out {args.out!r}: {directory} is missing or not writable"
     return None
 
 
@@ -347,7 +461,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             answer = input(
                 f"This sends up to {planned} paid chat requests to {args.url} "
-                f"(about ${cost:.2f} if all generate). Continue? [y/N] "
+                f"(an estimate of ${cost:.2f} if all generate; the request count is the "
+                f"hard bound). Continue? [y/N] "
             )
         except EOFError:
             answer = ""
@@ -360,9 +475,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"login or connection failed before any chat request: {exc}", file=sys.stderr)
         return 2
     if args.out:
-        with open(args.out, "w", encoding="utf-8") as handle:
-            json.dump(report, handle, indent=2)
         print(f"  wrote {args.out}")
+    # 1 when any level had errors, including the 503s the top level is expected
+    # to produce once the provider bound is reached. See the page.
     return 0 if not any(level["errors"] for level in report["levels"]) else 1
 
 
