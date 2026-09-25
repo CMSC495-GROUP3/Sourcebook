@@ -160,9 +160,20 @@ async def run_levels(
 
 def render_markdown(levels: list[dict], cost_per_generation: float) -> str:
     """The results table for docs/load-testing-pilot.md."""
+    columns = [
+        "Concurrent",
+        "Completed",
+        "Generated / cached / refused",
+        "429",
+        "Errors",
+        "req/s",
+        "TTFT p50",
+        "TTFT p95",
+        "Total p50",
+        "Total p95",
+    ]
     lines = [
-        "| Concurrent | Completed | Generated / cached / refused | 429 | Errors | req/s "
-        "| TTFT p50 | TTFT p95 | Total p50 | Total p95 |",
+        "| " + " | ".join(columns) + " |",
         "| ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for level in levels:
