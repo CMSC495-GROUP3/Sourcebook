@@ -43,7 +43,7 @@ export default function EscalationDetail({
     <article className="flex flex-col gap-6">
       <header className="flex flex-col gap-1.5 border-b border-rule pb-5">
         <p className="tnum text-[12.5px] text-ink-3">{formatTime(escalation.created_at)}</p>
-        <h2 className="font-display text-[24px] leading-tight font-medium tracking-tight text-ink">
+        <h2 tabIndex={-1} className="font-display text-[24px] leading-tight font-medium tracking-tight text-ink outline-none">
           {escalation.question}
         </h2>
       </header>

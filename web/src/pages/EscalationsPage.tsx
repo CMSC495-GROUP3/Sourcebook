@@ -9,10 +9,15 @@
  * tab (open is the default), and ?id= the open request. A linked request that
  * is not on the current list page is fetched on its own, so a link from a
  * webhook message opens the right request whatever tab it lands on.
+ *
+ * Below `lg`, Back from the list leaves the page: "All requests" and a resolve
+ * go back through history to the list the request was opened from, and push
+ * the list only when the request was opened from a link. Focus follows the
+ * panes (usePaneFocus), and the outcome of a resolve or reopen is announced.
  */
 import { useEffect, useRef, useState } from 'react'
 import { isAxiosError } from 'axios'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Inbox } from 'lucide-react'
 import {
   getEscalation,
@@ -24,16 +29,24 @@ import {
 import EscalationDetail, { type EscalationAction } from '../components/Escalations/EscalationDetail'
 import EscalationListItem from '../components/Escalations/EscalationListItem'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { usePaneFocus } from '../hooks/usePaneFocus'
+import { FROM_LIST, openedFromList } from '../lib/history'
 import { READING_COLUMN, READING_GUTTER } from '../lib/layout'
 import type { Escalation, EscalationStatus } from '../types'
 
 /** Tailwind's `lg`, the same breakpoint as the Policy Library. */
 const TWO_PANE_QUERY = '(min-width: 1024px)'
 const NO_ITEMS: Escalation[] = []
+/** How long a resolve or reopen announcement stays in the live region. */
+const ANNOUNCEMENT_MS = 5000
 const TABS: { status: EscalationStatus; label: string }[] = [
   { status: 'open', label: 'Open' },
   { status: 'resolved', label: 'Resolved' },
 ]
+
+function isRow(element: Element | null, id: string): boolean {
+  return element instanceof HTMLElement && element.dataset.rowId === id
+}
 
 /** What the last list fetch returned, and for which tab. */
 interface ListState {
@@ -57,6 +70,8 @@ export default function EscalationsPage() {
   const status: EscalationStatus = searchParams.get('status') === 'resolved' ? 'resolved' : 'open'
   const linkedId = searchParams.get('id')
   const twoPane = useMediaQuery(TWO_PANE_QUERY)
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const [list, setList] = useState<ListState | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -64,12 +79,23 @@ export default function EscalationsPage() {
   // Both tied to the request they came from, so opening another one hides them.
   const [action, setAction] = useState<{ id: string; kind: EscalationAction } | null>(null)
   const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null)
+  // Read by a polite live region: "Resolved: <question>" after a resolve.
+  // Cleared shortly after, so the next one is announced even if it has the
+  // same text, and the old one does not linger at the end of the page.
+  const [announcement, setAnnouncement] = useState('')
+  useEffect(() => {
+    if (!announcement) return
+    const timer = setTimeout(() => setAnnouncement(''), ANNOUNCEMENT_MS)
+    return () => clearTimeout(timer)
+  }, [announcement])
   // Handlers that finish after an await read the URL through this ref, so a
   // tab switch or row pick made while they waited is not overwritten.
   const searchParamsRef = useRef(searchParams)
+  const locationStateRef = useRef<unknown>(location.state)
   useEffect(() => {
     searchParamsRef.current = searchParams
-  }, [searchParams])
+    locationStateRef.current = location.state
+  }, [searchParams, location.state])
 
   // A request just resolved or reopened has left this tab. React Router
   // commits the URL change in a transition, after the state updates below, so
@@ -78,6 +104,7 @@ export default function EscalationsPage() {
   const [closedId, setClosedId] = useState<string | null>(null)
   if (closedId !== null && linkedId !== closedId) setClosedId(null)
   const selectedId = linkedId === closedId ? null : linkedId
+  const { listRef, detailRef, focusListWhenClosed, focusList } = usePaneFocus(selectedId, twoPane)
 
   // The tab comes from the URL, which a link, a reload, or Back can change
   // without a click here, so loading is derived from which tab the list holds.
@@ -134,7 +161,14 @@ export default function EscalationsPage() {
     const next = new URLSearchParams(searchParams)
     if (escalationId) next.set('id', escalationId)
     else next.delete('id')
-    setSearchParams(next)
+    // Below lg the list is the entry behind a request opened from it.
+    setSearchParams(next, escalationId && !twoPane ? { state: FROM_LIST } : undefined)
+  }
+
+  /** "All requests": back to the list it was opened from, or push the list. */
+  function backToList() {
+    if (openedFromList(location.state)) navigate(-1)
+    else select(null)
   }
 
   function changeStatus(nextStatus: EscalationStatus) {
@@ -165,9 +199,20 @@ export default function EscalationsPage() {
     const latest = searchParamsRef.current
     if (latest.get('id') === id) {
       setClosedId(id)
-      const next = new URLSearchParams(latest)
-      next.delete('id')
-      setSearchParams(next, { replace: true })
+      focusListWhenClosed(id)
+      // Below lg, going back leaves one list entry where a replace would
+      // leave two identical ones, the first of which Back would show again.
+      if (!twoPane && openedFromList(locationStateRef.current)) {
+        navigate(-1)
+      } else {
+        const next = new URLSearchParams(latest)
+        next.delete('id')
+        setSearchParams(next, { replace: true })
+      }
+    } else if (isRow(document.activeElement, id)) {
+      // Back was pressed while the request was saving, so focus went to its
+      // row, which is about to go.
+      focusList()
     }
     setReloadKey((key) => key + 1)
   }
@@ -181,13 +226,17 @@ export default function EscalationsPage() {
     )
   }
 
-  async function run(kind: EscalationAction, fallback: string, work: (id: string) => Promise<void>) {
+  async function run(
+    kind: EscalationAction,
+    fallback: string,
+    work: (id: string, question: string) => Promise<void>,
+  ) {
     if (!selected) return
-    const id = selected.escalation_id
+    const { escalation_id: id, question } = selected
     setAction({ id, kind })
     setActionError(null)
     try {
-      await work(id)
+      await work(id, question)
     } catch (error) {
       setActionError({ id, message: escalationErrorMessage(error, fallback) })
     } finally {
@@ -196,15 +245,17 @@ export default function EscalationsPage() {
   }
 
   const handleResolve = (resolution: string) =>
-    run('resolve', 'Unable to resolve this request.', async (id) => {
+    run('resolve', 'Unable to resolve this request.', async (id, question) => {
       await updateEscalation(id, 'resolved', resolution)
       closeAndReload(id)
+      setAnnouncement(`Resolved: ${question}`)
     })
 
   const handleReopen = () =>
-    run('reopen', 'Unable to reopen this request.', async (id) => {
+    run('reopen', 'Unable to reopen this request.', async (id, question) => {
       await updateEscalation(id, 'open')
       closeAndReload(id)
+      setAnnouncement(`Reopened: ${question}`)
     })
 
   const handleRetry = () =>
@@ -219,9 +270,9 @@ export default function EscalationsPage() {
   const count = !loaded ? 'Loading…' : list.error ? '' : `${list.total} ${status}`
 
   const listPane = (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={listRef} className="flex h-full min-h-0 flex-col">
       <header className="flex h-15 shrink-0 items-baseline justify-between gap-3 border-b border-rule px-5 pt-[19px]">
-        <h1 className="font-display text-[22px] leading-none font-medium tracking-tight text-ink">
+        <h1 tabIndex={-1} className="font-display text-[22px] leading-none font-medium tracking-tight text-ink outline-none">
           HR Requests
         </h1>
         <span className="tnum text-[12.5px] text-ink-2" aria-live="polite">{count}</span>
@@ -292,11 +343,17 @@ export default function EscalationsPage() {
       />
     )
   } else if (selectedId && linked?.id === selectedId && linked.failure === 'not_found') {
-    detailBody = <p className="text-[14px] text-ink-2">That request was not found.</p>
+    detailBody = (
+      <p tabIndex={-1} data-pane-focus className="text-[14px] text-ink-2 outline-none">
+        That request was not found.
+      </p>
+    )
   } else if (selectedId && linked?.id === selectedId) {
     detailBody = (
       <div>
-        <p role="alert" className="text-[14px] text-brick">Unable to load this request.</p>
+        <p role="alert" tabIndex={-1} data-pane-focus className="text-[14px] text-brick outline-none">
+          Unable to load this request.
+        </p>
         <button
           type="button"
           onClick={() => setLinked(null)}
@@ -311,14 +368,14 @@ export default function EscalationsPage() {
   }
 
   const detailPane = detailBody ? (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={detailRef} className="flex h-full min-h-0 flex-col">
       <div className={`flex h-15 shrink-0 items-center gap-4 border-b border-rule ${READING_GUTTER}`}>
         {twoPane ? (
           <span className="caps text-ink-3">HR request</span>
         ) : (
           <button
             type="button"
-            onClick={() => select(null)}
+            onClick={backToList}
             className="inline-flex h-10 cursor-pointer items-center gap-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
           >
             <ArrowLeft size={14} aria-hidden="true" />
@@ -341,14 +398,27 @@ export default function EscalationsPage() {
     </div>
   )
 
+  // Outside both panes, so it survives the switch it announces.
+  const live = (
+    <p role="status" className="sr-only">
+      {announcement}
+    </p>
+  )
+
   if (!twoPane) {
-    return <div className="min-h-0 flex-1">{selectedId ? detailPane : listPane}</div>
+    return (
+      <div className="min-h-0 flex-1">
+        {selectedId ? detailPane : listPane}
+        {live}
+      </div>
+    )
   }
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-[400px_minmax(0,1fr)]">
       <div className="min-h-0 border-r border-rule bg-paper-2">{listPane}</div>
       <div className="min-h-0 bg-paper">{detailPane}</div>
+      {live}
     </div>
   )
 }
