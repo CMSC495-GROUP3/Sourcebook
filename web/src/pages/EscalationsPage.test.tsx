@@ -256,6 +256,70 @@ describe('EscalationsPage', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Resolved: Does Meridian reimburse pet insurance?')
     })
 
+    it('focuses the list heading after leaving a request linked from another tab', async () => {
+      mockApi({ open: [escalation()], resolved: [closed], byId: { 'esc-r': closed } })
+      const user = renderPage('/escalations?id=esc-r')
+      await screen.findByRole('heading', { name: 'Who approves remote work?' })
+
+      await user.click(screen.getByRole('button', { name: 'All requests' }))
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'HR Requests' })).toHaveFocus())
+
+      // The row it left is on the Resolved tab. Showing it later must not pull focus.
+      const tab = screen.getByRole('button', { name: 'Resolved' })
+      await user.click(tab)
+      expect(await screen.findByRole('button', { name: /remote work/ })).toBeInTheDocument()
+      expect(tab).toHaveFocus()
+    })
+
+    it('focuses the not-found message when Back returns to a missing request', async () => {
+      mockApi({ open: [escalation()] })
+      const user = renderPage('/escalations?id=missing')
+      await screen.findByText('That request was not found.')
+      await user.click(screen.getByRole('button', { name: 'All requests' }))
+      await screen.findByRole('heading', { name: 'HR Requests' })
+
+      await user.click(screen.getByRole('button', { name: 'Browser back' }))
+
+      await waitFor(() => expect(screen.getByText('That request was not found.')).toHaveFocus())
+    })
+
+    it('focuses the list heading when Back was pressed while a resolve was saving', async () => {
+      const get = mockApi({ open: [escalation(), second] })
+      const patch = deferred<AxiosResponse>()
+      vi.spyOn(client, 'patch').mockReturnValue(patch.promise)
+      const user = await openFirstRequest()
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+
+      await user.click(screen.getByRole('button', { name: 'Browser back' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: /pet insurance/ })).toHaveFocus())
+
+      // The server has closed esc-1, so the refetch no longer returns it.
+      get.mockImplementation(async () => listResponse([second]))
+      await act(async () => patch.resolve({ data: escalation({ status: 'resolved' }) } as AxiosResponse))
+      expect(location()).toBe('/escalations')
+      expect(screen.queryByRole('button', { name: /pet insurance/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'HR Requests' })).toHaveFocus()
+    })
+
+    it('clears the announcement after a few seconds, so the next one is read', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        mockApi({ open: [escalation(), second] })
+        vi.spyOn(client, 'patch').mockResolvedValue({ data: escalation({ status: 'resolved' }) } as AxiosResponse)
+        const user = await openFirstRequest()
+        await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+        await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Resolved:'))
+
+        await act(async () => vi.advanceTimersByTime(5000))
+
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('announces a reopen', async () => {
       const get = mockApi({ resolved: [closed] })
       vi.spyOn(client, 'patch').mockImplementation(async () => {

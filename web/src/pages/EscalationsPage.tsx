@@ -37,10 +37,16 @@ import type { Escalation, EscalationStatus } from '../types'
 /** Tailwind's `lg`, the same breakpoint as the Policy Library. */
 const TWO_PANE_QUERY = '(min-width: 1024px)'
 const NO_ITEMS: Escalation[] = []
+/** How long a resolve or reopen announcement stays in the live region. */
+const ANNOUNCEMENT_MS = 5000
 const TABS: { status: EscalationStatus; label: string }[] = [
   { status: 'open', label: 'Open' },
   { status: 'resolved', label: 'Resolved' },
 ]
+
+function isRow(element: Element | null, id: string): boolean {
+  return element instanceof HTMLElement && element.dataset.rowId === id
+}
 
 /** What the last list fetch returned, and for which tab. */
 interface ListState {
@@ -74,7 +80,14 @@ export default function EscalationsPage() {
   const [action, setAction] = useState<{ id: string; kind: EscalationAction } | null>(null)
   const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null)
   // Read by a polite live region: "Resolved: <question>" after a resolve.
+  // Cleared shortly after, so the next one is announced even if it has the
+  // same text, and the old one does not linger at the end of the page.
   const [announcement, setAnnouncement] = useState('')
+  useEffect(() => {
+    if (!announcement) return
+    const timer = setTimeout(() => setAnnouncement(''), ANNOUNCEMENT_MS)
+    return () => clearTimeout(timer)
+  }, [announcement])
   // Handlers that finish after an await read the URL through this ref, so a
   // tab switch or row pick made while they waited is not overwritten.
   const searchParamsRef = useRef(searchParams)
@@ -91,7 +104,7 @@ export default function EscalationsPage() {
   const [closedId, setClosedId] = useState<string | null>(null)
   if (closedId !== null && linkedId !== closedId) setClosedId(null)
   const selectedId = linkedId === closedId ? null : linkedId
-  const { listRef, detailRef, focusListWhenClosed } = usePaneFocus(selectedId, twoPane)
+  const { listRef, detailRef, focusListWhenClosed, focusList } = usePaneFocus(selectedId, twoPane)
 
   // The tab comes from the URL, which a link, a reload, or Back can change
   // without a click here, so loading is derived from which tab the list holds.
@@ -196,6 +209,10 @@ export default function EscalationsPage() {
         next.delete('id')
         setSearchParams(next, { replace: true })
       }
+    } else if (isRow(document.activeElement, id)) {
+      // Back was pressed while the request was saving, so focus went to its
+      // row, which is about to go.
+      focusList()
     }
     setReloadKey((key) => key + 1)
   }
@@ -326,11 +343,17 @@ export default function EscalationsPage() {
       />
     )
   } else if (selectedId && linked?.id === selectedId && linked.failure === 'not_found') {
-    detailBody = <p className="text-[14px] text-ink-2">That request was not found.</p>
+    detailBody = (
+      <p tabIndex={-1} data-pane-focus className="text-[14px] text-ink-2 outline-none">
+        That request was not found.
+      </p>
+    )
   } else if (selectedId && linked?.id === selectedId) {
     detailBody = (
       <div>
-        <p role="alert" className="text-[14px] text-brick">Unable to load this request.</p>
+        <p role="alert" tabIndex={-1} data-pane-focus className="text-[14px] text-brick outline-none">
+          Unable to load this request.
+        </p>
         <button
           type="button"
           onClick={() => setLinked(null)}

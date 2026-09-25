@@ -12,13 +12,16 @@ type Target = { kind: 'detail' } | { kind: 'row'; id: string } | { kind: 'list' 
  * the URL changed: a click, Back, or a link. Beside each other at `lg` both
  * panes stay mounted, so a row click leaves focus on the row.
  *
- * An item that leaves the list (resolved, say) has no row to return to, in
- * either layout. Call `focusListWhenClosed(id)` before closing it, and focus
- * goes to the list's heading instead.
+ * A row that is not in the list (an item linked from another tab, say) falls
+ * back to the list's heading. An item that leaves the list (resolved, say)
+ * has no row to return to, in either layout: call `focusListWhenClosed(id)`
+ * before closing it, or `focusList()` when it leaves while the list is
+ * already on screen, and focus goes to the list's heading.
  *
  * Attach `listRef` around the list, whose heading is its <h1> and whose rows
  * carry `data-row-id`, and `detailRef` around the open item, whose heading is
- * its first <h2>. Both headings need `tabIndex={-1}`.
+ * its first <h2>, or an element marked `data-pane-focus` when the item could
+ * not be shown. Each of these needs `tabIndex={-1}` unless it is a control.
  */
 export function usePaneFocus(selectedId: string | null, twoPane: boolean) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -31,6 +34,9 @@ export function usePaneFocus(selectedId: string | null, twoPane: boolean) {
     const prev = previous.current
     previous.current = selectedId
     if (prev === selectedId) return
+    // A target from an earlier navigation that never found its element must
+    // not fire later, when the user has moved on.
+    pending.current = null
     if (prev !== null && prev === closing.current) {
       closing.current = null
       pending.current = { kind: 'list' }
@@ -57,12 +63,21 @@ export function usePaneFocus(selectedId: string | null, twoPane: boolean) {
     closing.current = id
   }, [])
 
-  return { listRef, detailRef, focusListWhenClosed }
+  const focusList = useCallback(() => {
+    listRef.current?.querySelector<HTMLElement>('h1')?.focus()
+  }, [])
+
+  return { listRef, detailRef, focusListWhenClosed, focusList }
 }
 
 function findTarget(target: Target, list: HTMLElement | null, detail: HTMLElement | null) {
-  if (target.kind === 'detail') return detail?.querySelector<HTMLElement>('h2') ?? null
-  if (target.kind === 'list') return list?.querySelector<HTMLElement>('h1') ?? null
+  if (target.kind === 'detail') {
+    return detail?.querySelector<HTMLElement>('h2, [data-pane-focus]') ?? null
+  }
+  const heading = list?.querySelector<HTMLElement>('h1') ?? null
+  if (target.kind === 'list') return heading
+  // The list is kept across the pane switch, so on the first render with the
+  // list on screen the row is there if it will be at all.
   const rows = list?.querySelectorAll<HTMLElement>('[data-row-id]') ?? []
-  return Array.from(rows).find((row) => row.dataset.rowId === target.id) ?? null
+  return Array.from(rows).find((row) => row.dataset.rowId === target.id) ?? heading
 }
