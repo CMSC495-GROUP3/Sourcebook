@@ -17,7 +17,8 @@ and the release pages beside it (`handoff.md`, `release-notes.md`,
 [pull request #274](https://github.com/CMSC495-GROUP3/Sourcebook/pull/274) and
 are not on `main` yet.
 
-**GitHub counts:** as of **2026-09-25T19:30Z**, refreshed at the tag. They
+**GitHub counts:** as of **2026-09-25T19:30Z** (the review column
+2026-09-25T19:57Z), to be refreshed when `v1.0.0` is tagged. They
 are live search totals, not values frozen by any commit, so they will grow
 until the tag. Each Source cell gives the search, scoped to
 `repo:CMSC495-GROUP3/Sourcebook`. To regenerate, run the same query in the
@@ -32,11 +33,12 @@ search API, and read the total count. The earlier snapshot in
 | --- | --- | --- |
 | Python coverage %, final | Pending — requires the candidate's `python-coverage-<sha>` CI artifact copied into `evidence/coverage.md` ([issue #210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210); file drafted in [#274](https://github.com/CMSC495-GROUP3/Sourcebook/pull/274)) | Floor today: `--cov-fail-under=80` in [`.github/workflows/ci.yml`](../../../../.github/workflows/ci.yml); see [quality.md § Coverage](../../../quality.md#coverage) |
 | Web coverage %, final | Pending — requires the candidate's `web-coverage-<sha>` CI artifact, same file and issue | Scope is the source files listed in `web/vitest.config.ts`, not all of `web/src`. Say so wherever the figure is quoted |
-| Web coverage %, pre-freeze (five files only) | 99.46% statements; 96.42% branches; 100% functions; 99.37% lines. Scope is `useChat`, `Message`, `EscalateButton`, `ThemeToggle`, and `theme.ts` | [quality.md § Coverage](../../../quality.md#what-the-suite-covers-and-what-it-does-not), measured on [pull request #252](https://github.com/CMSC495-GROUP3/Sourcebook/pull/252) (merged as [`d897c5f`](https://github.com/CMSC495-GROUP3/Sourcebook/commit/d897c5f)). Not the release figure; cite the final row once filled |
+| Web coverage %, pre-freeze (five files only) | 99.46% statements; 96.42% branches; 100% functions; 99.37% lines. Scope is `useChat`, `Message`, `EscalateButton`, `ThemeToggle`, and `theme.ts` | [quality.md § Coverage](../../../quality.md#what-the-suite-covers-and-what-it-does-not), measured on the head of [pull request #252](https://github.com/CMSC495-GROUP3/Sourcebook/pull/252) before it merged. `web/vitest.config.ts` has since added the escalation files, so the final figure covers a wider scope than these five. Not the release figure; cite the final row once filled |
 
 ## Pull requests, reviews, and issues (to date)
 
-As of 2026-09-25T19:30Z, refreshed at the tag.
+As of 2026-09-25T19:30Z (the review column 2026-09-25T19:57Z), to be
+refreshed when `v1.0.0` is tagged.
 
 | Figure | Value | Source |
 | --- | ---: | --- |
@@ -45,30 +47,33 @@ As of 2026-09-25T19:30Z, refreshed at the tag.
 | Merged pull requests by people (excludes Dependabot) | 124 | 144 minus [`is:pr is:merged author:app/dependabot`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3Aapp%2Fdependabot&type=pullrequests) (20) |
 | Human review events, total | Pending — requires a review-event ledger from the reviews API. `reviewed-by:` counts pull requests per reviewer, not review events, and counts a pull request once per reviewer | Per-reviewer pull request counts are in the member table below |
 | Closed issues | 91 | [`is:issue is:closed`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed&type=issues). The per-author searches below sum to 91 |
-| Closed issues, completed | 76 | [`is:issue is:closed reason:completed`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+reason%3Acompleted&type=issues). The other 15 closed as not planned or duplicate |
+| Closed issues, completed | 76 | [`is:issue is:closed reason:completed`](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+reason%3Acompleted&type=issues). The other 15 closed as not planned |
 
 ### Per member
 
-| Member | Role (README) | Merged PRs authored | PRs reviewed (`reviewed-by:`) | Closed issues authored |
+| Member | Role (README) | Merged PRs authored | Others' PRs reviewed | Closed issues authored |
 | --- | --- | ---: | ---: | ---: |
-| [@t-shahan](https://github.com/t-shahan) | Lead Architect | [67](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3At-shahan&type=pullrequests) | [62](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3At-shahan&type=pullrequests) | [65](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3At-shahan&type=issues) |
-| [@DanielTsang26](https://github.com/DanielTsang26) | Interface Designer | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3ADanielTsang26&type=pullrequests) | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3ADanielTsang26&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3ADanielTsang26&type=issues) |
-| [@threshi-art](https://github.com/threshi-art) | Integration Lead | [50](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3Athreshi-art&type=pullrequests) | [7](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3Athreshi-art&type=pullrequests) | [25](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3Athreshi-art&type=issues) |
-| [@gavinwathen](https://github.com/gavinwathen) | Pending — [#231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3Agavinwathen&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3Agavinwathen&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3Agavinwathen&type=issues) |
-| [@fudgepop01](https://github.com/fudgepop01) | Pending — [#231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3Afudgepop01&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3Afudgepop01&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3Afudgepop01&type=issues) |
-| [@Lazzy-dev](https://github.com/Lazzy-dev) | Pending — [#231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) | [3](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3ALazzy-dev&type=pullrequests) | [4](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3ALazzy-dev&type=pullrequests) | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3ALazzy-dev&type=issues) |
-| [@RoNUO](https://github.com/RoNUO) | Pending — [#231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) | [2](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3ARoNUO&type=pullrequests) | [2](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3ARoNUO&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3ARoNUO&type=issues) |
+| [@t-shahan](https://github.com/t-shahan) | Lead Architect | [67](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3At-shahan&type=pullrequests) | [56](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3At-shahan+-author%3At-shahan&type=pullrequests) | [65](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3At-shahan&type=issues) |
+| [@DanielTsang26](https://github.com/DanielTsang26) | Interface Designer | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3ADanielTsang26&type=pullrequests) | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3ADanielTsang26+-author%3ADanielTsang26&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3ADanielTsang26&type=issues) |
+| [@threshi-art](https://github.com/threshi-art) | Integration Lead | [50](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3Athreshi-art&type=pullrequests) | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3Athreshi-art+-author%3Athreshi-art&type=pullrequests) | [25](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3Athreshi-art&type=issues) |
+| [@gavinwathen](https://github.com/gavinwathen) | Pending — [#231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3Agavinwathen&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3Agavinwathen+-author%3Agavinwathen&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3Agavinwathen&type=issues) |
+| [@fudgepop01](https://github.com/fudgepop01) | Pending — [#231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3Afudgepop01&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3Afudgepop01+-author%3Afudgepop01&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3Afudgepop01&type=issues) |
+| [@Lazzy-dev](https://github.com/Lazzy-dev) | Pending — [#231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) | [3](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3ALazzy-dev&type=pullrequests) | [4](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3ALazzy-dev+-author%3ALazzy-dev&type=pullrequests) | [1](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3ALazzy-dev&type=issues) |
+| [@RoNUO](https://github.com/RoNUO) | Pending — [#231](https://github.com/CMSC495-GROUP3/Sourcebook/pull/231) | [2](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3ARoNUO&type=pullrequests) | [2](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+reviewed-by%3ARoNUO+-author%3ARoNUO&type=pullrequests) | [0](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Aissue+is%3Aclosed+author%3ARoNUO&type=issues) |
 | Dependabot (not a member) | — | [20](https://github.com/search?q=repo%3ACMSC495-GROUP3%2FSourcebook+is%3Apr+is%3Amerged+author%3Aapp%2Fdependabot&type=pullrequests) | — | — |
 
 How to read the columns:
 
 - **Merged PRs authored** is `is:pr is:merged author:<login>`. It counts pull
   requests, not commits, and says nothing about their size.
-- **PRs reviewed** is `reviewed-by:<login>` over pull requests in any state,
-  so it includes the two open drafts #230 and #231. GitHub records a reply in
-  a review thread as a review, so the count can include a member's own pull
-  requests (for example #71 and #75 for @t-shahan). It is a count of pull
-  requests with at least one review from that person, not of approvals.
+- **Others' PRs reviewed** is `reviewed-by:<login> -author:<login>` over pull
+  requests in any state, so it can include open drafts such as #230 and #231.
+  It excludes the member's own pull requests: GitHub records a reply in a
+  review thread as a review, so plain `reviewed-by:` counts self-replies too
+  (on 25 September it gave 62 for @t-shahan, 6 of them their own, and 7 for
+  @threshi-art, 6 of them their own). It is a count of other people's pull
+  requests with at least one review from that person, not of approvals or of
+  review events. Cite this column, not a plain `reviewed-by:` count.
 - **Closed issues authored** is `is:issue is:closed author:<login>`. It counts
   who opened the issue, not who fixed it.
 - **Role** comes from [README § Team](../../../../README.md#team), which names
@@ -100,6 +105,13 @@ sample, not a quality guarantee.
 | Prompt-injection gate refusal (3 cases) | 0% | 100% | Pending — same run |
 | Full tier | Not run | Not run | Pending — requires the first full-tier run through the workflow on the candidate ([#213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)) |
 | Source | [live-evaluation.md](https://github.com/CMSC495-GROUP3/Sourcebook/blob/v0.1.0-alpha.1/docs/alpha/live-evaluation.md), [results JSON](https://github.com/CMSC495-GROUP3/Sourcebook/blob/v0.1.0-alpha.1/docs/alpha/live-evaluation-results.json); "The full tier has not been run" is in its limitations | [live-evaluation.md](https://github.com/CMSC495-GROUP3/Sourcebook/blob/v0.2.0/docs/releases/v0.2.0/live-evaluation.md#results-against-the-alpha), [results JSON](https://github.com/CMSC495-GROUP3/Sourcebook/blob/v0.2.0/docs/releases/v0.2.0/live-evaluation-results.json); full tier not run per [handoff.md](https://github.com/CMSC495-GROUP3/Sourcebook/blob/v0.2.0/docs/releases/v0.2.0/handoff.md#what-this-beta-does-not-establish) | `docs/releases/v1.0.0/live-evaluation.md` (drafted in [#274](https://github.com/CMSC495-GROUP3/Sourcebook/pull/274)) |
+
+Neither tagged release ran the full tier. One full-tier run did happen on the
+host on 14 September, before #245 and #253 changed the refusal gate: all 46
+answerable cases answered, and 0 of the 5 unanswerable and prompt-injection
+cases refused ([comment on
+#201](https://github.com/CMSC495-GROUP3/Sourcebook/issues/201#issuecomment-5658446129)).
+Its results are not committed, so it is a note, not a cell value.
 
 The alpha folder moved from `docs/alpha/` to `docs/releases/v0.1.0-alpha.1/`
 after the tag. The tagged links above point at the files as tagged; the
