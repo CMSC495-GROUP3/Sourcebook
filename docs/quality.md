@@ -59,7 +59,26 @@ These are GitHub search totals, not a hand-counted review-event ledger. This pag
 
 CI runs pytest with `--cov-fail-under=80` on Python 3.11 through 3.14 ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)). Locally that is `make cov` / `make check` ([CONTRIBUTING.md](../CONTRIBUTING.md#checking-a-change)). A job that lands under 80% is red. That is a floor, not a published percentage.
 
-The 3.12 job writes a markdown table into the Actions job summary and uploads `coverage.xml` for 14 days. Those artifacts expire with the run. Nothing on `main` commits that table. [Issue #210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210) is the follow-up that will copy the **tagged final** table into `docs/releases/v1.0.0/evidence/coverage.md`. This page will cite that file when it exists; it does not pretend the file is here.
+The web job runs Vitest with an 80% floor on statements, branches, functions, and lines, measured only on the files listed in `web/vitest.config.ts`, not all of `web/src`. That is also a floor.
+
+### Where the release coverage comes from
+
+Both test jobs write a markdown table into the Actions job summary on every run and save it as `coverage-table.md`: one row per file, with a total. The Python table comes from the 3.12 job. Every green push to `main` then uploads two artifacts named for the commit and kept for 90 days ([PR #261](https://github.com/CMSC495-GROUP3/Sourcebook/pull/261)):
+
+| Artifact | Files |
+| --- | --- |
+| `python-coverage-<sha>` | `coverage.xml`, `coverage-table.md` |
+| `web-coverage-<sha>` | `coverage-table.md`, `coverage-summary.json`, `coverage-final.json` |
+
+A push to `main` never cancels the `main` run in progress, so each merged commit gets a finished run. A run still queued behind it can be replaced by a newer push; re-run it from the Actions page if that commit needs evidence.
+
+Artifacts expire, so the release commits the table. After the Monday 28 September freeze, the candidate commit's artifacts are copied into `docs/releases/v1.0.0/evidence/coverage.md` (drafted in [PR #274](https://github.com/CMSC495-GROUP3/Sourcebook/pull/274)) with a link to the run that produced them:
+
+1. Open the green push-to-`main` CI run for the candidate commit, or list it with `gh run list --workflow ci.yml --branch main --commit <sha>`.
+2. Download both packs: `gh run download <run-id> -n python-coverage-<sha> -n web-coverage-<sha>`, or from the run's Artifacts section.
+3. Paste each `coverage-table.md` into its section of `coverage.md`, and record the full SHA and the run URL.
+
+Only documentation merges after the freeze, so the tagged commit runs the same code, and its own run's artifacts should give the same tables. Check them before tagging. **Final Python and web coverage: Pending**, until the candidate run exists. This page cites the totals from `coverage.md` once that file holds them; it does not quote a number before then.
 
 Latest green CI on this snapshot: [run 35039401655](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/35039401655) at `88e8a13`. Open that run's Python-test job summary for the table from that SHA. Do not treat the badge as a coverage number.
 
@@ -100,4 +119,4 @@ make audit    # pip-audit and npm audit; accepted advisories in scripts/audit.sh
 
 ## What this page will gain later
 
-When #210 commits the tagged Python coverage table, replace the floor-only paragraph with that number and the run link. When #212, #213, and #214 produce artifacts, add rows to the table above. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open.
+When `docs/releases/v1.0.0/evidence/coverage.md` holds the candidate's tables (#210), add the Python and web totals and the run link to the coverage section above. When #212, #213, and #214 produce artifacts, add rows to the table above. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open.

@@ -43,17 +43,19 @@ Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ·
 [Actions history](https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/ci.yml)
 
 **Trigger.** Every pull request, every push to `main`, and a manual
-`workflow_dispatch`. A newer run on the same ref cancels the older one.
+`workflow_dispatch`. A newer push to a pull request cancels its older run. On
+`main` a newer push waits for the run in progress, so every merged commit gets
+a finished run and its coverage artifacts.
 
 **Jobs.** `CI status` needs all of these to succeed:
 
 | Job | What it proves |
 | --- | --- |
 | Python lint and format | Ruff check and format. Then the same lock compile as `make lock`: from inside `requirements/`, `pip-compile` regenerates `api.txt`, `dev.txt`, and `ingest.txt` from the `.in` files. Compiling in that directory keeps `# via -r` annotations aligned with Dependabot (`dependabot.yml` `directory`). A compile from the repo root wrote `-r requirements/api.in` and failed every Dependabot pip PR. |
-| Python tests | Pytest with an 80% coverage floor on 3.11, 3.12, 3.13, and 3.14. Synthetic fail-closed checks for the Live evaluation result validator. The 3.12 run always keeps coverage and JUnit artifacts for 14 days; failing matrix versions keep them too. |
+| Python tests | Pytest with an 80% coverage floor on 3.11, 3.12, 3.13, and 3.14. Synthetic fail-closed checks for the Live evaluation result validator. The 3.12 run always keeps coverage and JUnit artifacts for 14 days; failing matrix versions keep them too. A green push to `main` also keeps `python-coverage-<sha>` (`coverage.xml`, `coverage-table.md`) for 90 days as release evidence ([docs/quality.md](quality.md#where-the-release-coverage-comes-from)). |
 | Evaluation dataset | Smoke and full labeled sets load and summarize by category. |
 | OpenAPI document | `make openapi PY=python` then `git diff --exit-code -- docs/openapi.json`. The committed document is what a grader or client author reads; this job fails if `/docs` drifted. |
-| Web lint, types, build | ESLint, `tsc`, Vite production build. A successful push to `main` retains `web-dist` for seven days. |
+| Web lint, types, test, build | ESLint, `tsc`, Vitest with an 80% coverage floor on the files `web/vitest.config.ts` lists, Vite production build. A green push to `main` keeps `web-coverage-<sha>` (`coverage-table.md` and the Vitest JSON) for 90 days and `web-dist` for seven days. |
 | Docker images and Compose | API and web images, API import smoke, provider construction, Compose validation, Caddy-to-Nginx-to-Uvicorn proxy-chain acceptance. |
 | Shell, Dockerfile, workflow lint | Secret/generated-file guards, ShellCheck, auto-deploy synthetics, Hadolint, Actionlint. |
 
