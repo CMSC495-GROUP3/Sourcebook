@@ -63,7 +63,7 @@ The web job runs Vitest with an 80% floor on statements, branches, functions, an
 
 ### Where the release coverage comes from
 
-Both test jobs write a markdown table into the Actions job summary on every run and save it as `coverage-table.md`: one row per file, with a total. The Python table comes from the 3.12 job. Every green push to `main` then uploads two artifacts named for the commit and kept for 90 days ([PR #261](https://github.com/CMSC495-GROUP3/Sourcebook/pull/261)):
+Both test jobs write a markdown table into the Actions job summary and save it as `coverage-table.md`: one row per file, with a total. The Python table comes from the 3.12 job and is written on every run. The web table is written whenever Vitest finishes with all tests passing; a failing test leaves Vitest with no coverage summary, so that run has no web table. In the web pack the table sits next to the two Vitest JSON files. Every green push to `main` then uploads two artifacts named for the commit and kept for 90 days ([PR #261](https://github.com/CMSC495-GROUP3/Sourcebook/pull/261)):
 
 | Artifact | Files |
 | --- | --- |

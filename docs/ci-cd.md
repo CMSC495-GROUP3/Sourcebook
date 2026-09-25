@@ -75,8 +75,9 @@ Workflow: [`.github/workflows/security.yml`](../.github/workflows/security.yml) 
 [Actions history](https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/security.yml)
 
 **Trigger.** Every pull request, every push to `main`, Mondays at 06:17 UTC,
-and a manual `workflow_dispatch`. A newer run on the same ref cancels the older
-one.
+and a manual `workflow_dispatch`. A newer push to a pull request cancels its
+older run. On `main`, pushes and the weekly run wait for the run in progress,
+so the release candidate and the release merge commit each get a finished run.
 
 **Jobs.** CodeQL on Python and JavaScript/TypeScript with the
 `security-and-quality` query set. `scripts/audit.sh` checks the locked Python

@@ -208,8 +208,9 @@ jobs:
       - name: Coverage summary
         # The web counterpart of the Python table: one row per file that
         # vitest.config.ts includes, from coverage-summary.json. Kept as
-        # coverage-table.md in the artifacts below so the release step copies
-        # a table instead of retyping JSON.
+        # coverage-table.md next to the JSON in the artifacts below, so the
+        # release step copies a table instead of retyping JSON. Vitest writes
+        # no summary when a test fails, so a red test run has no table.
         if: always()
         # Explicit bash adds pipefail, so a node error fails the step instead
         # of hiding behind tee.
@@ -217,7 +218,7 @@ jobs:
         run: |
           summary=node_modules/.tmp/coverage/coverage-summary.json
           if [ ! -f "$summary" ]; then
-            echo "No $summary; the tests did not get far enough to write one."
+            echo "No $summary; Vitest writes none when a test fails or it did not run."
             exit 0
           fi
           {
@@ -238,7 +239,7 @@ jobs:
           }
           console.log(`| **Total** | ${cells(summary.total).map((c) => `**${c}**`).join(' | ')} |`)
           JS
-          } | tee coverage-table.md >> "$GITHUB_STEP_SUMMARY"
+          } | tee node_modules/.tmp/coverage/coverage-table.md >> "$GITHUB_STEP_SUMMARY"
       - run: npm run build
       - uses: actions/upload-artifact@v7
         # Vitest writes coverage-final.json + coverage-summary.json under
@@ -248,7 +249,7 @@ jobs:
         with:
           name: web-coverage-failure-${{ github.sha }}
           path: |
-            web/coverage-table.md
+            web/node_modules/.tmp/coverage/coverage-table.md
             web/node_modules/.tmp/coverage/coverage-summary.json
             web/node_modules/.tmp/coverage/coverage-final.json
           if-no-files-found: ignore
@@ -265,7 +266,7 @@ jobs:
         with:
           name: web-coverage-${{ github.sha }}
           path: |
-            web/coverage-table.md
+            web/node_modules/.tmp/coverage/coverage-table.md
             web/node_modules/.tmp/coverage/coverage-summary.json
             web/node_modules/.tmp/coverage/coverage-final.json
           if-no-files-found: error
