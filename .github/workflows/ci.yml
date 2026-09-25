@@ -13,10 +13,16 @@ on:
   pull_request:
   workflow_dispatch:
 
-# A new push to the same branch cancels the run already in flight.
+# A new push to the same pull request cancels the run already in flight. On
+# main a new push waits instead: every main commit needs its own green run and
+# SHA-named coverage artifacts, because the release tag and its coverage
+# evidence (#210) point at one specific commit. Two quick merges on 24 Sep
+# cancelled two main runs under the old rule. A run still queued behind the one
+# in progress is replaced by a newer push; re-run it by hand if that commit
+# needs evidence.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -199,6 +205,41 @@ jobs:
       - run: npm run lint
       - run: npx tsc -b --pretty false
       - run: npm test
+      - name: Coverage summary
+        # The web counterpart of the Python table: one row per file that
+        # vitest.config.ts includes, from coverage-summary.json. Kept as
+        # coverage-table.md next to the JSON in the artifacts below, so the
+        # release step copies a table instead of retyping JSON. Vitest writes
+        # no summary when a test fails, so a red test run has no table.
+        if: always()
+        # Explicit bash adds pipefail, so a node error fails the step instead
+        # of hiding behind tee.
+        shell: bash
+        run: |
+          summary=node_modules/.tmp/coverage/coverage-summary.json
+          if [ ! -f "$summary" ]; then
+            echo "No $summary; Vitest writes none when a test fails or it did not run."
+            exit 0
+          fi
+          {
+            echo "## Coverage (web)"
+            echo
+            node - "$summary" <<'JS'
+          const fs = require('fs')
+          const path = require('path')
+          const summary = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+          const keys = ['statements', 'branches', 'functions', 'lines']
+          const cells = (entry) =>
+            keys.map((k) => `${entry[k].pct}% (${entry[k].covered}/${entry[k].total})`)
+          console.log('| File | Statements | Branches | Functions | Lines |')
+          console.log('|---|---:|---:|---:|---:|')
+          for (const [file, entry] of Object.entries(summary)) {
+            if (file === 'total') continue
+            console.log(`| ${path.relative(process.cwd(), file)} | ${cells(entry).join(' | ')} |`)
+          }
+          console.log(`| **Total** | ${cells(summary.total).map((c) => `**${c}**`).join(' | ')} |`)
+          JS
+          } | tee node_modules/.tmp/coverage/coverage-table.md >> "$GITHUB_STEP_SUMMARY"
       - run: npm run build
       - uses: actions/upload-artifact@v7
         # Vitest writes coverage-final.json + coverage-summary.json under
@@ -208,14 +249,16 @@ jobs:
         with:
           name: web-coverage-failure-${{ github.sha }}
           path: |
+            web/node_modules/.tmp/coverage/coverage-table.md
             web/node_modules/.tmp/coverage/coverage-summary.json
             web/node_modules/.tmp/coverage/coverage-final.json
           if-no-files-found: ignore
           retention-days: 14
       - uses: actions/upload-artifact@v7
         # Successful main runs keep a SHA-named Vitest coverage pack for
-        # release evidence (#210). coverage-summary.json carries statement /
-        # branch / function / line totals for the later docs copy step.
+        # release evidence (#210). coverage-table.md is the table to copy;
+        # coverage-summary.json carries the same statement / branch /
+        # function / line totals as data.
         if: >
           success()
           && github.event_name == 'push'
@@ -223,6 +266,7 @@ jobs:
         with:
           name: web-coverage-${{ github.sha }}
           path: |
+            web/node_modules/.tmp/coverage/coverage-table.md
             web/node_modules/.tmp/coverage/coverage-summary.json
             web/node_modules/.tmp/coverage/coverage-final.json
           if-no-files-found: error

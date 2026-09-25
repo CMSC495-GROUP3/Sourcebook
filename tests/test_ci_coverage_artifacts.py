@@ -14,6 +14,7 @@ WEB_PACKAGE = ROOT / "web" / "package.json"
 WEB_COVERAGE_DIR = "web/node_modules/.tmp/coverage"
 COVERAGE_SUMMARY_PATH = f"{WEB_COVERAGE_DIR}/coverage-summary.json"
 COVERAGE_FINAL_PATH = f"{WEB_COVERAGE_DIR}/coverage-final.json"
+COVERAGE_TABLE_PATH = f"{WEB_COVERAGE_DIR}/coverage-table.md"
 
 
 def _steps(job: str) -> list[dict]:
@@ -106,6 +107,7 @@ def test_web_main_success_uploads_sha_named_vitest_coverage():
     paths = main_upload["with"]["path"]
     assert COVERAGE_SUMMARY_PATH in paths
     assert COVERAGE_FINAL_PATH in paths
+    assert COVERAGE_TABLE_PATH in paths
     assert main_upload["with"]["retention-days"] == 90
     assert main_upload["with"]["if-no-files-found"] == "error"
 
@@ -122,6 +124,7 @@ def test_web_failure_still_uploads_vitest_coverage():
     paths = failure_upload["with"]["path"]
     assert COVERAGE_SUMMARY_PATH in paths
     assert COVERAGE_FINAL_PATH in paths
+    assert COVERAGE_TABLE_PATH in paths
     assert failure_upload["with"]["retention-days"] == 14
     assert failure_upload["with"]["if-no-files-found"] == "ignore"
 
@@ -132,3 +135,20 @@ def test_web_dist_main_upload_is_preserved():
     dist_upload = next(step for step in uploads if step.get("with", {}).get("name") == "web-dist")
     assert dist_upload["if"] == ("github.event_name == 'push' && github.ref == 'refs/heads/main'")
     assert dist_upload["with"]["path"] == "web/dist"
+
+
+def test_web_coverage_markdown_is_written_next_to_the_vitest_json():
+    """The web table lands in the coverage folder so the artifact root stays flat."""
+    by_name = {step.get("name"): step for step in _steps("web")}
+    summary = by_name["Coverage summary"]
+    assert summary["if"] == "always()"
+    assert summary["shell"] == "bash"
+    assert "tee node_modules/.tmp/coverage/coverage-table.md" in summary["run"]
+
+
+def test_main_runs_are_never_cancelled_by_a_newer_push():
+    """Only pull requests cancel superseded runs; main keeps a finished run per commit."""
+    for name in ("ci.yml", "security.yml"):
+        workflow = yaml.safe_load((WORKFLOW.parent / name).read_text(encoding="utf-8"))
+        cancel = workflow["concurrency"]["cancel-in-progress"]
+        assert cancel == "${{ github.event_name == 'pull_request' }}", name
