@@ -1,0 +1,84 @@
+# Sourcebook v1.0.0
+
+The final release of Sourcebook for CMSC 495, Unit 8. It is a pilot, not a
+production system, and the sections below say plainly what it does, what is
+broken, and what nobody has measured.
+
+Tagged commit: Pending. The evidence behind every claim here is in
+[handoff.md](handoff.md). Graders start at `portfolio.md` in the same folder.
+
+Stakeholder video: Pending, linked after upload
+([#216](https://github.com/CMSC495-GROUP3/Sourcebook/issues/216)).
+
+## What it does
+
+Sourcebook answers employee policy questions from a fixed corpus of company
+documents and cites the document behind every answer. When the corpus does not
+cover a question, it says so and offers to hand the question to Human
+Resources rather than guessing.
+
+A question goes through retrieval against a vector index, then a grounding
+gate that compares the best passage score against a threshold. When the score
+clears it, a coverage judge checks that the passages actually answer the
+question. If either says no, there is no answer generation and the user gets a
+refusal card with a button to ask Human Resources. Otherwise the answer
+streams back with the policies it drew on and a match score. Human Resources
+works the escalations on the HR Requests page.
+
+## What changed since the beta
+
+Pending until the freeze. So far:
+
+- **The refusal card says which check refused**, so a question the coverage
+  judge refuses no longer shows "Strong match" under "No matching policy"
+  (#269, PR #271).
+- **The move-to-project menu stays open** when the pointer leaves the row
+  (PR #272).
+
+## Getting access
+
+**The pilot** runs at <https://sourcebook.duckdns.org> on a single instance.
+It needs a password, which the team supplies through the course channel,
+never through this repository.
+
+**Without any credential**, the whole app runs locally in about two minutes
+with a fake model and an in-memory database:
+
+```bash
+git clone https://github.com/CMSC495-GROUP3/Sourcebook.git
+cd Sourcebook
+make setup && make stub     # then, in a second terminal
+make web
+```
+
+**Setup and usage** are in [docs/install.md](../../install.md), the user guide
+(Pending, #259), and the [README](../../../README.md).
+
+## Known defects
+
+Pending: confirm at the freeze.
+
+| Issue | What a user would see | Impact | Mitigation |
+| --- | --- | --- | --- |
+| [#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266) | on a phone, Back can reopen the request or policy just left, and focus falls to the top of the page when the panes switch | confusing navigation for keyboard and screen-reader users | use the "All requests" link, or a desktop window where both panes show |
+| [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | assigning and deleting a project at the same moment can race | a conversation can point at a deleted project; the list treats it as ungrouped | unlikely at pilot volume with one operator |
+| Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms | the user gets the refusal card instead of a pointer to the travel policy | ask a more specific question, or use Ask Human Resources |
+
+## What this release does not establish
+
+Pending: written at the freeze from what was measured. See
+[handoff.md](handoff.md#what-this-release-does-not-establish).
+
+## Reproducing this exact version
+
+The pilot host follows `main`, so it moves past this tag. The tag does not.
+
+```bash
+git clone https://github.com/CMSC495-GROUP3/Sourcebook.git
+cd Sourcebook
+git checkout v1.0.0
+make setup && make stub
+```
+
+Showing the pilot at the tagged version is the by-hand procedure in the
+[alpha handoff](../v0.1.0-alpha.1/handoff.md#the-tag-and-reproducing-this-version-later).
