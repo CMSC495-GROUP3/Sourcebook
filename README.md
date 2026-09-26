@@ -892,8 +892,9 @@ everyone who asked the same question next.
 
 Not covered: live calls to AWS, Atlas, or OpenAI. On the web side, Vitest
 covers the chat stream, messages, escalation, the theme, and the Document
-Library, HR Requests, and What People Ask pages; the rest of the React components are checked
-only by `tsc` and ESLint (see [Known limitations](#known-limitations)).
+Library, HR Requests, and What People Ask pages; the rest of the React
+components are checked only by `tsc` and ESLint (see
+[Known limitations](#known-limitations)).
 
 `make acceptance` needs Docker Compose 2.24 or later because
 `docker-compose.acceptance.yml` uses `!reset`. Older Compose fails to parse
