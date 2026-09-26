@@ -208,16 +208,16 @@ def test_conversation_titles_and_project_names_are_normalized_and_bounded(client
 
 @pytest.mark.xfail(
     strict=True,
-    reason="assign-after-delete window, see #142",
+    reason="FakeMongo intentionally has no transaction support",
 )
 def test_assignment_can_interleave_with_project_delete(client, auth, monkeypatch):
-    """Expected atomic behavior for validate+create vs delete (see #142).
+    """Document the expected FakeMongo race without claiming atomicity.
 
-    `_require_project` and `insert_one` are separate steps with no shared Mongo
-    session/transaction (fakemongo and `rag/mongo.py` expose none). Freezing the
-    create between those steps lets a concurrent delete finish first. Desired
-    outcome once #142 lands: the create is rejected, or the conversation is not
-    left assigned to a deleted project. Marked strict xfail until then.
+    FakeMongo deliberately has no sessions or transactions, so the application
+    uses the sequential fallback in this test environment. Freezing the create
+    between project validation and insert therefore demonstrates the limitation
+    honestly. Real transaction behavior is covered by the opt-in MongoDB
+    integration tests.
     """
     project = client.post("/api/projects", json={"name": "Race"}, headers=auth).json()
     pid = project["project_id"]
