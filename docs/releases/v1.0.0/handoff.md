@@ -51,6 +51,7 @@ Pending until the freeze. So far:
 | Projects | Assigning a conversation to a project and deleting that project no longer race: on a replica set, which Atlas clusters like the pilot's are, both run in MongoDB transactions, and the assignment writes to the project so it conflicts with a concurrent delete ([#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142)). The in-memory stub has no transactions and keeps the old sequential behavior. The move-to-project menu stays open when the pointer leaves the row | #279, #272 |
 | HR Requests and Policy Library on a phone | Back from the list leaves the page instead of reopening the item just left, and a resolve leaves one list entry. Focus moves to the item's heading when it opens, back to its row when you return, and to the list heading after a resolve or reopen, which is announced to screen readers ([#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266)) | #277 |
 | README | Release, pilot site, and Ruff badges | #273 |
+| Refusal card for vague questions | When related policies don't answer a question as asked, the card says to ask the full question again with the details it depends on, such as dates, location, or the kind of leave or expense. The coverage judge is unchanged | #281 |
 | Sign-in page and Lighthouse | The sign-in page has a main landmark and a meta description. `scripts/lighthouse/` runs Lighthouse on the three pages in both themes at phone and desktop widths ([#214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214)) | #280 |
 | Documentation | User guide ([#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206)) and team page ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)) pending; [portfolio page](portfolio.md) in this folder; pilot load-run page | Pending: #259, #231; #274, #278 |
 
@@ -104,7 +105,7 @@ Carried from the beta unless fixed before the freeze. Update at the freeze.
 
 | Issue | What a pilot user would see | Mitigation |
 | --- | --- | --- |
-| Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms ([beta evaluation](../v0.2.0/live-evaluation.md#manual-review)) | ask a more specific question, or use Ask Human Resources |
+| Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms ([beta evaluation](../v0.2.0/live-evaluation.md#manual-review)) | the refusal card now says to ask the full question again with the details it depends on (#281); or use Ask Human Resources |
 | README known limitations | a shared password, a threshold set by judgement, non-atomic re-ingestion, one instance, a fictional corpus | documented in the README |
 
 ## What this release does not establish

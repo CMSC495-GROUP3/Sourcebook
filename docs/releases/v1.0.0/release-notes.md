@@ -45,6 +45,9 @@ Pending until the freeze. So far:
   readers (#266, PR #277).
 - **The sign-in page has a main landmark** for screen readers, and a page
   description for search results (PR #280).
+- **When related policies don't answer a question as asked,** the refusal
+  card now says to ask the full question again with the details it depends
+  on, instead of reading as a dead end (PR #281).
 
 ## Getting access
 
@@ -71,7 +74,7 @@ Pending: confirm at the freeze.
 
 | Issue | What a user would see | Impact | Mitigation |
 | --- | --- | --- | --- |
-| Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms | the user gets the refusal card instead of a pointer to the travel policy | ask a more specific question, or use Ask Human Resources |
+| Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms | the user gets the refusal card instead of a pointer to the travel policy | the card says to ask the full question again with the details it depends on (PR #281), or use Ask Human Resources |
 
 ## What this release does not establish
 
