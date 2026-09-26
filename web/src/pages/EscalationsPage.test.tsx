@@ -2,7 +2,7 @@ import { AxiosError } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import client from '../api/client'
 import type { Escalation } from '../types'
@@ -93,16 +93,26 @@ function mockApi({ open = [], resolved = [], total, byId = {} }: Api) {
 
 function Location() {
   const location = useLocation()
-  return <output data-testid="location">{location.pathname + location.search}</output>
+  return <div data-testid="location">{location.pathname + location.search}</div>
 }
 
+/** The browser's Back button. */
+function BrowserBack() {
+  const navigate = useNavigate()
+  return <button type="button" onClick={() => navigate(-1)}>Browser back</button>
+}
+
+/** The page opens with /elsewhere behind it, so Back can leave it. */
 function renderPage(url = '/escalations') {
   const user = userEvent.setup()
   render(
-    <MemoryRouter initialEntries={[url]}>
+    <MemoryRouter initialEntries={['/elsewhere', url]}>
       <Routes>
-        <Route path="/escalations" element={<><EscalationsPage /><Location /></>} />
+        <Route path="/escalations" element={<EscalationsPage />} />
+        <Route path="/elsewhere" element={null} />
       </Routes>
+      <Location />
+      <BrowserBack />
     </MemoryRouter>,
   )
   return user
@@ -170,6 +180,161 @@ describe('EscalationsPage', () => {
     })
   })
 
+  describe('Back and focus below lg (#266)', () => {
+    it('goes back through history from a request opened from the list', async () => {
+      mockApi({ open: [escalation()] })
+      const user = await openFirstRequest()
+
+      await user.click(screen.getByRole('button', { name: 'All requests' }))
+      expect(location()).toBe('/escalations')
+
+      await user.click(screen.getByRole('button', { name: 'Browser back' }))
+      expect(location()).toBe('/elsewhere')
+    })
+
+    it('pushes the list for a request opened from a link, so Back returns to it', async () => {
+      mockApi({ open: [escalation(), second] })
+      const user = renderPage('/escalations?id=esc-2')
+      await screen.findByRole('heading', { name: /sabbatical/ })
+
+      await user.click(screen.getByRole('button', { name: 'All requests' }))
+      expect(location()).toBe('/escalations')
+
+      await user.click(screen.getByRole('button', { name: 'Browser back' }))
+      expect(location()).toBe('/escalations?id=esc-2')
+    })
+
+    it('leaves one list entry after a resolve, so Back leaves the page', async () => {
+      mockApi({ open: [escalation(), second] })
+      vi.spyOn(client, 'patch').mockResolvedValue({ data: escalation({ status: 'resolved' }) } as AxiosResponse)
+      const user = await openFirstRequest()
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+      await waitFor(() => expect(location()).toBe('/escalations'))
+
+      await user.click(screen.getByRole('button', { name: 'Browser back' }))
+      expect(location()).toBe('/elsewhere')
+    })
+
+    it('focuses the heading of the request it opens', async () => {
+      mockApi({ open: [escalation()] })
+      await openFirstRequest()
+
+      expect(screen.getByRole('heading', { name: /pet insurance/ })).toHaveFocus()
+    })
+
+    it('focuses the row that was open when it returns to the list', async () => {
+      mockApi({ open: [escalation(), second] })
+      const user = renderPage()
+      await user.click(await screen.findByRole('button', { name: /sabbatical/ }))
+
+      await user.click(screen.getByRole('button', { name: 'All requests' }))
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /sabbatical/ })).toHaveFocus())
+    })
+
+    it('focuses the row that was open after the browser Back button', async () => {
+      mockApi({ open: [escalation()] })
+      const user = await openFirstRequest()
+
+      await user.click(screen.getByRole('button', { name: 'Browser back' }))
+
+      expect(location()).toBe('/escalations')
+      await waitFor(() => expect(screen.getByRole('button', { name: /pet insurance/ })).toHaveFocus())
+    })
+
+    it('focuses the list heading and announces the resolve', async () => {
+      mockApi({ open: [escalation(), second] })
+      vi.spyOn(client, 'patch').mockResolvedValue({ data: escalation({ status: 'resolved' }) } as AxiosResponse)
+      const user = await openFirstRequest()
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'HR Requests' })).toHaveFocus())
+      expect(screen.getByRole('status')).toHaveTextContent('Resolved: Does Meridian reimburse pet insurance?')
+    })
+
+    it('focuses the list heading after leaving a request linked from another tab', async () => {
+      mockApi({ open: [escalation()], resolved: [closed], byId: { 'esc-r': closed } })
+      const user = renderPage('/escalations?id=esc-r')
+      await screen.findByRole('heading', { name: 'Who approves remote work?' })
+
+      await user.click(screen.getByRole('button', { name: 'All requests' }))
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'HR Requests' })).toHaveFocus())
+
+      // The row it left is on the Resolved tab. Showing it later must not pull focus.
+      const tab = screen.getByRole('button', { name: 'Resolved' })
+      await user.click(tab)
+      expect(await screen.findByRole('button', { name: /remote work/ })).toBeInTheDocument()
+      expect(tab).toHaveFocus()
+    })
+
+    it('focuses the not-found message when Back returns to a missing request', async () => {
+      mockApi({ open: [escalation()] })
+      const user = renderPage('/escalations?id=missing')
+      await screen.findByText('That request was not found.')
+      await user.click(screen.getByRole('button', { name: 'All requests' }))
+      await screen.findByRole('heading', { name: 'HR Requests' })
+
+      await user.click(screen.getByRole('button', { name: 'Browser back' }))
+
+      await waitFor(() => expect(screen.getByText('That request was not found.')).toHaveFocus())
+    })
+
+    it('focuses the list heading when Back was pressed while a resolve was saving', async () => {
+      const get = mockApi({ open: [escalation(), second] })
+      const patch = deferred<AxiosResponse>()
+      vi.spyOn(client, 'patch').mockReturnValue(patch.promise)
+      const user = await openFirstRequest()
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+
+      await user.click(screen.getByRole('button', { name: 'Browser back' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: /pet insurance/ })).toHaveFocus())
+
+      // The server has closed esc-1, so the refetch no longer returns it.
+      get.mockImplementation(async () => listResponse([second]))
+      await act(async () => patch.resolve({ data: escalation({ status: 'resolved' }) } as AxiosResponse))
+      expect(location()).toBe('/escalations')
+      expect(screen.queryByRole('button', { name: /pet insurance/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'HR Requests' })).toHaveFocus()
+    })
+
+    it('clears the announcement after a few seconds, so the next one is read', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        mockApi({ open: [escalation(), second] })
+        vi.spyOn(client, 'patch').mockResolvedValue({ data: escalation({ status: 'resolved' }) } as AxiosResponse)
+        const user = await openFirstRequest()
+        await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+        await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Resolved:'))
+
+        await act(async () => vi.advanceTimersByTime(5000))
+
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('announces a reopen', async () => {
+      const get = mockApi({ resolved: [closed] })
+      vi.spyOn(client, 'patch').mockImplementation(async () => {
+        get.mockImplementation(async () => listResponse([]))
+        return { data: { ...closed, status: 'open' } } as AxiosResponse
+      })
+      const user = renderPage('/escalations?status=resolved&id=esc-r')
+
+      await user.click(await screen.findByRole('button', { name: 'Reopen request' }))
+
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Reopened: Who approves remote work?'))
+      expect(screen.getByRole('heading', { name: 'HR Requests' })).toHaveFocus()
+    })
+  })
+
   describe('list beside the request (lg and up)', () => {
     beforeEach(stubTwoPane)
 
@@ -179,6 +344,34 @@ describe('EscalationsPage', () => {
       expect(await screen.findByRole('heading', { name: /pet insurance/ })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: 'HR Requests' })).toBeInTheDocument()
       expect(location()).toBe('/escalations?id=esc-1')
+    })
+
+    it('leaves focus on a clicked row, since both panes stay on screen', async () => {
+      mockApi({ open: [escalation(), second] })
+      const user = renderPage()
+      await screen.findByRole('heading', { name: /pet insurance/ })
+
+      await user.click(screen.getByRole('button', { name: /sabbatical/ }))
+
+      expect(await screen.findByRole('heading', { name: /sabbatical/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /sabbatical/ })).toHaveFocus()
+    })
+
+    it('focuses the list heading and announces the resolve', async () => {
+      const get = mockApi({ open: [escalation(), second] })
+      vi.spyOn(client, 'patch').mockImplementation(async () => {
+        get.mockImplementation(async () => listResponse([second]))
+        return { data: escalation({ status: 'resolved' }) } as AxiosResponse
+      })
+      const user = renderPage()
+      await screen.findByRole('heading', { name: /pet insurance/ })
+
+      await user.type(screen.getByLabelText('Resolution note'), 'Told them.')
+      await user.click(screen.getByRole('button', { name: 'Resolve request' }))
+
+      await waitFor(() => expect(location()).toBe('/escalations?id=esc-2'))
+      expect(screen.getByRole('heading', { name: 'HR Requests' })).toHaveFocus()
+      expect(screen.getByRole('status')).toHaveTextContent('Resolved: Does Meridian reimburse pet insurance?')
     })
 
     it('moves to the next request after a resolve, not back to the resolved one', async () => {

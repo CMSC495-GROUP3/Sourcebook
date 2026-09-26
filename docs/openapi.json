@@ -64,6 +64,21 @@
             ],
             "title": "Message Id"
           },
+          "refusal_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no_match",
+                  "not_covered"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal Reason"
+          },
           "refused": {
             "title": "Refused",
             "type": "boolean"
@@ -539,7 +554,7 @@
     },
     "/api/conversations": {
       "get": {
-        "description": "List conversations; treat unresolved project ids as ungrouped.\n\nRead-side only: a stored project_id that no longer matches any project is\nreturned as null so the sidebar (and any other client that groups by\nexisting projects) still shows the conversation under ungrouped. Stored\nrows are not rewritten here. Write-path TOCTOU and transactional cleanup\nremain separate; see #142.",
+        "description": "List conversations; treat unresolved project ids as ungrouped.\n\nRead-side only: a stored project_id that no longer matches any project is\nreturned as null so the sidebar (and any other client that groups by\nexisting projects) still shows the conversation under ungrouped. Stored\nrows are not rewritten here. This remains useful for legacy or externally\nintroduced orphaned rows even when transactional writes are enabled.",
         "operationId": "list_conversations_api_conversations_get",
         "responses": {
           "200": {
@@ -1268,7 +1283,7 @@
     },
     "/api/projects/{project_id}": {
       "delete": {
-        "description": "Delete a project after releasing its conversations.\n\nOrder is confirm-exists \u2192 unassign conversations \u2192 delete project so a\nmissing id is a side-effect-free 404 for unknown projects.\n\nPilot limitation (no multi-document transaction): these three steps are not\natomic. Known TOCTOU windows under concurrent writers:\n\n- delete+unassign vs assign: another request may pass `_require_project` and\n  insert/update a conversation onto this project_id after find_one succeeds\n  and before (or after) update_many, leaving an assignment to a project that\n  is about to be (or already was) deleted.\n- concurrent deletes: a second deleter may return 404 after conversations\n  were already released (idempotent for assignments).\n\nStub/fakemongo and the shared `MongoClient` in `rag/mongo.py` do not expose\nAtlas transactions; this pilot does not claim strict referential integrity\nunder concurrency. See #142.",
+        "description": "Delete a project and release its conversations.\n\nOn a transaction-capable backend, project deletion and conversation\nunassignment commit atomically. FakeMongo keeps the existing sequential\nbehavior and does not claim transactional referential integrity.",
         "operationId": "delete_project_api_projects__project_id__delete",
         "parameters": [
           {

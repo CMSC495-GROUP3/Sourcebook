@@ -6,9 +6,11 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from pymongo import DESCENDING
+from pymongo.client_session import ClientSession
 
 from sourcebook.api.db import conversations_col, projects_col
 from sourcebook.api.routes.deps import require_auth
+from sourcebook.rag.mongo import run_transaction
 
 router = APIRouter()
 
@@ -64,16 +66,35 @@ def _serialize(doc: dict) -> dict:
     return doc
 
 
-def _require_project(project_id: str | None) -> None:
+def _require_project(
+    project_id: str | None,
+    *,
+    session: ClientSession | None = None,
+) -> None:
     """Reject unknown project ids before create/reassign writes.
 
-    This is a point-in-time existence check, not a transactional lock. Between
-    this find_one and the later insert_one/update_one, a concurrent delete can
-    remove the project (validate+create / validate+reassign TOCTOU). Stub mode
-    has no Mongo sessions/transactions; the pilot accepts that race rather than
-    claiming atomic referential integrity. See projects.delete_project.
+    A transaction-capable backend performs a small write to the project row.
+    That makes validation conflict with a concurrent project deletion instead
+    of relying on a point-in-time read. A transactional read alone is not
+    sufficient to prevent the assignment-after-delete race.
+
+    FakeMongo receives no session and keeps the existing sequential check
+    without claiming transactional referential integrity.
     """
-    if project_id is not None and projects_col.find_one({"project_id": project_id}) is None:
+    if project_id is None:
+        return
+
+    if session is None:
+        if projects_col.find_one({"project_id": project_id}) is None:
+            raise HTTPException(status_code=404, detail="Project not found.")
+        return
+
+    result = projects_col.update_one(
+        {"project_id": project_id},
+        {"$inc": {"_assignment_guard": 1}},
+        session=session,
+    )
+    if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Project not found.")
 
 
@@ -84,8 +105,8 @@ def list_conversations():
     Read-side only: a stored project_id that no longer matches any project is
     returned as null so the sidebar (and any other client that groups by
     existing projects) still shows the conversation under ungrouped. Stored
-    rows are not rewritten here. Write-path TOCTOU and transactional cleanup
-    remain separate; see #142.
+    rows are not rewritten here. This remains useful for legacy or externally
+    introduced orphaned rows even when transactional writes are enabled.
     """
     docs = conversations_col.find(
         {},
@@ -106,7 +127,6 @@ def list_conversations():
 
 @router.post("/conversations", dependencies=[Depends(require_auth)])
 def create_conversation(body: CreateConversationRequest):
-    _require_project(body.project_id)
     now = datetime.now(UTC)
     doc = {
         "session_id": str(uuid.uuid4()),
@@ -116,8 +136,21 @@ def create_conversation(body: CreateConversationRequest):
         "created_at": now,
         "updated_at": now,
     }
-    conversations_col.insert_one(doc)
-    return _serialize(doc)
+
+    def create(session: ClientSession | None) -> dict:
+        _require_project(body.project_id, session=session)
+
+        if session is None:
+            conversations_col.insert_one(doc)
+        else:
+            conversations_col.insert_one(doc, session=session)
+
+        return _serialize(doc)
+
+    if body.project_id is None:
+        return create(None)
+
+    return run_transaction(create)
 
 
 @router.get("/conversations/{session_id}", dependencies=[Depends(require_auth)])
@@ -135,16 +168,37 @@ def update_conversation(session_id: str, body: UpdateConversationRequest):
     if "title" in body.model_fields_set and body.title is not None:
         updates["title"] = body.title
 
-    # project_id in model_fields_set means the client explicitly sent it.
-    # body.project_id == None means "unassign" (remove from project).
-    if "project_id" in body.model_fields_set:
-        _require_project(body.project_id)
+    project_change = "project_id" in body.model_fields_set
+    if project_change:
         updates["project_id"] = body.project_id
 
-    result = conversations_col.update_one({"session_id": session_id}, {"$set": updates})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-    return {"ok": True}
+    def apply_update(session: ClientSession | None) -> dict:
+        if project_change:
+            _require_project(body.project_id, session=session)
+
+        if session is None:
+            result = conversations_col.update_one(
+                {"session_id": session_id},
+                {"$set": updates},
+            )
+        else:
+            result = conversations_col.update_one(
+                {"session_id": session_id},
+                {"$set": updates},
+                session=session,
+            )
+
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+
+        return {"ok": True}
+
+    # Assigning/reassigning crosses the projects and conversations collections.
+    # Unassigning to None and title-only edits remain single-document writes.
+    if project_change and body.project_id is not None:
+        return run_transaction(apply_update)
+
+    return apply_update(None)
 
 
 @router.delete("/conversations/{session_id}", dependencies=[Depends(require_auth)])

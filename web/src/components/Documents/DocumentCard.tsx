@@ -23,6 +23,7 @@ export default function DocumentCard({ document, selected, onSelect }: Props) {
       <button
         type="button"
         onClick={() => onSelect(document)}
+        data-row-id={document.source}
         aria-current={selected ? 'true' : undefined}
         className={`flex w-full cursor-pointer items-start gap-3 rounded-md px-3 py-3 text-left transition-colors ${
           selected ? 'bg-accent-soft' : 'hover:bg-paper-3'

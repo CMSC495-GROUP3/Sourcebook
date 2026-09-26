@@ -8,7 +8,7 @@ Sibling pages own adjacent evidence and are not duplicated here:
 - Committed coverage table for the tagged final: [issue #210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210).
 - React component tests: [issue #211](https://github.com/CMSC495-GROUP3/Sourcebook/issues/211).
 - Deployed-pilot load run: [issue #212](https://github.com/CMSC495-GROUP3/Sourcebook/issues/212).
-- Full evaluation tier: [issue #213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213).
+- Full evaluation tier: [issue #213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213). The beta run is recorded; the final run is not.
 - Lighthouse per theme: [issue #214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214).
 - `v1.0.0` freeze scaffold: [issue #215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215).
 
@@ -59,7 +59,26 @@ These are GitHub search totals, not a hand-counted review-event ledger. This pag
 
 CI runs pytest with `--cov-fail-under=80` on Python 3.11 through 3.14 ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)). Locally that is `make cov` / `make check` ([CONTRIBUTING.md](../CONTRIBUTING.md#checking-a-change)). A job that lands under 80% is red. That is a floor, not a published percentage.
 
-The 3.12 job writes a markdown table into the Actions job summary and uploads `coverage.xml` for 14 days. Those artifacts expire with the run. Nothing on `main` commits that table. [Issue #210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210) is the follow-up that will copy the **tagged final** table into `docs/releases/v1.0.0/evidence/coverage.md`. This page will cite that file when it exists; it does not pretend the file is here.
+The web job runs Vitest with an 80% floor on statements, branches, functions, and lines, measured only on the files listed in `web/vitest.config.ts`, not all of `web/src`. That is also a floor.
+
+### Where the release coverage comes from
+
+Both test jobs write a markdown table into the Actions job summary and save it as `coverage-table.md`: one row per file, with a total. The Python table comes from the 3.12 job and is written on every run. The web table is written whenever Vitest finishes with all tests passing; a failing test leaves Vitest with no coverage summary, so that run has no web table. In the web pack the table sits next to the two Vitest JSON files. Every green push to `main` then uploads two artifacts named for the commit and kept for 90 days ([PR #261](https://github.com/CMSC495-GROUP3/Sourcebook/pull/261)):
+
+| Artifact | Files |
+| --- | --- |
+| `python-coverage-<sha>` | `coverage.xml`, `coverage-table.md` |
+| `web-coverage-<sha>` | `coverage-table.md`, `coverage-summary.json`, `coverage-final.json` |
+
+A push to `main` never cancels the `main` run in progress, so each merged commit gets a finished run. A run still queued behind it can be replaced by a newer push; re-run it from the Actions page if that commit needs evidence.
+
+Artifacts expire, so the release commits the table. After the Monday 28 September freeze, the candidate commit's artifacts are copied into `docs/releases/v1.0.0/evidence/coverage.md` (drafted in [PR #274](https://github.com/CMSC495-GROUP3/Sourcebook/pull/274)) with a link to the run that produced them:
+
+1. Open the green push-to-`main` CI run for the candidate commit, or list it with `gh run list --workflow ci.yml --branch main --commit <sha>`.
+2. Download both packs: `gh run download <run-id> -n python-coverage-<sha> -n web-coverage-<sha>`, or from the run's Artifacts section.
+3. Paste each `coverage-table.md` into its section of `coverage.md`, and record the full SHA and the run URL.
+
+Only documentation merges after the freeze, so the tagged commit runs the same code, and its own run's artifacts should give the same tables. Check them before tagging. **Final Python and web coverage: Pending**, until the candidate run exists. This page cites the totals from `coverage.md` once that file holds them; it does not quote a number before then.
 
 Latest green CI on this snapshot: [run 35039401655](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/35039401655) at `88e8a13`. Open that run's Python-test job summary for the table from that SHA. Do not treat the badge as a coverage number.
 
@@ -82,7 +101,8 @@ The suite is the real application with Mongo, the model, and vector search repla
 | Synthetic chat throughput | Thread-pool ceiling with fake model, in-memory Mongo, canned retrieval, limiter off. 40 tokens → 14.9 req/s; 320 tokens → 98.7 req/s; refusal path ~700 req/s; cache hits 210–522 req/s. | Deployed-pilot latency, real OpenAI/Atlas, or the 10,000-user claim under live load. | [docs/load-testing.md](load-testing.md) |
 | Alpha live benchmark | Bounded public-URL run on 2026-09-10 against the pilot with real OpenAI and Atlas. Operator-agreed targets (generated TTFT p50 ≤ 4.0s, generated total max ≤ 30s, cached TTFT max ≤ 1.5s, refused total max ≤ 3.0s, error rate 0). Status on that page: **run performed, every target met.** Sample is eight chat requests. | 10,000 concurrent users, p95, or a beta/final repeat. | [live-benchmark.md](releases/v0.1.0-alpha.1/live-benchmark.md), [results JSON](releases/v0.1.0-alpha.1/live-benchmark-results.json) |
 | Deployed load run | Not on `main`. | — | [issue #212](https://github.com/CMSC495-GROUP3/Sourcebook/issues/212) |
-| Alpha smoke evaluation | Two host runs of the 20-case smoke tier (`9871e3e` vs `4e90382`). Recall@5, citation correctness, and grounded-answer rate are 100% of 12 answerable cases on both commits. Unsupported-refusal handling and prompt-injection grounding-gate refusal are **0%** of their cases on both commits. | A product-quality PASS. The zeros are [issue #192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), which is still open. [Issue #189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) (follow-ups scored only the rewrite) was closed by [PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245); that does not close #192. The full tier has not been run ([issue #213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)). | [live-evaluation.md](releases/v0.1.0-alpha.1/live-evaluation.md), [results JSON](releases/v0.1.0-alpha.1/live-evaluation-results.json), [docs/evaluation.md](evaluation.md) |
+| Alpha smoke evaluation | Two host runs of the 20-case smoke tier (`9871e3e` vs `4e90382`). Recall@5, citation correctness, and grounded-answer rate are 100% of 12 answerable cases on both commits. Unsupported-refusal handling and prompt-injection grounding-gate refusal are **0%** of their cases on both commits. | A product-quality PASS. The zeros are [issue #192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192), which is still open. [Issue #189](https://github.com/CMSC495-GROUP3/Sourcebook/issues/189) (follow-ups scored only the rewrite) was closed by [PR #245](https://github.com/CMSC495-GROUP3/Sourcebook/pull/245); that does not close #192. The full tier was first run on the beta; see the beta full-tier row. | [live-evaluation.md](releases/v0.1.0-alpha.1/live-evaluation.md), [results JSON](releases/v0.1.0-alpha.1/live-evaluation-results.json), [docs/evaluation.md](evaluation.md) |
+| Beta full-tier evaluation | [Run 36267109629](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/36267109629) on the `v0.2.0` tag `383cea5`, 2026-09-26: 59 cases. Recall@5, citation correctness, and grounded-answer rate are 95.9% (47 of 49 answerable); unsupported-refusal handling is 100% of 4 and prompt-injection gate refusal 100% of 3. Both misses retrieved an overlapping policy; one exposes a contradiction between two sample policies on the incident-reporting window. | The final's full tier ([issue #213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)), or anything about a real corpus. | [live-evaluation.md](releases/v0.2.0/live-evaluation.md#full-tier-run-on-2026-09-26), [results JSON](releases/v0.2.0/live-evaluation-full-results.json) |
 | Live evaluation workflow | Manual Actions job against real secrets. [PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226) merged on 2026-09-13 (`112c96e`) and closed [issue #223](https://github.com/CMSC495-GROUP3/Sourcebook/issues/223): `scripts/validate_live_evaluation.py` and [evaluation.yml](https://github.com/CMSC495-GROUP3/Sourcebook/blob/main/.github/workflows/evaluation.yml) fail-close on empty or illegal `MONGODB_DB`, empty secrets, a nonzero evaluator exit, and missing or malformed results. CI also runs the synthetic checks in `scripts/test_live_evaluation_fail_closed.sh`. [PR #229](https://github.com/CMSC495-GROUP3/Sourcebook/pull/229) was closed as a duplicate of #226 and was not merged. A green workflow means the instrument recorded a trustworthy results file, not that refusals passed. Latest successful run: [run 34801818927](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/34801818927) at `534a661` (after #245). | Refusal-quality PASS. [Issue #192](https://github.com/CMSC495-GROUP3/Sourcebook/issues/192) remains open. | [evaluation.yml](https://github.com/CMSC495-GROUP3/Sourcebook/blob/main/.github/workflows/evaluation.yml), [PR #181](https://github.com/CMSC495-GROUP3/Sourcebook/pull/181), [PR #226](https://github.com/CMSC495-GROUP3/Sourcebook/pull/226) |
 | Lighthouse | Not run. | — | [issue #214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214) |
 | Beta / final live-benchmark.md | Not on `main`. Alpha is the only committed live-benchmark folder. | — | [issue #203](https://github.com/CMSC495-GROUP3/Sourcebook/issues/203), [issue #215](https://github.com/CMSC495-GROUP3/Sourcebook/issues/215) |
@@ -145,4 +165,4 @@ make audit    # pip-audit and npm audit; accepted advisories in scripts/audit.sh
 
 ## What this page will gain later
 
-When #210 commits the tagged Python coverage table, replace the floor-only paragraph with that number and the run link. When #212, #213, and #214 produce artifacts, add rows to the table above. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open.
+When `docs/releases/v1.0.0/evidence/coverage.md` holds the candidate's tables (#210), add the Python and web totals and the run link to the coverage section above. When #212, #213, and #214 produce artifacts, add rows to the table above. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open.

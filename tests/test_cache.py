@@ -13,6 +13,7 @@ from sourcebook.rag.cache import (
     normalize,
     put_cached_answer,
     question_hash,
+    read_corpus_version,
 )
 
 RESULT = {
@@ -21,6 +22,7 @@ RESULT = {
     "confidence": 78,
     "follow_ups": ["a", "b", "c"],
     "refused": False,
+    "refusal_reason": None,
 }
 
 
@@ -39,6 +41,17 @@ def test_corpus_version_is_stable_until_bumped():
     bumped = bump_corpus_version()
     assert bumped != first
     assert get_corpus_version() == bumped
+
+
+def test_read_corpus_version_never_writes():
+    # The live evaluation's database user is read-only, so this path must not
+    # create the meta document the way get_corpus_version does.
+    assert read_corpus_version() is None
+    assert FAKE_DB["meta"].find_one({"_id": "corpus"}) is None
+    version = get_corpus_version()
+    assert read_corpus_version() == version
+    bumped = bump_corpus_version()
+    assert read_corpus_version() == bumped
 
 
 def test_answer_cache_round_trip_counts_hits():
@@ -68,7 +81,7 @@ def test_refusals_are_cached_too():
 
 def test_cached_refusal_misses_after_similarity_threshold_changes(monkeypatch):
     version = get_corpus_version()
-    refusal = {**RESULT, "refused": True, "sources": []}
+    refusal = {**RESULT, "refused": True, "sources": [], "refusal_reason": "no_match"}
 
     put_cached_answer("q", version, refusal)
     assert get_cached_answer("q", version) == refusal
@@ -115,3 +128,11 @@ def test_answer_cache_key_changes_with_retrieval_k(monkeypatch):
     before = answer_cache_key("How much PTO?", version)
     monkeypatch.setattr(cache, "RETRIEVAL_K", 10)
     assert answer_cache_key("How much PTO?", version) != before
+
+
+def test_entry_cached_before_refusal_reasons_reads_as_none():
+    """Issue #269: entries written before the field existed still load."""
+    version = "v1"
+    put_cached_answer("q", version, {k: v for k, v in RESULT.items() if k != "refusal_reason"})
+    FAKE_DB["answer_cache"]._docs[0].pop("refusal_reason", None)
+    assert get_cached_answer("q", version)["refusal_reason"] is None

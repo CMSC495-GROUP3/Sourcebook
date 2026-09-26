@@ -23,6 +23,7 @@ export default function EscalationListItem({ escalation, selected, onSelect }: P
       <button
         type="button"
         onClick={() => onSelect(escalation.escalation_id)}
+        data-row-id={escalation.escalation_id}
         aria-current={selected ? 'true' : undefined}
         className={`flex w-full cursor-pointer flex-col gap-1 rounded-md px-3 py-3 text-left transition-colors ${
           selected ? 'bg-accent-soft' : 'hover:bg-paper-3'

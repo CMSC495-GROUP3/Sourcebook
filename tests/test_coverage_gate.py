@@ -121,6 +121,7 @@ class TestCoverageGate:
         provider = _install(monkeypatch, _CoverageProvider('{"covered": true}'))
         result = rag_chain.answer_question("How much PTO do I get?")
         assert result["refused"] is False
+        assert result["refusal_reason"] is None
         assert result["answer"] == "supported answer"
         assert result["sources"] == ["Paid Time Off (PTO) Policy"]
         assert "answer" in provider.roles
@@ -130,6 +131,8 @@ class TestCoverageGate:
         provider = _install(monkeypatch, _CoverageProvider('{"covered": false}'))
         result = rag_chain.answer_question("Does the company reimburse pet insurance?")
         assert result["refused"] is True
+        # Issue #269: the client needs to know the judge refused, not the cosine gate.
+        assert result["refusal_reason"] == "not_covered"
         assert result["answer"] == config.REFUSAL_MESSAGE
         assert result["sources"] == []
         assert "answer" not in provider.roles
@@ -171,6 +174,7 @@ class TestCoverageGate:
         )
         result = rag_chain.answer_question("How much PTO do I get?")
         assert result["refused"] is True
+        assert result["refusal_reason"] == "not_covered"
         assert result["answer"] == config.REFUSAL_MESSAGE
         assert "answer" not in provider.roles
 
@@ -221,6 +225,7 @@ class TestCoverageGate:
         monkeypatch.setattr(rag_chain, "passages_cover_question", forbidden)
         grounding = ground_question("unrelated question")
         assert grounding.grounded is False
+        assert grounding.refusal_reason == "no_match"
         assert called["n"] == 0
 
     def test_follow_up_still_requires_both_cosine_scores(self, retrieval, monkeypatch):
@@ -235,6 +240,7 @@ class TestCoverageGate:
         provider = _install(monkeypatch, _CoverageProvider('{"covered": true}'))
         grounding = ground_question(raw, history, threshold=0.62)
         assert grounding.grounded is False
+        assert grounding.refusal_reason == "no_match"
         assert grounding.raw_best_score == 0.59
         assert provider.roles == []
 
@@ -321,6 +327,7 @@ class TestCoverageGate:
         provider = _install(monkeypatch, _CoverageProvider('{"covered": false}'))
         result = rag_chain.answer_question(raw, history)
         assert result["refused"] is True
+        assert result["refusal_reason"] == "not_covered"
         assert result["answer"] == config.REFUSAL_MESSAGE
         assert result["sources"] == []
         assert "answer" not in provider.roles
@@ -422,3 +429,18 @@ def test_fake_provider_does_not_treat_json_literals_as_coverage(monkeypatch):
         role="utility",
     )
     assert covered == '{"covered": true}'
+
+
+def test_fake_provider_judge_can_refuse_for_the_stub(monkeypatch):
+    """`make stub REFUSE=judge` sets FAKE_COVERED=0 to show a judge refusal (#269)."""
+    monkeypatch.setattr(llm.FakeProvider, "COVERED", False)
+    provider = llm.FakeProvider()
+    monkeypatch.setattr(provider, "_sleep", lambda _ms: None)
+    verdict = provider.complete(
+        [
+            {"role": "system", "content": COVERAGE_SYSTEM_PROMPT},
+            {"role": "user", "content": "Standalone question:\nPet insurance?\n"},
+        ],
+        role="utility",
+    )
+    assert verdict == '{"covered": false}'
