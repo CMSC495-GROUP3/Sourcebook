@@ -31,7 +31,8 @@ ignores:
 
 - `summary.md`: the table to copy into `docs/quality.md`, with the date and
   the deployed commit
-- `summary.json`: the same scores, plus the conversation and document used
+- `summary.json`: the same scores, with the date and Lighthouse version (the
+  conversation and document used are printed to the console)
 - one Lighthouse JSON report per run, which opens in the
   [Lighthouse viewer](https://googlechrome.github.io/lighthouse-viewer/)
 

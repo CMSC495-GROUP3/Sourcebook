@@ -18,6 +18,7 @@
 //   QUESTION      the question to ask (default: a covered PTO question)
 //
 // Writes summary.json, summary.md, and one Lighthouse JSON report per run.
+// The conversation and document used are printed, not written.
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -123,7 +124,7 @@ async function main() {
           )
           const file = `${target.name}-${theme}-${width}.json`
           await fs.writeFile(path.join(outDir, file), run.report)
-          results.push({ page: target.name, theme, width, url: target.url, scores, report: file })
+          results.push({ page: target.name, theme, width, scores, report: file })
           console.log(`${target.name} ${theme} ${width}: ${CATEGORIES.map((c) => `${c} ${scores[c]}`).join(', ')}`)
         }
       }
@@ -136,8 +137,6 @@ async function main() {
     date: new Date().toISOString(),
     base_url: baseUrl,
     lighthouse_version: results.length ? JSON.parse(await fs.readFile(path.join(outDir, results[0].report), 'utf8')).lighthouseVersion : null,
-    session_id: sessionId,
-    document_source: source ?? null,
     results,
   }
   await fs.writeFile(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 2) + '\n')
@@ -148,6 +147,9 @@ async function main() {
       `| ${r.page} | ${r.theme} | ${r.width} | ${r.scores.performance} | ${r.scores.accessibility} | ${r.scores['best-practices']} | ${r.scores.seo} |`,
   )
   await fs.writeFile(path.join(outDir, 'summary.md'), [header, ...rows].join('\n') + '\n')
+  // The conversation and document come from the API, so they go to the
+  // console, not into summary.json.
+  console.log(`Conversation ${sessionId}, document ${source ?? '(none)'}`)
   console.log(`Wrote ${results.length} runs to ${outDir}`)
 }
 
