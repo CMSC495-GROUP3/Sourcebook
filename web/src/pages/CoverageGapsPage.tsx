@@ -1,11 +1,13 @@
 /**
- * CoverageGapsPage — what employees asked that the policy library could not
- * answer, and what they ask most. Both lists come from the query log through
- * GET /api/reports/gaps; nothing here identifies who asked.
+ * CoverageGapsPage, shown as "What People Ask": what employees asked that no
+ * policy answered, and what they ask most. Both lists come from the query log
+ * through GET /api/reports/gaps; nothing here identifies who asked.
  *
- * The refused list is ochre, the same color as the refusal card in the chat,
- * so a gap reads as the thing an employee saw. The FAQ bars are green for
- * answered asks with the refused share in ochre at the end.
+ * The copy says "not answered", as the chat's refusal card does ("Not answered
+ * by any policy"), never "refused": the cause is a missing document, which HR
+ * can write. The not-answered list is ochre, the refusal card's color. The
+ * Asked most bars are green for answered asks with the not-answered share in
+ * ochre at the end.
  *
  * ?days= picks the window (30 by default) so a link reproduces the view.
  */
@@ -35,6 +37,11 @@ function readDays(value: string | null): number {
 
 function plural(count: number, word: string): string {
   return `${count.toLocaleString()} ${word}${count === 1 ? '' : 's'}`
+}
+
+/** "Asked once", "Asked 9 times". */
+function timesAsked(count: number): string {
+  return count === 1 ? 'Asked once' : `Asked ${count.toLocaleString()} times`
 }
 
 function QuestionText({ group }: { group: QuestionGroup }) {
@@ -127,7 +134,7 @@ function Summary({ report, requested }: { report: CoverageReport; requested: num
       <p className="mt-2 max-w-120 text-[14.5px] leading-normal text-ink-2">
         {report.total === 0
           ? `No questions were asked in the last ${report.days} days.`
-          : `questions in the last ${report.days} days were refused (${share}%).`}
+          : `questions in the last ${report.days} days had no policy to answer them (${share}%).`}
       </p>
       {report.days < requested && (
         <p className="mt-2 max-w-120 text-[13px] leading-normal text-ink-3">
@@ -179,7 +186,7 @@ export default function CoverageGapsPage() {
   if (failed) {
     body = (
       <div>
-        <p role="alert" className="text-[14px] text-brick">Unable to load the coverage report.</p>
+        <p role="alert" className="text-[14px] text-brick">Unable to load this report.</p>
         <button
           type="button"
           onClick={() => {
@@ -200,25 +207,25 @@ export default function CoverageGapsPage() {
         <Summary report={report} requested={days} />
         <div className="pt-10">
           <Section
-            title="Not covered"
-            caption="Questions the assistant refused, most asked first. Each is a candidate for a new or clearer policy."
-            empty="Nothing was refused in this window."
+            title="Not answered yet"
+            caption="Questions no policy answered, most asked first. Each one points to a policy to write or make clearer."
+            empty="Every question in this window had a policy to answer it."
             rows={report.gaps.map((group) => ({
               group,
               refused: group.count,
-              meta: plural(group.count, 'ask'),
+              meta: timesAsked(group.count),
             }))}
           />
           <Section
             title="Asked most"
-            caption="Questions asked at least twice. The ochre end of each bar is the share that was refused."
+            caption="Questions asked at least twice. The ochre end of each bar is the share no policy answered."
             empty="No question was asked more than once in this window."
             rows={report.faq.map((group) => ({
               group,
               refused: group.refused,
               meta: group.refused
-                ? `${plural(group.count, 'ask')} · ${group.refused.toLocaleString()} refused`
-                : plural(group.count, 'ask'),
+                ? `${timesAsked(group.count)} · ${group.refused.toLocaleString()} not answered`
+                : timesAsked(group.count),
             }))}
           />
         </div>
@@ -230,7 +237,7 @@ export default function CoverageGapsPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <header className={`flex min-h-15 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-rule py-3 ${READING_GUTTER}`}>
         <h1 className="font-display text-[22px] leading-none font-medium tracking-tight text-ink">
-          Coverage Gaps
+          What People Ask
         </h1>
         <div className="flex gap-1.5" role="group" aria-label="Time window">
           {WINDOWS.map((option) => (

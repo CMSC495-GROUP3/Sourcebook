@@ -1,4 +1,4 @@
-"""The coverage report behind the Coverage Gaps page."""
+"""The coverage report behind the What People Ask page."""
 
 from datetime import UTC, datetime, timedelta
 

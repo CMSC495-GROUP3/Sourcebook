@@ -465,7 +465,7 @@ That log is how the system improves from evidence rather than intuition.
   sound basis for tuning `SIMILARITY_THRESHOLD`, and there is no other way to
   collect it.
 
-The first two lists are on the Coverage Gaps page in the web app, over the last
+The first two lists are on the What People Ask page in the web app, over the last
 7, 30, or 90 days. For the score histograms or an exact window, run the
 read-only report on the EC2 host. The
 cluster's IP access list admits that host, so anywhere else waits out

@@ -1,4 +1,4 @@
-"""Coverage report — the query log's read side, for the Coverage Gaps page.
+"""Coverage report — the query log's read side, for the What People Ask page.
 
 Every chat request writes a ``query_logs`` row (see ``sourcebook.api.analytics``).
 ``sourcebook.rag.query_log_reports`` already ranks those rows for an operator at
@@ -94,7 +94,7 @@ def coverage_gaps(
     except ExecutionTimeout:
         raise HTTPException(
             status_code=503,
-            detail="The coverage report took too long. Try a shorter window.",
+            detail="This report took too long. Try a shorter window.",
         ) from None
     return {
         "since": since.isoformat(),

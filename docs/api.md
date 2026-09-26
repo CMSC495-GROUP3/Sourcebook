@@ -320,7 +320,7 @@ Every chat request writes one `query_logs` row (question hash, scores, refused,
 sources, cache hit, latency). How that log is used is in the README section
 [Learning from the query log](../README.md#learning-from-the-query-log).
 
-`GET /api/reports/gaps` ranks that log for the Coverage Gaps page. `days`
+`GET /api/reports/gaps` ranks that log for the What People Ask page. `days`
 (1–90, default 30) sets the window back from now; `top` (1–100, default 20)
 caps each list. `gaps` holds refused questions grouped by `question_hash`,
 most frequent first. `faq` holds questions asked at least twice, with how many
@@ -331,7 +331,7 @@ condensed rewrite when there is one), and any signed-in user can call this
 route: sign-in has no roles. `GET /api/conversations` already lists every
 conversation to every user, so this route adds ranking and counts, not new
 access. Each query stops after five seconds; a report that runs longer returns
-HTTP 503 with `{"detail": "The coverage report took too long. Try a shorter window."}`. A window longer than the log's
+HTTP 503 with `{"detail": "This report took too long. Try a shorter window."}`. A window longer than the log's
 TTL is shortened to it, and `days` in the response is the one used.
 
 ```http

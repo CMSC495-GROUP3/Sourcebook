@@ -184,8 +184,8 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
           <button
             type="button"
             onClick={() => navigate('/gaps')}
-            title="Coverage Gaps"
-            aria-label="Coverage Gaps"
+            title="What People Ask"
+            aria-label="What People Ask"
             aria-current={onGaps ? 'page' : undefined}
             className={`${RAIL_BUTTON} ${onGaps ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-paper-3 hover:text-ink'}`}
           >
@@ -266,7 +266,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
           className={`${ROW} h-[34px] px-2.5 ${onGaps ? ROW_ACTIVE : ROW_IDLE}`}
         >
           <BookDashed size={15} aria-hidden="true" className={onGaps ? 'text-accent' : 'text-ink-3'} />
-          Coverage Gaps
+          What People Ask
         </button>
       </div>
 

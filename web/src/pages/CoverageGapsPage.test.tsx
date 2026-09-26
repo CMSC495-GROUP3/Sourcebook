@@ -57,18 +57,18 @@ describe('CoverageGapsPage', () => {
     vi.spyOn(client, 'get').mockResolvedValue(ok(report()))
     renderPage()
 
-    expect(await screen.findByText(/were refused \(9%\)/)).toBeInTheDocument()
+    expect(await screen.findByText(/had no policy to answer them \(9%\)/)).toBeInTheDocument()
 
-    const gaps = screen.getByRole('list', { name: 'Not covered' })
+    const gaps = screen.getByRole('list', { name: 'Not answered yet' })
     const gapRows = within(gaps).getAllByRole('listitem')
     expect(gapRows).toHaveLength(2)
     expect(gapRows[0]).toHaveTextContent('Does the company pay for pet insurance?')
-    expect(gapRows[0]).toHaveTextContent('6 asks')
+    expect(gapRows[0]).toHaveTextContent('Asked 6 times')
     expect(gapRows[1]).toHaveTextContent('No question text was logged')
-    expect(gapRows[1]).toHaveTextContent('1 ask')
+    expect(gapRows[1]).toHaveTextContent('Asked once')
 
     const faq = screen.getByRole('list', { name: 'Asked most' })
-    expect(faq).toHaveTextContent('19 asks · 2 refused')
+    expect(faq).toHaveTextContent('Asked 19 times · 2 not answered')
   })
 
   it('asks for 30 days by default and switches window through the URL', async () => {
@@ -108,7 +108,7 @@ describe('CoverageGapsPage', () => {
     renderPage()
 
     expect(await screen.findByText('No questions were asked in the last 30 days.')).toBeInTheDocument()
-    expect(screen.getByText('Nothing was refused in this window.')).toBeInTheDocument()
+    expect(screen.getByText('Every question in this window had a policy to answer it.')).toBeInTheDocument()
     expect(screen.getByText('No question was asked more than once in this window.')).toBeInTheDocument()
   })
 
@@ -119,11 +119,11 @@ describe('CoverageGapsPage', () => {
       .mockResolvedValue(ok(report()))
     renderPage()
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load the coverage report.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load this report.')
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByRole('list', { name: 'Not covered' })).toBeInTheDocument()
+    expect(await screen.findByRole('list', { name: 'Not answered yet' })).toBeInTheDocument()
     expect(get).toHaveBeenCalledTimes(2)
   })
 })
