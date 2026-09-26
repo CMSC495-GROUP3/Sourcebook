@@ -49,7 +49,7 @@ Pending until the freeze. So far:
 | Area | Change | Pull requests |
 | --- | --- | --- |
 | Refusal card | The card says which check refused. A question refused by the coverage judge no longer shows "Strong match" under "No matching policy" or claims nothing indexed came close ([#269](https://github.com/CMSC495-GROUP3/Sourcebook/issues/269)) | #271 |
-| Projects | The move-to-project menu stays open when the pointer leaves the row | #272 |
+| Projects | Assigning a conversation to a project and deleting that project no longer race: on a replica set, which Atlas clusters like the pilot's are, both run in MongoDB transactions, and the assignment writes to the project so it conflicts with a concurrent delete ([#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142)). The in-memory stub has no transactions and keeps the old sequential behavior. The move-to-project menu stays open when the pointer leaves the row | #279, #272 |
 | HR Requests and Policy Library on a phone | Back from the list leaves the page instead of reopening the item just left, and a resolve leaves one list entry. Focus moves to the item's heading when it opens, back to its row when you return, and to the list heading after a resolve or reopen, which is announced to screen readers ([#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266)) | #277 |
 | README | Release, pilot site, and Ruff badges | #273 |
 | Documentation | User guide ([#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206)), team page and `.mailmap` ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)), portfolio page | Pending: #259, #231, #230 |
@@ -104,7 +104,6 @@ Carried from the beta unless fixed before the freeze. Update at the freeze.
 
 | Issue | What a pilot user would see | Mitigation |
 | --- | --- | --- |
-| [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | concurrent project assignment and deletion can race | a single-operator pilot makes this unlikely at this volume |
 | Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms ([beta evaluation](../v0.2.0/live-evaluation.md#manual-review)) | ask a more specific question, or use Ask Human Resources |
 | README known limitations | a shared password, a threshold set by judgement, non-atomic re-ingestion, one instance, a fictional corpus | documented in the README |
 

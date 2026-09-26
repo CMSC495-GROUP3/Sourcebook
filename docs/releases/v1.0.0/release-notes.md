@@ -32,6 +32,10 @@ Pending until the freeze. So far:
 - **The refusal card says which check refused**, so a question the coverage
   judge refuses no longer shows "Strong match" under "No matching policy"
   (#269, PR #271).
+- **Project assignment and deletion no longer race.** On a replica set,
+  which Atlas clusters like the pilot's are, both run in transactions, so a
+  conversation can't be left
+  assigned to a project that was deleted at the same moment (#142, PR #279).
 - **The move-to-project menu stays open** when the pointer leaves the row
   (PR #272).
 - **On a phone, Back and keyboard focus behave on the HR Requests page and
@@ -65,7 +69,6 @@ Pending: confirm at the freeze.
 
 | Issue | What a user would see | Impact | Mitigation |
 | --- | --- | --- | --- |
-| [#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142) | assigning and deleting a project at the same moment can race | a conversation can point at a deleted project; the list treats it as ungrouped | unlikely at pilot volume with one operator |
 | Vague questions on covered topics | "Can I expense this trip?" is refused where the alpha answered in general terms | the user gets the refusal card instead of a pointer to the travel policy | ask a more specific question, or use Ask Human Resources |
 
 ## What this release does not establish
