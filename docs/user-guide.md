@@ -8,9 +8,12 @@ it. The last part covers how Human Resources works those requests on the
 To run your own copy, see [install.md](install.md). Scripts and integrations
 use the HTTP API in [api.md](api.md).
 
-The screenshots come from the recorded v0.2.0 beta pass on 2026-09-24, using the
-fictional Meridian Systems sample policies. The untitled conversations in
-their sidebar are leftover test sessions from that pass. Provenance is in
+Most screenshots come from the recorded v0.2.0 beta pass on 2026-09-24, using
+the fictional Meridian Systems sample policies. The untitled conversations in
+their sidebar are leftover test sessions from that pass. The two refusal-card
+screenshots were taken on 2026-09-26 on a local test copy with no real model
+or policies (web app from `5b35d3c` on `main`), so they show the current
+refusal wording. Provenance is in
 [releases/v0.2.0/evidence/](releases/v0.2.0/evidence/README.md).
 
 ## Sign in
@@ -79,15 +82,19 @@ Sourcebook won't guess. When the policies don't answer your question, you get
 a card instead of an answer, with one of two headings:
 
 - **No matching policy**: nothing indexed came close enough to answer from.
-  The card still shows the match meter for the closest text it found.
+  The card still shows the match meter for the closest text it found. There's
+  a picture of this card under [Ask Human Resources](#ask-human-resources).
 - **Not answered by any policy**: some policies mention related topics, but
-  none of them answers what you asked.
+  none of them answers what you asked. This card has no match meter.
 
 Neither one means the policy says no. It means the library doesn't cover the
 question. The card offers **Ask Human Resources** and **See what is indexed**,
 which opens the Policy Library.
 
-![A question with no matching policy](releases/v0.2.0/evidence/08-refusal.png)
+![The Not answered by any policy card with its two buttons](releases/v0.2.0/evidence/16-not-answered-by-any-policy.png)
+
+*Not answered by any policy: the heading, the line saying related policies
+don't answer the question, no match meter, and the two buttons.*
 
 ## Ask Human Resources
 
@@ -101,6 +108,13 @@ Then:
 
 1. In the **Send to Human Resources** box, optionally add a note, such as what
    your manager told you or why the answer didn't fit.
+
+   ![A No matching policy card with the Send to Human Resources box open](releases/v0.2.0/evidence/15-refusal-escalation-form.png)
+
+   *No matching policy, with its match meter, after selecting **Ask Human
+   Resources**. The box sits inside the card with a note typed, a **Send**
+   button, and **Cancel**.*
+
 2. Select **Send**. Human Resources gets your question and the answer you were
    shown. You don't need to retype them.
 3. The box is replaced by **Sent to Human Resources · ref** followed by a short
@@ -168,9 +182,10 @@ list first; select a request to open it and **All requests** to go back.
   **Refused** or marked **Unhelpful**, when it was sent, and its delivery
   status.
 - The selected request shows the question, **Assistant response**,
-  **Employee note**, **Reason**, **Confidence** (the match score the employee
-  saw), **Sources**, and **Delivery**. A resolved request also shows its
-  **Resolution**.
+  **Employee note**, **Reason**, **Confidence** (the match score for the policy
+  text Sourcebook found; the employee doesn't see it on a **Not answered by
+  any policy** card), **Sources**, and **Delivery**. A resolved request also
+  shows its **Resolution**.
 
 ### Resolve or reopen a request
 
@@ -198,7 +213,8 @@ where that stands:
 When a post failed, or a request was never posted, a **Retry delivery** or
 **Send to webhook** button appears. If the retry fails too, the page says
 "Delivery was retried and failed again." After too many failed attempts the
-button goes away and the page says the limit was reached.
+button goes away and the page says delivery failed after the most attempts the
+server allows.
 
 ### Empty lists and errors
 
