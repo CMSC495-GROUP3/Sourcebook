@@ -1040,7 +1040,7 @@ dependency locks, and the MongoDB deployment; Rob
 passage index.
 
 Per-person commits, reviews, and the issues that show the work are in
-[docs/team.md](docs/team.md). Each member checks their own row.
+[docs/team.md](docs/team.md).
 
 ## References
 
