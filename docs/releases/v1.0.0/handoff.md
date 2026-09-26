@@ -54,6 +54,7 @@ Pending until the freeze. So far:
 | Refusal card for vague questions | When related policies don't answer a question as asked, the card says to ask the full question again with the details it depends on, such as dates, location, or the kind of leave or expense. The coverage judge is unchanged | #281 |
 | Sign-in page and Lighthouse | The sign-in page has a main landmark and a meta description. `scripts/lighthouse/` runs Lighthouse on the three pages in both themes at phone and desktop widths ([#214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214)) | #280 |
 | Compression on the pilot | Nginx gzips responses that come through Caddy. Before, Caddy's `Via` header made Nginx skip gzip, so the pilot served its 674 KB JavaScript bundle uncompressed. The chat stream stays uncompressed and unbuffered | #282 |
+| Sample policies | The injury policy's incident-reporting window now matches the Workplace Health and Safety Policy: report no later than 24 hours after the incident, instead of by the end of the shift. The pilot was re-ingested on 2026-09-26, so the corpus version differs from the beta's | #284 |
 | Documentation | User guide ([#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206)) and team page ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)) pending; [portfolio page](portfolio.md) in this folder; pilot load-run page | Pending: #259, #231; #274, #278 |
 
 ## Verification status
@@ -64,7 +65,7 @@ Pending until the freeze. So far:
 | CodeQL, dependency audit, secret scan | Pending on the release merge commit | none yet |
 | Coverage, Python and web, for the tagged commit ([#210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210)) | Pending: copy from the candidate's `python-coverage-<sha>` and `web-coverage-<sha>` artifacts | [evidence/coverage.md](evidence/coverage.md) |
 | Answer quality, smoke tier | Pending | [live-evaluation.md](live-evaluation.md) |
-| Answer quality, full tier, first run against the live system ([#213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)) | Pending | [live-evaluation.md](live-evaluation.md) |
+| Answer quality, full tier, against the beta's run as the before ([#213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)) | Pending | [live-evaluation.md](live-evaluation.md) |
 | Real-service latency and error rate on the pilot | Pending | [live-benchmark.md](live-benchmark.md) |
 | Load run against the deployed pilot ([#212](https://github.com/CMSC495-GROUP3/Sourcebook/issues/212)) | Pending | [docs/load-testing-pilot.md](../../load-testing-pilot.md), Pending |
 | Lighthouse, both themes, phone and desktop ([#214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214)) | Pending: run `scripts/lighthouse` (#280) against the pilot on the candidate | [docs/quality.md](../../quality.md), Pending |

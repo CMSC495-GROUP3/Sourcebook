@@ -51,6 +51,9 @@ Pending until the freeze. So far:
 - **The pilot compresses its pages and scripts.** Nginx had skipped gzip for
   requests coming through Caddy, so the 674 KB JavaScript bundle loaded
   uncompressed. Chat answers still stream as before (PR #282).
+- **The sample policies agree on when to report a workplace incident:** no
+  later than 24 hours after it happens. The injury policy used to say by the
+  end of the shift, while the safety policy said 24 hours (PR #284).
 
 ## Getting access
 
