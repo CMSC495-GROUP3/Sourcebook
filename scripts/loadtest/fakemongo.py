@@ -98,9 +98,12 @@ def _apply_update(doc: dict, update: dict, inserted: bool) -> None:
 
 
 def _resolve(doc: dict, expr: Any) -> Any:
-    """A field path ("$refused"), {"$eq": [a, b]}, {"$cond": [if, then, else]}, or a literal."""
+    """A field path ("$refused"), {"$eq": [a, b]}, {"$cond": [if, then, else]},
+    {"$size": array}, or a literal."""
     if isinstance(expr, str) and expr.startswith("$"):
         return doc.get(expr[1:])
+    if isinstance(expr, dict) and "$size" in expr:
+        return len(_resolve(doc, expr["$size"]))
     if isinstance(expr, dict) and "$eq" in expr:
         left, right = expr["$eq"]
         return _resolve(doc, left) == _resolve(doc, right)
@@ -111,7 +114,7 @@ def _resolve(doc: dict, expr: Any) -> Any:
 
 
 def _group(rows: list[dict], spec: dict) -> list[dict]:
-    """$group with $sum and $first, the accumulators the coverage report uses."""
+    """$group with $sum, $first and $addToSet, the accumulators the coverage report uses."""
     groups: dict[Any, dict] = {}
     for row in rows:
         key = _resolve(row, spec["_id"])
@@ -129,6 +132,13 @@ def _group(rows: list[dict], spec: dict) -> list[dict]:
             elif op == "$first":
                 if is_new:
                     group[field] = _resolve(row, expr)
+            elif op == "$addToSet":
+                members = group.setdefault(field, [])
+                # A missing field adds nothing; a stored null is a member, as in Mongo.
+                missing = isinstance(expr, str) and expr.startswith("$") and expr[1:] not in row
+                value = _resolve(row, expr)
+                if not missing and value not in members:
+                    members.append(value)
             else:
                 raise NotImplementedError(f"FakeCollection $group does not implement {op}.")
     return list(groups.values())
@@ -246,7 +256,8 @@ class FakeCollection:
         return "index"
 
     def aggregate(self, pipeline, **kwargs):
-        """The $match / $group / $sort / $limit subset the coverage report runs.
+        """The $match / $group / $addFields / $project / $sort / $limit subset
+        the coverage report runs.
 
         Any other stage raises. $vectorSearch in particular is Atlas-only and
         cannot be emulated meaningfully.
@@ -265,6 +276,12 @@ class FakeCollection:
                         key=lambda r: (r.get(field) is not None, r.get(field)),
                         reverse=direction < 0,
                     )
+            elif op == "$addFields":
+                rows = [{**r, **{f: _resolve(r, e) for f, e in spec.items()}} for r in rows]
+            elif op == "$project":
+                if any(v != 0 for v in spec.values()):
+                    raise NotImplementedError("FakeCollection $project supports exclusion only.")
+                rows = [{k: v for k, v in r.items() if k not in spec} for r in rows]
             elif op == "$limit":
                 rows = rows[:spec]
             else:

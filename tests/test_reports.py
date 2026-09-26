@@ -1,5 +1,6 @@
 """The coverage report behind the What People Ask page."""
 
+import itertools
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -11,6 +12,8 @@ from sourcebook.api.routes import reports
 from sourcebook.api.routes.reports import MAX_WINDOW_DAYS
 
 URL = "/api/reports/gaps"
+# Each logged row is its own conversation unless a test passes session_id.
+_SESSIONS = itertools.count(1)
 
 
 @pytest.fixture(autouse=True)
@@ -28,6 +31,7 @@ def log(question: str, *, refused: bool, age: timedelta = timedelta(hours=1), **
             "question_condensed": question,
             "question_hash": question.lower(),
             "refused": refused,
+            "session_id": f"session-{next(_SESSIONS)}",
             **fields,
         }
     )
@@ -54,9 +58,9 @@ def test_refused_questions_rank_by_count(client, auth):
     body = client.get(URL, headers=auth).json()
 
     assert (body["total"], body["refused"]) == (5, 4)
-    assert [(g["question"], g["count"]) for g in body["gaps"]] == [
-        ("Can I bring my dog?", 3),
-        ("Is there a sabbatical?", 1),
+    assert [(g["question"], g["count"], g["conversations"]) for g in body["gaps"]] == [
+        ("Can I bring my dog?", 3, 3),
+        ("Is there a sabbatical?", 1, 1),
     ]
 
 
@@ -72,8 +76,54 @@ def test_faq_counts_repeats_and_their_refusals(client, auth):
             "question_hash": "how much pto do i get?",
             "question": "How much PTO do I get?",
             "count": 2,
+            "conversations": 2,
             "refused": 1,
         }
+    ]
+
+
+def test_one_conversation_repeating_itself_is_not_a_faq(client, auth):
+    """Three asks from one conversation say nothing about how many people
+    share the question; two conversations asking once each do."""
+    for _ in range(3):
+        log("Repeated by one person", refused=False, session_id="alone")
+    log("Asked by two people", refused=False)
+    log("Asked by two people", refused=False)
+
+    faq = client.get(URL, headers=auth).json()["faq"]
+
+    assert [(g["question"], g["count"], g["conversations"]) for g in faq] == [
+        ("Asked by two people", 2, 2),
+    ]
+
+
+def test_faq_ranks_on_conversations_before_asks(client, auth):
+    for _ in range(5):
+        log("Many asks, few people", refused=False, session_id="one")
+    log("Many asks, few people", refused=False, session_id="two")
+    for _ in range(3):
+        log("Fewer asks, more people", refused=False)
+
+    faq = client.get(URL, headers=auth).json()["faq"]
+
+    assert [(g["question"], g["count"], g["conversations"]) for g in faq] == [
+        ("Fewer asks, more people", 3, 3),
+        ("Many asks, few people", 6, 2),
+    ]
+
+
+def test_gaps_rank_on_asks_and_count_conversations(client, auth):
+    """Every refusal is a gap, even one person's, so the gaps list keeps asks."""
+    for _ in range(4):
+        log("One person, four tries", refused=True, session_id="stuck")
+    log("Two people", refused=True)
+    log("Two people", refused=True)
+
+    gaps = client.get(URL, headers=auth).json()["gaps"]
+
+    assert [(g["question"], g["count"], g["conversations"]) for g in gaps] == [
+        ("One person, four tries", 4, 1),
+        ("Two people", 2, 2),
     ]
 
 

@@ -39,9 +39,10 @@ function plural(count: number, word: string): string {
   return `${count.toLocaleString()} ${word}${count === 1 ? '' : 's'}`
 }
 
-/** "Asked once", "Asked 9 times". */
-function timesAsked(count: number): string {
-  return count === 1 ? 'Asked once' : `Asked ${count.toLocaleString()} times`
+/** "Asked once in 1 conversation", "Asked 12 times in 7 conversations". */
+function timesAsked(group: QuestionGroup): string {
+  const times = group.count === 1 ? 'Asked once' : `Asked ${group.count.toLocaleString()} times`
+  return `${times} in ${plural(group.conversations, 'conversation')}`
 }
 
 function QuestionText({ group }: { group: QuestionGroup }) {
@@ -49,12 +50,15 @@ function QuestionText({ group }: { group: QuestionGroup }) {
   return <span className="text-ink-3 italic">No question text was logged</span>
 }
 
-/** A bar as wide as `count` is against the list's largest, split at `refused`. */
-function Bar({ count, max, refused }: { count: number; max: number; refused: number }) {
+/**
+ * A bar as long as `size` is against the list's largest, so its length follows
+ * the ranking. The green and ochre split is over asks: `refused` of `count`.
+ */
+function Bar({ size, max, count, refused }: { size: number; max: number; count: number; refused: number }) {
   const answered = count - refused
   return (
     <span aria-hidden="true" className="mt-2 flex h-1 overflow-hidden rounded-full bg-rule/60">
-      <span className="flex h-full" style={{ width: `${(count / max) * 100}%` }}>
+      <span className="flex h-full" style={{ width: `${(size / max) * 100}%` }}>
         {answered > 0 && <span className="h-full bg-accent" style={{ flexGrow: answered }} />}
         {refused > 0 && <span className="h-full bg-ochre" style={{ flexGrow: refused }} />}
       </span>
@@ -64,28 +68,30 @@ function Bar({ count, max, refused }: { count: number; max: number; refused: num
 
 interface Row {
   group: QuestionGroup
+  /** What the list ranks on, and so what sets the bar's length. */
+  size: number
   refused: number
   meta: string
 }
 
 function RankedList({ rows, label }: { rows: Row[]; label: string }) {
-  const max = Math.max(...rows.map((row) => row.group.count))
+  const max = Math.max(...rows.map((row) => row.size))
   return (
     <ol aria-label={label} className="mt-5 flex flex-col">
-      {rows.map(({ group, refused, meta }, index) => (
+      {rows.map(({ group, size, refused, meta }, index) => (
         <li
           key={group.question_hash}
           className="grid grid-cols-[2rem_minmax(0,1fr)] border-t border-rule py-3.5 first:border-t-0 sm:grid-cols-[2.5rem_minmax(0,1fr)]"
         >
           <span className="tnum pt-px font-display text-[15px] text-ink-3">{index + 1}</span>
           <div>
-            <div className="flex items-baseline justify-between gap-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
               <p className="text-[15px] leading-snug text-ink">
                 <QuestionText group={group} />
               </p>
-              <span className="tnum shrink-0 text-[12.5px] text-ink-2">{meta}</span>
+              <span className="tnum text-[12.5px] text-ink-2 sm:shrink-0">{meta}</span>
             </div>
-            <Bar count={group.count} max={max} refused={refused} />
+            <Bar size={size} max={max} count={group.count} refused={refused} />
           </div>
         </li>
       ))}
@@ -208,24 +214,26 @@ export default function CoverageGapsPage() {
         <div className="pt-10">
           <Section
             title="Not answered yet"
-            caption="Questions no policy answered, most asked first. Each one points to a policy to write or make clearer."
+            caption="Questions no policy answered, most asked first. Each one points to a policy to write or make clearer. Rows group by exact wording, so a rephrased question gets its own row."
             empty="Every question in this window had a policy to answer it."
             rows={report.gaps.map((group) => ({
               group,
+              size: group.count,
               refused: group.count,
-              meta: timesAsked(group.count),
+              meta: timesAsked(group),
             }))}
           />
           <Section
             title="Asked most"
-            caption="Questions asked at least twice. The ochre end of each bar is the share no policy answered."
-            empty="No question was asked more than once in this window."
+            caption="Questions asked in at least two conversations, most conversations first. Rows group by exact wording, so a rephrased question gets its own row. The ochre end of each bar is the share no policy answered."
+            empty="No question came up in more than one conversation in this window."
             rows={report.faq.map((group) => ({
               group,
+              size: group.conversations,
               refused: group.refused,
               meta: group.refused
-                ? `${timesAsked(group.count)} · ${group.refused.toLocaleString()} not answered`
-                : timesAsked(group.count),
+                ? `${timesAsked(group)} · ${group.refused.toLocaleString()} not answered`
+                : timesAsked(group),
             }))}
           />
         </div>

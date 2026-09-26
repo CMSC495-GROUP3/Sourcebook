@@ -322,17 +322,30 @@ sources, cache hit, latency). How that log is used is in the README section
 
 `GET /api/reports/gaps` ranks that log for the What People Ask page. `days`
 (1–90, default 30) sets the window back from now; `top` (1–100, default 20)
-caps each list. `gaps` holds refused questions grouped by `question_hash`,
-most frequent first. `faq` holds questions asked at least twice, with how many
-of those asks were refused. `question` is the logged condensed question, or
-the truncated raw one, or `null` when neither was logged. No session ids are
-returned, but the question text comes from what the employee typed (the
-condensed rewrite when there is one), and any signed-in user can call this
-route: sign-in has no roles. `GET /api/conversations` already lists every
-conversation to every user, so this route adds ranking and counts, not new
-access. Each query stops after five seconds; a report that runs longer returns
-HTTP 503 with `{"detail": "This report took too long. Try a shorter window."}`. A window longer than the log's
-TTL is shortened to it, and `days` in the response is the one used.
+caps each list. A window longer than the log's TTL is shortened to it, and
+`days` in the response is the one used.
+
+- `gaps`: refused questions, most asks first. Every refusal is a gap, even one
+  person's, so this list ranks on asks.
+- `faq`: questions asked in at least two conversations, most conversations
+  first, with how many of the asks were refused.
+
+Each row carries `count` (every ask, including one person asking again) and
+`conversations` (distinct `session_id` values). A conversation is not a
+person, but it is the closest the log gets. Rows group by `question_hash`, the
+exact wording after lowercasing and folding whitespace, so a rephrased
+question is its own row; grouping by meaning is
+[#287](https://github.com/CMSC495-GROUP3/Sourcebook/issues/287).
+
+`question` is the logged condensed question, or the truncated raw one, or
+`null` when neither was logged. No session ids are returned, but the question
+text comes from what the employee typed (the condensed rewrite when there is
+one), and any signed-in user can call this route: sign-in has no roles.
+`GET /api/conversations` already lists every conversation to every user, so
+this route adds ranking and counts, not new access.
+
+Each query stops after five seconds. A report that runs longer returns HTTP
+503 with `{"detail": "This report took too long. Try a shorter window."}`.
 
 ```http
 GET /api/reports/gaps?days=30
@@ -347,10 +360,10 @@ Authorization: Bearer <token>
   "total": 412,
   "refused": 37,
   "gaps": [
-    {"question_hash": "5c1e…", "question": "Does the company pay for pet insurance?", "count": 6}
+    {"question_hash": "5c1e…", "question": "Does the company pay for pet insurance?", "count": 6, "conversations": 4}
   ],
   "faq": [
-    {"question_hash": "a07b…", "question": "How much PTO do I get?", "count": 19, "refused": 0}
+    {"question_hash": "a07b…", "question": "How much PTO do I get?", "count": 19, "conversations": 12, "refused": 0}
   ]
 }
 ```

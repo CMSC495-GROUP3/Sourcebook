@@ -65,6 +65,7 @@ def _group(row: dict[str, Any]) -> dict[str, Any]:
         "question_hash": row.get("_id"),
         "question": _question(row),
         "count": int(row.get("count") or 0),
+        "conversations": int(row.get("session_count") or 0),
     }
 
 

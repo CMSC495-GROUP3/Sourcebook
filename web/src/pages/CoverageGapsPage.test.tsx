@@ -15,10 +15,12 @@ function report(overrides: Partial<CoverageReport> = {}): CoverageReport {
     total: 412,
     refused: 37,
     gaps: [
-      { question_hash: 'pet', question: 'Does the company pay for pet insurance?', count: 6 },
-      { question_hash: 'blank', question: null, count: 1 },
+      { question_hash: 'pet', question: 'Does the company pay for pet insurance?', count: 6, conversations: 4 },
+      { question_hash: 'blank', question: null, count: 1, conversations: 1 },
     ],
-    faq: [{ question_hash: 'pto', question: 'How much PTO do I get?', count: 19, refused: 2 }],
+    faq: [
+      { question_hash: 'pto', question: 'How much PTO do I get?', count: 19, conversations: 12, refused: 2 },
+    ],
     ...overrides,
   }
 }
@@ -63,12 +65,12 @@ describe('CoverageGapsPage', () => {
     const gapRows = within(gaps).getAllByRole('listitem')
     expect(gapRows).toHaveLength(2)
     expect(gapRows[0]).toHaveTextContent('Does the company pay for pet insurance?')
-    expect(gapRows[0]).toHaveTextContent('Asked 6 times')
+    expect(gapRows[0]).toHaveTextContent('Asked 6 times in 4 conversations')
     expect(gapRows[1]).toHaveTextContent('No question text was logged')
-    expect(gapRows[1]).toHaveTextContent('Asked once')
+    expect(gapRows[1]).toHaveTextContent('Asked once in 1 conversation')
 
     const faq = screen.getByRole('list', { name: 'Asked most' })
-    expect(faq).toHaveTextContent('Asked 19 times · 2 not answered')
+    expect(faq).toHaveTextContent('Asked 19 times in 12 conversations · 2 not answered')
   })
 
   it('asks for 30 days by default and switches window through the URL', async () => {
@@ -109,7 +111,7 @@ describe('CoverageGapsPage', () => {
 
     expect(await screen.findByText('No questions were asked in the last 30 days.')).toBeInTheDocument()
     expect(screen.getByText('Every question in this window had a policy to answer it.')).toBeInTheDocument()
-    expect(screen.getByText('No question was asked more than once in this window.')).toBeInTheDocument()
+    expect(screen.getByText('No question came up in more than one conversation in this window.')).toBeInTheDocument()
   })
 
   it('offers a retry after a failed load', async () => {

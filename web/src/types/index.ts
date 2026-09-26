@@ -98,7 +98,10 @@ export interface QuestionGroup {
   question_hash: string
   /** The logged question, or null when none was stored. */
   question: string | null
+  /** Every ask, including one person asking again. */
   count: number
+  /** Distinct conversations it was asked in; the closest the log gets to people. */
+  conversations: number
 }
 
 export interface CoverageReport {

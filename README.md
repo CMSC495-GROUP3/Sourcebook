@@ -459,8 +459,9 @@ That log is how the system improves from evidence rather than intuition.
 - Refusals grouped by question hash are a ranked list of the documents HR
   should write next. This is the closest thing here to learning: the corpus
   gets better because the logs showed where it was thin.
-- Repeated questions rank into an FAQ, which says which answers are worth
-  curating by hand.
+- Questions asked in more than one conversation rank into an FAQ, which says
+  which answers are worth curating by hand. Rows group by exact wording, so a
+  rephrased question counts separately (grouping by meaning is #287).
 - The score distribution of answered versus refused questions is the only
   sound basis for tuning `SIMILARITY_THRESHOLD`, and there is no other way to
   collect it.
