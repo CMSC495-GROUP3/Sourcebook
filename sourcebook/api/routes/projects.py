@@ -5,9 +5,11 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
+from pymongo.client_session import ClientSession
 
 from sourcebook.api.db import conversations_col, projects_col
 from sourcebook.api.routes.deps import require_auth
+from sourcebook.rag.mongo import run_transaction
 
 router = APIRouter()
 
@@ -35,7 +37,10 @@ class CreateProjectRequest(BaseModel):
 
 @router.get("/projects", dependencies=[Depends(require_auth)])
 def list_projects():
-    docs = projects_col.find({}, {"_id": 0}).sort("created_at", 1)
+    docs = projects_col.find(
+        {},
+        {"_id": 0, "_assignment_guard": 0},
+    ).sort("created_at", 1)
     return list(docs)
 
 
@@ -53,33 +58,38 @@ def create_project(body: CreateProjectRequest):
 
 @router.delete("/projects/{project_id}", dependencies=[Depends(require_auth)])
 def delete_project(project_id: str):
-    """Delete a project after releasing its conversations.
+    """Delete a project and release its conversations.
 
-    Order is confirm-exists → unassign conversations → delete project so a
-    missing id is a side-effect-free 404 for unknown projects.
-
-    Pilot limitation (no multi-document transaction): these three steps are not
-    atomic. Known TOCTOU windows under concurrent writers:
-
-    - delete+unassign vs assign: another request may pass `_require_project` and
-      insert/update a conversation onto this project_id after find_one succeeds
-      and before (or after) update_many, leaving an assignment to a project that
-      is about to be (or already was) deleted.
-    - concurrent deletes: a second deleter may return 404 after conversations
-      were already released (idempotent for assignments).
-
-    Stub/fakemongo and the shared `MongoClient` in `rag/mongo.py` do not expose
-    Atlas transactions; this pilot does not claim strict referential integrity
-    under concurrency. See #142.
+    On a transaction-capable backend, project deletion and conversation
+    unassignment commit atomically. FakeMongo keeps the existing sequential
+    behavior and does not claim transactional referential integrity.
     """
-    if projects_col.find_one({"project_id": project_id}) is None:
-        raise HTTPException(status_code=404, detail="Project not found.")
 
-    conversations_col.update_many(
-        {"project_id": project_id},
-        {"$set": {"project_id": None}},
-    )
-    result = projects_col.delete_one({"project_id": project_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Project not found.")
-    return {"ok": True}
+    def delete_and_unassign(session: ClientSession | None) -> dict:
+        if session is None:
+            if projects_col.find_one({"project_id": project_id}) is None:
+                raise HTTPException(status_code=404, detail="Project not found.")
+
+            conversations_col.update_many(
+                {"project_id": project_id},
+                {"$set": {"project_id": None}},
+            )
+            result = projects_col.delete_one({"project_id": project_id})
+        else:
+            result = projects_col.delete_one(
+                {"project_id": project_id},
+                session=session,
+            )
+
+            conversations_col.update_many(
+                {"project_id": project_id},
+                {"$set": {"project_id": None}},
+                session=session,
+            )
+
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Project not found.")
+
+        return {"ok": True}
+
+    return run_transaction(delete_and_unassign)
