@@ -15,7 +15,7 @@ Lighthouse with storage reset off so they survive.
 
 ## Running it
 
-It needs Node 22 and a Chrome or Chromium binary.
+It needs Node 22.19 or later and a Chrome or Chromium binary.
 
 ```bash
 cd scripts/lighthouse
