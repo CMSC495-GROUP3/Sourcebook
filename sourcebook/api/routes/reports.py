@@ -8,8 +8,8 @@ cover without a shell:
 
 - ``gaps``: refused questions grouped by ``question_hash``, most frequent
   first. Each is a candidate for a new or clearer policy.
-- ``faq``: questions asked at least twice, answered or not, with how many of
-  those asks were refused.
+- ``faq``: questions asked in at least two conversations, answered or not,
+  most conversations first, with how many of those asks were refused.
 
 The window counts back ``days`` from now, at most 90. ``query_logs`` rows
 expire after ``QUERY_LOG_TTL_SECONDS``, so a window longer than the TTL is
