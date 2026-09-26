@@ -461,16 +461,21 @@ That log is how the system improves from evidence rather than intuition.
   should write next. This is the closest thing here to learning: the corpus
   gets better because the logs showed where it was thin.
 - Questions asked in more than one conversation rank into an FAQ, which says
-  which answers are worth curating by hand. Rows group by exact wording, so a
-  rephrased question counts separately (grouping by meaning is #287).
+  which answers are worth curating by hand.
 - The score distribution of answered versus refused questions is the only
   sound basis for tuning `SIMILARITY_THRESHOLD`, and there is no other way to
   collect it.
 
 The first two lists are on the What People Ask page in the web app, over the last
-7, 30, or 90 days. For the score histograms or an exact window, run the
-read-only report on the EC2 host. The
-cluster's IP access list admits that host, so anywhere else waits out
+7, 30, or 90 days. The page groups questions by meaning, not exact wording: two
+wordings whose embeddings are within `QUESTION_GROUP_THRESHOLD` cosine (default
+0.85, set by judgement until measured, #287) share a row, so five people asking
+one thing five ways show as one question asked in five conversations. The
+terminal report below still groups by exact wording, so there a rephrased
+question counts separately.
+
+For the score histograms or an exact window, run the read-only report on the
+EC2 host. The cluster's IP access list admits that host, so anywhere else waits out
 `--timeout` (default 10 s) and then fails in a way that looks like a config
 typo.
 

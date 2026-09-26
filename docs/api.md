@@ -332,10 +332,8 @@ caps each list. A window longer than the log's TTL is shortened to it, and
 
 Each row carries `count` (every ask, including one person asking again) and
 `conversations` (distinct `session_id` values). A conversation is not a
-person, but it is the closest the log gets. Rows group by `question_hash`, the
-exact wording after lowercasing and folding whitespace, so a rephrased
-question is its own row; grouping by meaning is
-[#287](https://github.com/CMSC495-GROUP3/Sourcebook/issues/287).
+person, but it is the closest the log gets. Rephrasings of one question share
+a row; see [Grouping by meaning](#grouping-by-meaning) below.
 
 `question` is the logged condensed question, or the truncated raw one, or
 `null` when neither was logged. No session ids are returned, but the question
@@ -347,6 +345,28 @@ this route adds ranking and counts, not new access.
 Each query stops after five seconds. A report that runs longer returns HTTP
 503 with `{"detail": "This report took too long. Try a shorter window."}`.
 
+### Grouping by meaning
+
+Both lists group wordings of one question into one row (#287). The log's
+`question_hash` groups identical text. The route then merges hash groups whose
+question embeddings are within `QUESTION_GROUP_THRESHOLD` cosine, default 0.85.
+Each wording joins the most asked group it is close to, compared with that
+group's first wording only, so a chain of near neighbours cannot drift into one
+row. `question` is the most asked wording. `count`, `refused`, and
+`conversations` cover every wording in the row, and a conversation that used
+two wordings counts once. `other_wordings` lists up to five more, most asked
+first, and `other_wording_count` says how many there are in all.
+
+Only the 200 most asked hash groups per list are grouped. Their vectors come
+from `embedding_cache`, where retrieval stored them, and any that are missing
+are embedded in one provider call and not stored, so the route writes nothing.
+If that call fails, `grouping` is `"exact"` and every wording has its own row.
+
+The threshold is a judgement call. Merging two different questions ("How does
+PTO accrue?" and "Does unused PTO carry over?") hides a gap behind a covered
+neighbour, which is worse than splitting one question into two rows, so it
+starts high.
+
 ```http
 GET /api/reports/gaps?days=30
 Authorization: Bearer <token>
@@ -357,13 +377,29 @@ Authorization: Bearer <token>
   "since": "2026-08-27T14:00:00+00:00",
   "until": "2026-09-26T14:00:00+00:00",
   "days": 30,
+  "grouping": "meaning",
   "total": 412,
   "refused": 37,
   "gaps": [
-    {"question_hash": "5c1e…", "question": "Does the company pay for pet insurance?", "count": 6, "conversations": 4}
+    {
+      "question_hash": "5c1e…",
+      "question": "Does the company pay for pet insurance?",
+      "count": 6,
+      "conversations": 5,
+      "other_wordings": [{"question": "Is pet insurance a benefit?", "count": 2}],
+      "other_wording_count": 1
+    }
   ],
   "faq": [
-    {"question_hash": "a07b…", "question": "How much PTO do I get?", "count": 19, "conversations": 12, "refused": 0}
+    {
+      "question_hash": "a07b…",
+      "question": "How much PTO do I get?",
+      "count": 19,
+      "conversations": 16,
+      "other_wordings": [{"question": "How many vacation days do I have?", "count": 4}],
+      "other_wording_count": 1,
+      "refused": 0
+    }
   ]
 }
 ```

@@ -188,6 +188,13 @@ COVERAGE_PROMPT_VERSION = os.getenv("COVERAGE_PROMPT_VERSION", "v2")
 # so the TTL is mandatory rather than tidy-up.
 QUERY_LOG_TTL_SECONDS = int(os.getenv("QUERY_LOG_TTL_SECONDS", str(90 * 86400)))
 
+# Cosine similarity (raw, -1 to 1, not Atlas's mapped score) at which the
+# report page treats two wordings as one question. Merging two different
+# questions hides a gap behind a covered neighbour, which is worse than showing
+# one question twice, so this starts high. Set by judgement until measured on
+# labelled pairs (issue #287).
+QUESTION_GROUP_THRESHOLD = float(os.getenv("QUESTION_GROUP_THRESHOLD", "0.85"))
+
 # ── Conversation limits ───────────────────────────────────────────────────────
 # Turns of history replayed to the model, and turns used to rewrite a follow-up
 # into a standalone retrieval query.

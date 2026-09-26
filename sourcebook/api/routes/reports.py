@@ -2,14 +2,27 @@
 
 Every chat request writes a ``query_logs`` row (see ``sourcebook.api.analytics``).
 ``sourcebook.rag.query_log_reports`` already ranks those rows for an operator at
-a terminal on the EC2 host. This route runs the same two ranking pipelines for
-the web app, so Human Resources can see which questions the corpus does not
-cover without a shell:
+a terminal on the EC2 host. This route ranks them for the web app, so Human
+Resources can see which questions the corpus does not cover without a shell:
 
-- ``gaps``: refused questions grouped by ``question_hash``, most frequent
-  first. Each is a candidate for a new or clearer policy.
+- ``gaps``: refused questions, most asked first. Each is a candidate for a new
+  or clearer policy.
 - ``faq``: questions asked in at least two conversations, answered or not,
   most conversations first, with how many of those asks were refused.
+
+Both lists group by meaning, not exact wording (issue #287). The log's
+``question_hash`` groups identical text; ``sourcebook.rag.question_groups``
+then merges hash groups whose question embeddings are within
+``QUESTION_GROUP_THRESHOLD`` cosine. Most vectors are already in
+``embedding_cache``, because retrieval embedded the same condensed text. The
+rest are embedded in one ``embed_many`` call and not stored, so this route
+never writes. If that call fails, the lists fall back to exact wording and
+``grouping`` in the response says ``"exact"``: a busy provider must not take
+the report down.
+
+Only the ``CANDIDATE_LIMIT`` most asked hash groups per list are grouped. A
+wording outside that cap cannot join a group, which at pilot volume is every
+wording there is.
 
 The window counts back ``days`` from now, at most 90. ``query_logs`` rows
 expire after ``QUERY_LOG_TTL_SECONDS``, so a window longer than the TTL is
@@ -17,10 +30,11 @@ shortened to it and the response's ``days`` says what was used. The bound on
 the parameter stays fixed, so a short TTL cannot turn every request into a 422.
 
 Question text is the logged ``question_condensed`` (the standalone rewrite that
-the hash groups on), falling back to the truncated ``question_raw``. Nothing
-here writes, and no session id leaves the server.
+the hash groups on), falling back to the truncated ``question_raw``. No
+session id leaves the server; sessions are only counted.
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -30,14 +44,23 @@ from pymongo.errors import ExecutionTimeout
 from sourcebook.api.db import query_logs_col
 from sourcebook.api.limiter import limiter
 from sourcebook.api.routes.deps import require_auth
-from sourcebook.rag.config import QUERY_LOG_TTL_SECONDS
+from sourcebook.rag.cache import get_cached_embeddings
+from sourcebook.rag.config import QUERY_LOG_TTL_SECONDS, QUESTION_GROUP_THRESHOLD
+from sourcebook.rag.llm import get_provider
 from sourcebook.rag.query_log_reports import (
     DEFAULT_MIN_REPEAT,
     DEFAULT_TOP,
     MAX_TOP,
-    content_gap_pipeline,
-    faq_pipeline,
+    wording_pipeline,
 )
+from sourcebook.rag.question_groups import (
+    QuestionGroup,
+    Wording,
+    exact_groups,
+    group_by_meaning,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -49,6 +72,11 @@ TTL_DAYS = max(1, QUERY_LOG_TTL_SECONDS // 86400)
 # Per query. At the volume the TTL comment in config.py plans for, a 90-day
 # $group is not free, and any signed-in user can ask for one 30 times a minute.
 QUERY_TIMEOUT_MS = 5000
+# Hash groups per list that go into grouping. Two lists of 200 is at most 400
+# texts in one embed_many call and about 0.7 s of similarity math.
+CANDIDATE_LIMIT = 200
+# Other wordings listed under each group's leader.
+MAX_OTHER_WORDINGS = 5
 
 
 def _question(row: dict[str, Any]) -> str | None:
@@ -60,13 +88,54 @@ def _question(row: dict[str, Any]) -> str | None:
     return None
 
 
-def _group(row: dict[str, Any]) -> dict[str, Any]:
+def _wording(row: dict[str, Any]) -> Wording:
+    return Wording(
+        question_hash=row.get("_id"),
+        question=_question(row),
+        count=int(row.get("count") or 0),
+        refused=int(row.get("refused_count") or 0),
+        sessions=frozenset(row.get("sessions") or ()),
+    )
+
+
+def _vectors(texts: list[str]) -> dict[str, list[float]] | None:
+    """A vector for every text, cached where possible, or None on any failure."""
+    try:
+        cached = get_cached_embeddings(texts)
+        missing = [text for text in texts if text not in cached]
+        fresh = get_provider().embed_many(missing) if missing else []
+        return {**cached, **dict(zip(missing, fresh, strict=True))}
+    except Exception:
+        # Deliberately broad: the provider raises its own busy error, OpenAI's
+        # API errors, and httpx transport errors. Any of them means "show exact
+        # wording", never a failed report.
+        logger.warning("Question grouping fell back to exact wording.", exc_info=True)
+        return None
+
+
+def _serialize(group: QuestionGroup) -> dict[str, Any]:
+    others = group.members[1:]
     return {
-        "question_hash": row.get("_id"),
-        "question": _question(row),
-        "count": int(row.get("count") or 0),
-        "conversations": int(row.get("session_count") or 0),
+        "question_hash": group.leader.question_hash,
+        "question": group.leader.question,
+        "count": group.count,
+        "conversations": group.conversations,
+        "other_wordings": [
+            {"question": member.question, "count": member.count}
+            for member in others[:MAX_OTHER_WORDINGS]
+        ],
+        "other_wording_count": len(others),
     }
+
+
+def _by_count(groups: list[QuestionGroup]) -> list[QuestionGroup]:
+    """Gaps rank on asks: every refusal is a gap, even one person's repeats."""
+    return sorted(groups, key=lambda g: (-g.count, g.leader.question_hash or ""))
+
+
+def _by_conversations(groups: list[QuestionGroup]) -> list[QuestionGroup]:
+    """Asked most ranks on conversations, the query log report's FAQ order."""
+    return sorted(groups, key=lambda g: (-g.conversations, -g.count, g.leader.question_hash or ""))
 
 
 @router.get("/reports/gaps", dependencies=[Depends(require_auth)])
@@ -76,7 +145,7 @@ def coverage_gaps(
     days: int = Query(DEFAULT_WINDOW_DAYS, ge=1, le=MAX_WINDOW_DAYS),
     top: int = Query(DEFAULT_TOP, ge=1, le=MAX_TOP),
 ):
-    """Refused and repeated questions over the last ``days`` days."""
+    """Refused and repeated questions over the last ``days`` days, grouped by meaning."""
     days = min(days, TTL_DAYS)
     until = datetime.now(UTC)
     since = until - timedelta(days=days)
@@ -86,9 +155,15 @@ def coverage_gaps(
     try:
         # Listed here, not lazily in the response, so a timeout while the
         # cursor is read is caught below too.
-        gaps = list(query_logs_col.aggregate(content_gap_pipeline(since, until, top), **limit))
-        faq = list(
-            query_logs_col.aggregate(faq_pipeline(since, until, top, DEFAULT_MIN_REPEAT), **limit)
+        refused_rows = list(
+            query_logs_col.aggregate(
+                wording_pipeline(since, until, CANDIDATE_LIMIT, refused_only=True), **limit
+            )
+        )
+        all_rows = list(
+            query_logs_col.aggregate(
+                wording_pipeline(since, until, CANDIDATE_LIMIT, refused_only=False), **limit
+            )
         )
         total = query_logs_col.count_documents(window, **limit)
         refused = query_logs_col.count_documents({**window, "refused": True}, **limit)
@@ -97,12 +172,28 @@ def coverage_gaps(
             status_code=503,
             detail="This report took too long. Try a shorter window.",
         ) from None
+
+    refused_wordings = [_wording(row) for row in refused_rows]
+    all_wordings = [_wording(row) for row in all_rows]
+    texts = sorted({w.question for w in refused_wordings + all_wordings if w.question})
+    vectors = _vectors(texts)
+    if vectors is None:
+        gap_groups, faq_groups = exact_groups(refused_wordings), exact_groups(all_wordings)
+    else:
+        gap_groups = group_by_meaning(refused_wordings, vectors, QUESTION_GROUP_THRESHOLD)
+        faq_groups = group_by_meaning(all_wordings, vectors, QUESTION_GROUP_THRESHOLD)
+
+    repeated = [group for group in faq_groups if group.conversations >= DEFAULT_MIN_REPEAT]
     return {
         "since": since.isoformat(),
         "until": until.isoformat(),
         "days": days,
+        "grouping": "exact" if vectors is None else "meaning",
         "total": total,
         "refused": refused,
-        "gaps": [_group(row) for row in gaps],
-        "faq": [{**_group(row), "refused": int(row.get("refused_count") or 0)} for row in faq],
+        "gaps": [_serialize(group) for group in _by_count(gap_groups)[:top]],
+        "faq": [
+            {**_serialize(group), "refused": group.refused}
+            for group in _by_conversations(repeated)[:top]
+        ],
     }
