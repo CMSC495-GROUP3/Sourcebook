@@ -282,11 +282,12 @@ carry a `history` list and measure this rule from both sides.
 Atlas maps cosine similarity into [0, 1] as (1 + cosine) / 2, so 0.5 means
 unrelated and 1.0 means identical. The default threshold is 0.62.
 
-That number was set by judgement and has been measured once, on the sample
-corpus: the lowest answerable question in the smoke tier scores 70 and the
-uncovered ones score 62 to 73, so no threshold separates them (#192). Against a
-real corpus, log the top score for a set of known-answerable and
-known-unanswerable questions, then set the threshold between the two clusters.
+That number was set by judgement. On the sample corpus the beta's full
+evaluation tier (59 cases) shows that no threshold separates the two groups: the
+lowest answerable question scores 70 and the uncovered ones score 56 to 79
+(#192). Against a real corpus, log the top score for a set of known-answerable
+and known-unanswerable questions, then set the threshold between the two
+clusters.
 Too high refuses legitimate questions. Too low means the refusal never fires.
 The [query log](#learning-from-the-query-log) is where those scores come from.
 
@@ -886,8 +887,10 @@ mid-stream. That last case found a real bug while the suite was being written.
 A two-word fragment from an abandoned stream was being cached as the answer for
 everyone who asked the same question next.
 
-Not covered: live calls to AWS, Atlas, or OpenAI, and the React components,
-which `tsc` and ESLint check but no test exercises.
+Not covered: live calls to AWS, Atlas, or OpenAI. On the web side, Vitest
+covers the chat stream, messages, escalation, the theme, and the Document
+Library and HR Requests pages; the rest of the React components are checked
+only by `tsc` and ESLint (see [Known limitations](#known-limitations)).
 
 `make acceptance` needs Docker Compose 2.24 or later because
 `docker-compose.acceptance.yml` uses `!reset`. Older Compose fails to parse
@@ -988,12 +991,14 @@ The product name lives in three places: `APP_NAME` in
   corpus it does not separate covered questions from uncovered ones on nearby
   topics, so the coverage judge behind it does that work (#192). The judge is a
   model call: it adds latency and cost to every grounded turn, and it was
-  measured on the 20-case smoke tier, not a real corpus. See
+  measured on the fictional sample corpus only: the 20-case smoke tier and one
+  59-case full-tier run on the beta, which refused no answerable question. See
   [above](#hallucination-refuse-rather-than-guess).
 - **Frontend unit coverage is intentionally focused.** Vitest and React Testing
   Library cover the chat stream, message and escalation behavior, theme toggle,
-  and theme storage. `tsc`, ESLint, and the production build cover the wider web
-  application, but visual regression and full browser tests remain future work.
+  theme storage, and the Document Library and HR Requests pages. `tsc`, ESLint,
+  and the production build cover the wider web application, but visual
+  regression and full browser tests remain future work.
 - **Document search uses `$regex`**, which does not use an index. Fine at this
   corpus size. Move to Atlas Search if the library grows large.
 - **JWTs live in browser local storage.** Acceptable for an internal pilot
