@@ -30,7 +30,7 @@ interface ReportState {
 
 function readDays(value: string | null): number {
   const days = Number(value)
-  return WINDOWS.some((window) => window.days === days) ? days : DEFAULT_DAYS
+  return WINDOWS.some((option) => option.days === days) ? days : DEFAULT_DAYS
 }
 
 function plural(count: number, word: string): string {
@@ -174,7 +174,10 @@ export default function CoverageGapsPage() {
         <p role="alert" className="text-[14px] text-brick">Unable to load the coverage report.</p>
         <button
           type="button"
-          onClick={() => setReloadKey((key) => key + 1)}
+          onClick={() => {
+            setFailedDays(null)
+            setReloadKey((key) => key + 1)
+          }}
           className="mt-2 cursor-pointer text-[13px] font-medium text-accent hover:underline"
         >
           Try again
@@ -222,19 +225,19 @@ export default function CoverageGapsPage() {
           Coverage Gaps
         </h1>
         <div className="flex gap-1.5" role="group" aria-label="Time window">
-          {WINDOWS.map((window) => (
+          {WINDOWS.map((option) => (
             <button
-              key={window.days}
+              key={option.days}
               type="button"
-              onClick={() => changeWindow(window.days)}
-              aria-pressed={window.days === days}
+              onClick={() => changeWindow(option.days)}
+              aria-pressed={option.days === days}
               className={`h-7 cursor-pointer rounded-full border px-3 text-[12.5px] transition-colors ${
-                window.days === days
+                option.days === days
                   ? 'border-accent bg-accent text-paper'
                   : 'border-rule bg-paper-3 text-ink-2 hover:border-ink-3 hover:text-ink'
               }`}
             >
-              {window.label}
+              {option.label}
             </button>
           ))}
         </div>

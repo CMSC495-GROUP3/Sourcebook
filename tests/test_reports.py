@@ -6,9 +6,16 @@ import pytest
 from conftest import FAKE_DB, make_passages
 
 from scripts.loadtest.fakemongo import FakeCollection
+from sourcebook.api.routes import reports
 from sourcebook.api.routes.reports import MAX_WINDOW_DAYS
 
 URL = "/api/reports/gaps"
+
+
+@pytest.fixture(autouse=True)
+def full_ttl(monkeypatch):
+    """Tests below assume the default 90-day log TTL, whatever the environment sets."""
+    monkeypatch.setattr(reports, "TTL_DAYS", MAX_WINDOW_DAYS)
 
 
 def log(question: str, *, refused: bool, age: timedelta = timedelta(hours=1), **fields) -> None:
@@ -102,6 +109,19 @@ def test_top_caps_each_list(client, auth):
     gaps = client.get(URL, params={"top": 2}, headers=auth).json()["gaps"]
 
     assert len(gaps) == 2
+
+
+def test_a_window_longer_than_the_log_ttl_is_shortened(client, auth, monkeypatch):
+    """A short QUERY_LOG_TTL_SECONDS must not turn the default request into a 422."""
+    monkeypatch.setattr(reports, "TTL_DAYS", 7)
+    log("Inside the TTL", refused=True, age=timedelta(days=3))
+    log("Past the TTL", refused=True, age=timedelta(days=20))
+
+    response = client.get(URL, params={"days": 90}, headers=auth)
+
+    assert response.status_code == 200
+    assert response.json()["days"] == 7
+    assert [g["question"] for g in response.json()["gaps"]] == ["Inside the TTL"]
 
 
 @pytest.mark.parametrize(

@@ -122,7 +122,10 @@ def _group(rows: list[dict], spec: dict) -> list[dict]:
                 continue
             (op, expr), *_ = accumulator.items()
             if op == "$sum":
-                group[field] = group.get(field, 0) + (_resolve(row, expr) or 0)
+                value = _resolve(row, expr)
+                # Mongo's $sum skips non-numbers, booleans included.
+                numeric = isinstance(value, int | float) and not isinstance(value, bool)
+                group[field] = group.get(field, 0) + (value if numeric else 0)
             elif op == "$first":
                 if is_new:
                     group[field] = _resolve(row, expr)

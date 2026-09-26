@@ -113,6 +113,7 @@ describe('CoverageGapsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load the coverage report.')
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(await screen.findByRole('list', { name: 'Not covered' })).toBeInTheDocument()
     expect(get).toHaveBeenCalledTimes(2)
   })

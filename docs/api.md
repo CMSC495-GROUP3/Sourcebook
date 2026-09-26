@@ -326,7 +326,9 @@ caps each list. `gaps` holds refused questions grouped by `question_hash`,
 most frequent first. `faq` holds questions asked at least twice, with how many
 of those asks were refused. `question` is the logged condensed question, or
 the truncated raw one, or `null` when neither was logged. No session ids are
-returned.
+returned, but the question text is what the employee typed, and any signed-in
+user can call this route: sign-in has no roles. A window longer than the log's
+TTL is shortened to it, and `days` in the response is the one used.
 
 ```http
 GET /api/reports/gaps?days=30

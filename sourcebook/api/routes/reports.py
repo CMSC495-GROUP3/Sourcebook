@@ -7,13 +7,14 @@ the web app, so Human Resources can see which questions the corpus does not
 cover without a shell:
 
 - ``gaps``: refused questions grouped by ``question_hash``, most frequent
-  first. Each one is a document nobody has written yet.
+  first. Each is a candidate for a new or clearer policy.
 - ``faq``: questions asked at least twice, answered or not, with how many of
   those asks were refused.
 
-The window counts back ``days`` from now. ``query_logs`` rows expire after
-``QUERY_LOG_TTL_SECONDS``, so a window longer than that has nothing more to
-find and is rejected rather than quietly truncated.
+The window counts back ``days`` from now, at most 90. ``query_logs`` rows
+expire after ``QUERY_LOG_TTL_SECONDS``, so a window longer than the TTL is
+shortened to it and the response's ``days`` says what was used. The bound on
+the parameter stays fixed, so a short TTL cannot turn every request into a 422.
 
 Question text is the logged ``question_condensed`` (the standalone rewrite that
 the hash groups on), falling back to the truncated ``question_raw``. Nothing
@@ -40,8 +41,10 @@ from sourcebook.rag.query_log_reports import (
 router = APIRouter()
 
 DEFAULT_WINDOW_DAYS = 30
-# Rows older than the TTL are gone, so no window can usefully reach past it.
-MAX_WINDOW_DAYS = QUERY_LOG_TTL_SECONDS // 86400
+MAX_WINDOW_DAYS = 90
+# Rows older than the TTL are gone, so no window reaches past it. Never below
+# one day, or a TTL under a day would leave an empty window.
+TTL_DAYS = max(1, QUERY_LOG_TTL_SECONDS // 86400)
 
 
 def _question(row: dict[str, Any]) -> str | None:
@@ -69,6 +72,7 @@ def coverage_gaps(
     top: int = Query(DEFAULT_TOP, ge=1, le=MAX_TOP),
 ):
     """Refused and repeated questions over the last ``days`` days."""
+    days = min(days, TTL_DAYS)
     until = datetime.now(UTC)
     since = until - timedelta(days=days)
     window = {"created_at": {"$gte": since, "$lt": until}}
