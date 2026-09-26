@@ -59,15 +59,15 @@ function OtherWordings({ group }: { group: QuestionGroup }) {
   if (group.other_wording_count === 0) return null
   const unlisted = group.other_wording_count - group.other_wordings.length
   return (
-    <details className="mt-1.5 text-[13px] text-ink-2">
+    <details className="mt-2 text-[13px] text-ink-2">
       <summary className="w-fit cursor-pointer rounded-sm text-ink-3 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
         Also asked as {plural(group.other_wording_count, 'other wording')}
       </summary>
       <ul className="mt-1.5 flex flex-col gap-1 border-l border-rule pl-3">
         {group.other_wordings.map((wording, index) => (
-          <li key={index} className="flex items-baseline justify-between gap-4">
+          <li key={index} className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
             <span>{wording.question ?? <span className="italic">No question text was logged</span>}</span>
-            <span className="tnum shrink-0 text-[12px] text-ink-3">{asked(wording.count)}</span>
+            <span className="tnum text-[12px] text-ink-3 sm:shrink-0">{asked(wording.count)}</span>
           </li>
         ))}
         {unlisted > 0 && <li className="text-ink-3">and {unlisted.toLocaleString()} more</li>}
@@ -117,8 +117,8 @@ function RankedList({ rows, label }: { rows: Row[]; label: string }) {
               </p>
               <span className="tnum text-[12.5px] text-ink-2 sm:shrink-0">{meta}</span>
             </div>
-            <OtherWordings group={group} />
             <Bar size={size} max={max} count={group.count} refused={refused} />
+            <OtherWordings group={group} />
           </div>
         </li>
       ))}
