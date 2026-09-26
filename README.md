@@ -282,11 +282,12 @@ carry a `history` list and measure this rule from both sides.
 Atlas maps cosine similarity into [0, 1] as (1 + cosine) / 2, so 0.5 means
 unrelated and 1.0 means identical. The default threshold is 0.62.
 
-That number was set by judgement and has been measured once, on the sample
-corpus: the lowest answerable question in the smoke tier scores 70 and the
-uncovered ones score 62 to 73, so no threshold separates them (#192). Against a
-real corpus, log the top score for a set of known-answerable and
-known-unanswerable questions, then set the threshold between the two clusters.
+That number was set by judgement. On the sample corpus the beta's full
+evaluation tier (59 cases) shows that no threshold separates the two groups: the
+lowest answerable question scores 70 and the uncovered ones score 56 to 79
+(#192). Against a real corpus, log the top score for a set of known-answerable
+and known-unanswerable questions, then set the threshold between the two
+clusters.
 Too high refuses legitimate questions. Too low means the refusal never fires.
 The [query log](#learning-from-the-query-log) is where those scores come from.
 
