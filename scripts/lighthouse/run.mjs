@@ -9,13 +9,16 @@
 // has an answer (on the pilot that is one real model call), and picks a
 // document. Before each audit it writes the theme, and for signed-in pages the
 // token, into localStorage, and runs Lighthouse with storage reset off so they
-// survive. Scores are the four Lighthouse categories, 0 to 100.
+// survive. Storage reset off also keeps the HTTP cache, so the script clears
+// that itself: every audit is a cold load. Scores are the four Lighthouse
+// categories, 0 to 100, or "error" when a category could not be scored.
 //
 //   BASE_URL      the site, e.g. https://sourcebook.duckdns.org (required)
 //   LH_PASSWORD   the sign-in password (required; never commit it)
 //   CHROME_PATH   Chrome or Chromium binary (required)
 //   OUT_DIR       where results go (default: ./results/<timestamp>)
 //   QUESTION      the question to ask (default: a covered PTO question)
+//   DEPLOYED_COMMIT  the commit the site runs, recorded in the summaries
 //
 // Writes summary.json, summary.md, and one Lighthouse JSON report per run.
 // The conversation and document used are printed, not written.
@@ -45,6 +48,7 @@ const chromePath = required('CHROME_PATH')
 const question =
   process.env.QUESTION ??
   'How many PTO days do full time employees with two years of service receive each year?'
+const deployedCommit = process.env.DEPLOYED_COMMIT ?? null
 const outDir =
   process.env.OUT_DIR ?? path.join('results', new Date().toISOString().replace(/[:.]/g, '-'))
 
@@ -67,7 +71,12 @@ async function setUp() {
   const { access_token: token } = await api('POST', '/api/auth/login', null, { password })
   const conversation = await api('POST', '/api/conversations', token, { title: 'Lighthouse run' })
   const sessionId = conversation.session_id
-  await api('POST', '/api/chat', token, { question, session_id: sessionId })
+  // /api/chat answers 200 even when generation fails, but only a saved answer
+  // carries a message_id. Without one the chat page would be audited empty.
+  const answer = await api('POST', '/api/chat', token, { question, session_id: sessionId })
+  if (!answer.message_id) {
+    throw new Error(`the chat answer was not saved: ${answer.answer}`)
+  }
   const documents = await api('GET', '/api/documents?limit=1', token)
   const source = documents.items?.[0]?.source
   const pages = [
@@ -95,6 +104,11 @@ async function prepareStorage(browser, token, theme, signedIn) {
     },
     { tokenKey: TOKEN_KEY, themeKey: THEME_KEY, token, theme, signedIn },
   )
+  // disableStorageReset leaves the HTTP cache alone too, and this page and
+  // earlier audits have just cached the bundles and fonts.
+  const cdp = await page.createCDPSession()
+  await cdp.send('Network.clearBrowserCache')
+  await cdp.detach()
   await page.close()
 }
 
@@ -109,6 +123,7 @@ async function main() {
   })
   const port = 9222
   const results = []
+  let lighthouseVersion = null
 
   try {
     for (const theme of ['light', 'dark']) {
@@ -119,8 +134,12 @@ async function main() {
           const config = width === 'desktop' ? desktopConfig : undefined
           const run = await lighthouse(target.url, flags, config)
           const lhr = run.lhr
+          lighthouseVersion = lhr.lighthouseVersion
           const scores = Object.fromEntries(
-            CATEGORIES.map((id) => [id, Math.round((lhr.categories[id]?.score ?? 0) * 100)]),
+            CATEGORIES.map((id) => {
+              const score = lhr.categories[id]?.score
+              return [id, typeof score === 'number' ? Math.round(score * 100) : 'error']
+            }),
           )
           const file = `${target.name}-${theme}-${width}.json`
           await fs.writeFile(path.join(outDir, file), run.report)
@@ -136,7 +155,8 @@ async function main() {
   const summary = {
     date: new Date().toISOString(),
     base_url: baseUrl,
-    lighthouse_version: results.length ? JSON.parse(await fs.readFile(path.join(outDir, results[0].report), 'utf8')).lighthouseVersion : null,
+    deployed_commit: deployedCommit,
+    lighthouse_version: lighthouseVersion,
     results,
   }
   await fs.writeFile(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 2) + '\n')
@@ -146,7 +166,8 @@ async function main() {
     (r) =>
       `| ${r.page} | ${r.theme} | ${r.width} | ${r.scores.performance} | ${r.scores.accessibility} | ${r.scores['best-practices']} | ${r.scores.seo} |`,
   )
-  await fs.writeFile(path.join(outDir, 'summary.md'), [header, ...rows].join('\n') + '\n')
+  const heading = `Run ${summary.date} against ${baseUrl} at commit ${deployedCommit ?? '(not given)'}, Lighthouse ${lighthouseVersion}.`
+  await fs.writeFile(path.join(outDir, 'summary.md'), [heading, '', header, ...rows].join('\n') + '\n')
   // The conversation and document come from the API, so they go to the
   // console, not into summary.json.
   console.log(`Conversation ${sessionId}, document ${source ?? '(none)'}`)

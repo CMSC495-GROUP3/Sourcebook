@@ -11,7 +11,10 @@ The script signs in through the API, asks one question so the chat page has
 an answer, and picks a document. Against the pilot, that is one real model
 call, and it leaves a conversation titled "Lighthouse run". Before each audit it
 stores the theme, and for signed-in pages the token, in the browser, and runs
-Lighthouse with storage reset off so they survive.
+Lighthouse with storage reset off so they survive. Storage reset off also keeps
+the HTTP cache, so the script clears it before each audit: every run is a cold
+load. If the answer to the question is not saved, the script stops rather than
+audit an empty chat page.
 
 ## Running it
 
@@ -23,16 +26,17 @@ npm ci
 BASE_URL=https://sourcebook.duckdns.org \
 LH_PASSWORD='<reviewer password>' \
 CHROME_PATH=/path/to/chrome \
+DEPLOYED_COMMIT=<the commit the pilot runs> \
 node run.mjs
 ```
 
 Never commit the password. Results go to `results/<timestamp>/`, which git
 ignores:
 
-- `summary.md`: the table to copy into `docs/quality.md`, with the date and
-  the deployed commit
-- `summary.json`: the same scores, with the date and Lighthouse version (the
-  conversation and document used are printed to the console)
+- `summary.md`: the table to copy into `docs/quality.md`, under a line giving
+  the date, the site, `DEPLOYED_COMMIT`, and the Lighthouse version
+- `summary.json`: the same scores and details (the conversation and document
+  used are printed to the console, not saved)
 - one Lighthouse JSON report per run, which opens in the
   [Lighthouse viewer](https://googlechrome.github.io/lighthouse-viewer/)
 
