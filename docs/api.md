@@ -30,6 +30,7 @@ in-process). Defaults:
 | `POST /api/chat`, `POST /api/chat/stream` | `CHAT_RATE_LIMIT` (default 30/minute) |
 | `POST /api/escalations`, `POST /api/escalations/{escalation_id}/retry-delivery` | 5/minute |
 | `POST /api/documents/reindex` | `REINDEX_RATE_LIMIT` (default 2/minute) |
+| `GET /api/reports/gaps` | 30/minute |
 
 Missing bearer → `{"detail": "Not authenticated"}`. Bad or rotated token →
 `{"detail": "Invalid or expired token."}`. Wrong password →
@@ -313,14 +314,43 @@ webhook. With no webhook configured the stub returns:
 {"detail": "Webhook delivery is not configured."}
 ```
 
-## Query-log report
+## Coverage report
 
-There is no HTTP report route on this OpenAPI document. Every chat request
-writes one `query_logs` row (question hash, scores, refused, sources, cache
-hit, latency). How that log is used is in the README section
-[Learning from the query log](../README.md#learning-from-the-query-log). A
-weekly knowledge-gap report over that collection is tracked separately as
-[#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160).
+Every chat request writes one `query_logs` row (question hash, scores, refused,
+sources, cache hit, latency). How that log is used is in the README section
+[Learning from the query log](../README.md#learning-from-the-query-log).
+
+`GET /api/reports/gaps` ranks that log for the Coverage Gaps page. `days`
+(1–90, default 30) sets the window back from now; `top` (1–100, default 20)
+caps each list. `gaps` holds refused questions grouped by `question_hash`,
+most frequent first. `faq` holds questions asked at least twice, with how many
+of those asks were refused. `question` is the logged condensed question, or
+the truncated raw one, or `null` when neither was logged. No session ids are
+returned.
+
+```http
+GET /api/reports/gaps?days=30
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "since": "2026-08-27T14:00:00+00:00",
+  "until": "2026-09-26T14:00:00+00:00",
+  "days": 30,
+  "total": 412,
+  "refused": 37,
+  "gaps": [
+    {"question_hash": "5c1e…", "question": "Does the company pay for pet insurance?", "count": 6}
+  ],
+  "faq": [
+    {"question_hash": "a07b…", "question": "How much PTO do I get?", "count": 19, "refused": 0}
+  ]
+}
+```
+
+The terminal version with score histograms is
+`python -m sourcebook.rag.query_log_reports`; see its module docstring.
 
 ## Health and config
 

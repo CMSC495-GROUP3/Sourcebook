@@ -1,0 +1,86 @@
+"""Coverage report — the query log's read side, for the Coverage Gaps page.
+
+Every chat request writes a ``query_logs`` row (see ``sourcebook.api.analytics``).
+``sourcebook.rag.query_log_reports`` already ranks those rows for an operator at
+a terminal on the EC2 host. This route runs the same two ranking pipelines for
+the web app, so Human Resources can see which questions the corpus does not
+cover without a shell:
+
+- ``gaps``: refused questions grouped by ``question_hash``, most frequent
+  first. Each one is a document nobody has written yet.
+- ``faq``: questions asked at least twice, answered or not, with how many of
+  those asks were refused.
+
+The window counts back ``days`` from now. ``query_logs`` rows expire after
+``QUERY_LOG_TTL_SECONDS``, so a window longer than that has nothing more to
+find and is rejected rather than quietly truncated.
+
+Question text is the logged ``question_condensed`` (the standalone rewrite that
+the hash groups on), falling back to the truncated ``question_raw``. Nothing
+here writes, and no session id leaves the server.
+"""
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query, Request
+
+from sourcebook.api.db import query_logs_col
+from sourcebook.api.limiter import limiter
+from sourcebook.api.routes.deps import require_auth
+from sourcebook.rag.config import QUERY_LOG_TTL_SECONDS
+from sourcebook.rag.query_log_reports import (
+    DEFAULT_MIN_REPEAT,
+    DEFAULT_TOP,
+    MAX_TOP,
+    content_gap_pipeline,
+    faq_pipeline,
+)
+
+router = APIRouter()
+
+DEFAULT_WINDOW_DAYS = 30
+# Rows older than the TTL are gone, so no window can usefully reach past it.
+MAX_WINDOW_DAYS = QUERY_LOG_TTL_SECONDS // 86400
+
+
+def _question(row: dict[str, Any]) -> str | None:
+    """The condensed question if one was logged, else the raw one, else None."""
+    for field in ("sample_condensed", "sample_raw"):
+        value = row.get(field)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _group(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "question_hash": row.get("_id"),
+        "question": _question(row),
+        "count": int(row.get("count") or 0),
+    }
+
+
+@router.get("/reports/gaps", dependencies=[Depends(require_auth)])
+@limiter.limit("30/minute")
+def coverage_gaps(
+    request: Request,
+    days: int = Query(DEFAULT_WINDOW_DAYS, ge=1, le=MAX_WINDOW_DAYS),
+    top: int = Query(DEFAULT_TOP, ge=1, le=MAX_TOP),
+):
+    """Refused and repeated questions over the last ``days`` days."""
+    until = datetime.now(UTC)
+    since = until - timedelta(days=days)
+    window = {"created_at": {"$gte": since, "$lt": until}}
+
+    gaps = query_logs_col.aggregate(content_gap_pipeline(since, until, top))
+    faq = query_logs_col.aggregate(faq_pipeline(since, until, top, DEFAULT_MIN_REPEAT))
+    return {
+        "since": since.isoformat(),
+        "until": until.isoformat(),
+        "days": days,
+        "total": query_logs_col.count_documents(window),
+        "refused": query_logs_col.count_documents({**window, "refused": True}),
+        "gaps": [_group(row) for row in gaps],
+        "faq": [{**_group(row), "refused": int(row.get("refused_count") or 0)} for row in faq],
+    }

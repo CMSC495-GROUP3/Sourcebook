@@ -92,3 +92,24 @@ export interface Escalation {
   /** True when the retry-delivery endpoint would send right now. */
   delivery_retryable: boolean
 }
+
+/** One question_hash group in the coverage report. */
+export interface QuestionGroup {
+  question_hash: string
+  /** The logged question, or null when none was stored. */
+  question: string | null
+  count: number
+}
+
+export interface CoverageReport {
+  since: string
+  until: string
+  days: number
+  /** Every chat request in the window. */
+  total: number
+  refused: number
+  /** Refused questions, most frequent first. */
+  gaps: QuestionGroup[]
+  /** Questions asked at least twice, with how many of those asks were refused. */
+  faq: (QuestionGroup & { refused: number })[]
+}

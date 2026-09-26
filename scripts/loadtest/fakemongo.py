@@ -97,6 +97,40 @@ def _apply_update(doc: dict, update: dict, inserted: bool) -> None:
             doc.setdefault(field, value)
 
 
+def _resolve(doc: dict, expr: Any) -> Any:
+    """A field path ("$refused"), {"$eq": [a, b]}, {"$cond": [if, then, else]}, or a literal."""
+    if isinstance(expr, str) and expr.startswith("$"):
+        return doc.get(expr[1:])
+    if isinstance(expr, dict) and "$eq" in expr:
+        left, right = expr["$eq"]
+        return _resolve(doc, left) == _resolve(doc, right)
+    if isinstance(expr, dict) and "$cond" in expr:
+        condition, then, otherwise = expr["$cond"]
+        return _resolve(doc, then if _resolve(doc, condition) else otherwise)
+    return expr
+
+
+def _group(rows: list[dict], spec: dict) -> list[dict]:
+    """$group with $sum and $first, the accumulators the coverage report uses."""
+    groups: dict[Any, dict] = {}
+    for row in rows:
+        key = _resolve(row, spec["_id"])
+        is_new = key not in groups
+        group = groups.setdefault(key, {"_id": key})
+        for field, accumulator in spec.items():
+            if field == "_id":
+                continue
+            (op, expr), *_ = accumulator.items()
+            if op == "$sum":
+                group[field] = group.get(field, 0) + (_resolve(row, expr) or 0)
+            elif op == "$first":
+                if is_new:
+                    group[field] = _resolve(row, expr)
+            else:
+                raise NotImplementedError(f"FakeCollection $group does not implement {op}.")
+    return list(groups.values())
+
+
 class _Cursor:
     def __init__(self, docs: list[dict]):
         self._docs = docs
@@ -209,10 +243,28 @@ class FakeCollection:
         return "index"
 
     def aggregate(self, pipeline):
-        raise NotImplementedError(
-            "FakeCollection does not implement aggregate. $vectorSearch is "
-            "Atlas-only and cannot be emulated meaningfully."
-        )
+        """The $match / $group / $sort / $limit subset the coverage report runs.
+
+        Any other stage raises. $vectorSearch in particular is Atlas-only and
+        cannot be emulated meaningfully.
+        """
+        rows = [copy.deepcopy(d) for d in self._docs]
+        for stage in pipeline:
+            (op, spec), *_ = stage.items()
+            if op == "$match":
+                rows = [r for r in rows if _matches(r, spec)]
+            elif op == "$group":
+                rows = _group(rows, spec)
+            elif op == "$sort":
+                for field, direction in reversed(spec.items()):
+                    rows.sort(
+                        key=lambda r: (r.get(field) is None, r.get(field)), reverse=direction < 0
+                    )
+            elif op == "$limit":
+                rows = rows[:spec]
+            else:
+                raise NotImplementedError(f"FakeCollection.aggregate does not implement {op}.")
+        return iter(rows)
 
 
 class FakeDB:
