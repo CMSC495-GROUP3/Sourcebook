@@ -5,7 +5,7 @@ production system, and the sections below say plainly what it does, what is
 broken, and what nobody has measured.
 
 Tagged commit: Pending. The evidence behind every claim here is in
-[handoff.md](handoff.md). Graders start at `portfolio.md` in the same folder.
+[handoff.md](handoff.md). Graders start at [portfolio.md](portfolio.md).
 
 Stakeholder video: Pending, linked after upload
 ([#216](https://github.com/CMSC495-GROUP3/Sourcebook/issues/216)).
