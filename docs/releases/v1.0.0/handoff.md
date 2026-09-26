@@ -53,6 +53,7 @@ Pending until the freeze. So far:
 | README | Release, pilot site, and Ruff badges | #273 |
 | Refusal card for vague questions | When related policies don't answer a question as asked, the card says to ask the full question again with the details it depends on, such as dates, location, or the kind of leave or expense. The coverage judge is unchanged | #281 |
 | Sign-in page and Lighthouse | The sign-in page has a main landmark and a meta description. `scripts/lighthouse/` runs Lighthouse on the three pages in both themes at phone and desktop widths ([#214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214)) | #280 |
+| Compression on the pilot | Nginx gzips responses that come through Caddy. Before, Caddy's `Via` header made Nginx skip gzip, so the pilot served its 674 KB JavaScript bundle uncompressed. The chat stream stays uncompressed and unbuffered | #282 |
 | Documentation | User guide ([#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206)) and team page ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)) pending; [portfolio page](portfolio.md) in this folder; pilot load-run page | Pending: #259, #231; #274, #278 |
 
 ## Verification status
