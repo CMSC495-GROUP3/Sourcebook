@@ -332,8 +332,8 @@ caps each list. A window longer than the log's TTL is shortened to it, and
 
 Each row carries `count` (every ask, including one person asking again) and
 `conversations` (distinct `session_id` values). A conversation is not a
-person, but it is the closest the log gets. Rephrasings of one question share
-a row; see [Grouping by meaning](#grouping-by-meaning) below.
+person, but it is the closest the log gets. Near-identical wordings share a
+row; see [Grouping by meaning](#grouping-by-meaning) below.
 
 `question` is the logged condensed question, or the truncated raw one, or
 `null` when neither was logged. No session ids are returned, but the question
@@ -347,7 +347,7 @@ Each query stops after five seconds. A report that runs longer returns HTTP
 
 ### Grouping by meaning
 
-Both lists group wordings of one question into one row (#287). The log's
+Both lists merge near-identical wordings of one question into one row (#287). The log's
 `question_hash` groups identical text. The route then merges hash groups whose
 question embeddings are within `QUESTION_GROUP_THRESHOLD` cosine, default 0.85.
 Each wording joins the most asked group it is close to, compared with that
@@ -362,10 +362,13 @@ from `embedding_cache`, where retrieval stored them, and any that are missing
 are embedded in one provider call and not stored, so the route writes nothing.
 If that call fails, `grouping` is `"exact"` and every wording has its own row.
 
-The threshold is a judgement call. Merging two different questions ("How does
-PTO accrue?" and "Does unused PTO carry over?") hides a gap behind a covered
-neighbour, which is worse than splitting one question into two rows, so it
-starts high.
+Merging two different questions ("How does PTO accrue?" and "Does unused PTO
+carry over?") hides a gap behind a covered neighbour, which is worse than
+splitting one question into two rows. On 80 labelled pairs the closest two
+different questions score 0.833, so 0.85 merges none of them, but it merges
+only 4 of 40 paraphrases: a missing question mark, a change of case, and two
+close rewordings. Most rephrasings still get their own row. The measurement is
+in [evaluation.md](evaluation.md#question-grouping-threshold).
 
 ```http
 GET /api/reports/gaps?days=30

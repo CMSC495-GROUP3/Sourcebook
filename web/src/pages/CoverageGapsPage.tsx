@@ -247,7 +247,7 @@ export default function CoverageGapsPage() {
         <div className="pt-10">
           <Section
             title="Not answered yet"
-            caption="Questions no policy answered, most asked first. Each one points to a policy to write or make clearer. Rephrasings of one question share a row."
+            caption="Questions no policy answered, most asked first. Each one points to a policy to write or make clearer. Near-identical wordings share a row, but a question asked in other words can still appear twice."
             empty="Every question in this window had a policy to answer it."
             rows={report.gaps.map((group) => ({
               group,
@@ -258,7 +258,7 @@ export default function CoverageGapsPage() {
           />
           <Section
             title="Asked most"
-            caption="Questions asked in at least two conversations, most conversations first. Rephrasings of one question share a row. The ochre end of each bar is the share no policy answered."
+            caption="Questions asked in at least two conversations, most conversations first. Near-identical wordings share a row, but a question asked in other words can still appear twice. The ochre end of each bar is the share no policy answered."
             empty="No question came up in more than one conversation in this window."
             rows={report.faq.map((group) => ({
               group,

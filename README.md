@@ -467,12 +467,12 @@ That log is how the system improves from evidence rather than intuition.
   collect it.
 
 The first two lists are on the What People Ask page in the web app, over the last
-7, 30, or 90 days. The page groups questions by meaning, not exact wording: two
-wordings whose embeddings are within `QUESTION_GROUP_THRESHOLD` cosine (default
-0.85, set by judgement until measured, #287) share a row, so five people asking
-one thing five ways show as one question asked in five conversations. The
-terminal report below still groups by exact wording, so there a rephrased
-question counts separately.
+7, 30, or 90 days. The page also merges wordings whose embeddings are within
+`QUESTION_GROUP_THRESHOLD` cosine (default 0.85, #287). That catches a missing
+question mark or a close rewording, not most paraphrases: on 80 labelled pairs
+it merged 4 of 40 paraphrases and none of 40 different questions
+([measurement](docs/evaluation.md#question-grouping-threshold)). The terminal
+report below groups by exact wording only.
 
 For the score histograms or an exact window, run the read-only report on the
 EC2 host. The cluster's IP access list admits that host, so anywhere else waits out
