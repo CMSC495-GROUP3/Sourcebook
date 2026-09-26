@@ -12,6 +12,9 @@
 <p align="center">
   <a href="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/ci.yml"><img src="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/security.yml"><img src="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/security.yml/badge.svg?branch=main" alt="Security"></a>
+  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases"><img src="https://img.shields.io/github/v/release/CMSC495-GROUP3/Sourcebook?include_prereleases&sort=semver&label=release" alt="Latest release"></a>
+  <a href="https://sourcebook.duckdns.org"><img src="https://img.shields.io/website?url=https%3A%2F%2Fsourcebook.duckdns.org&label=pilot%20site&up_message=up&down_message=down" alt="Pilot site status"></a>
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-3776ab" alt="Python 3.11 to 3.14">
   <img src="https://img.shields.io/badge/react-19-007ec6" alt="React 19">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-007ec6" alt="MIT license"></a>
@@ -22,9 +25,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#deployment">Deployment</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="docs/releases/v0.1.0-alpha.1/handoff.md">Alpha handoff</a> ·
-  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a>
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 ---
@@ -96,6 +97,7 @@ its handoff, release notes, live benchmark, live evaluation, and evidence.
 
 | Release | Handoff | Notes | Measured |
 | --- | --- | --- | --- |
+| [v0.2.0](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0) | [handoff](docs/releases/v0.2.0/handoff.md) | [release notes](docs/releases/v0.2.0/release-notes.md) | [benchmark](docs/releases/v0.2.0/live-benchmark.md), [evaluation](docs/releases/v0.2.0/live-evaluation.md) |
 | [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](docs/releases/v0.1.0-alpha.1/handoff.md) | [release notes](docs/releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](docs/releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](docs/releases/v0.1.0-alpha.1/live-evaluation.md) |
 
 Coding agents get the condensed version of all of this in
@@ -202,8 +204,11 @@ With `SITE_ADDRESS` unset, Caddy serves plain HTTP on localhost, which is what
 3. Atlas Vector Search returns the 5 nearest passages out of 100 candidates,
    each with a similarity score.
 4. The grounding gate. If the single best passage scores below
-   `SIMILARITY_THRESHOLD`, the system declines and makes no model call. See
-   [below](#hallucination-refuse-rather-than-guess).
+   `SIMILARITY_THRESHOLD`, the system declines and makes no model call. If
+   cosine clears, a coverage judge (one extra utility call) decides whether
+   those excerpts actually answer the question before any answer-role call.
+   See [below](#hallucination-refuse-rather-than-guess). A follow-up can
+   require condense, coverage, and answer calls plus two retrievals.
 5. Otherwise the passages, recent history, and previously cited documents go to
    the answer model with instructions to use only the supplied context.
 6. Tokens stream to the browser over server-sent events. Sources and the
@@ -213,9 +218,11 @@ With `SITE_ADDRESS` unset, Caddy serves plain HTTP on localhost, which is what
 7. The exchange, its sources, and its score are saved, so reopening a past
    conversation restores its citations and not just its text. First-turn
    answers are also cached for 24 hours under a key that includes the corpus
-   version, prompt version, and retrieval settings (`SIMILARITY_THRESHOLD` and
-   `RETRIEVAL_K`), so re-ingestion or a behavior change invalidates them with
-   no cache-clearing code to get wrong.
+   version, the answer model, the coverage/utility model, the answer prompt
+   version (`PROMPT_VERSION`), the coverage prompt version
+   (`COVERAGE_PROMPT_VERSION`), and retrieval settings (`SIMILARITY_THRESHOLD`
+   and `RETRIEVAL_K`), so re-ingestion or a behavior change invalidates them
+   with no cache-clearing code to get wrong.
 8. If the assistant refused, or the answer did not help, the employee can hand
    the question to a person from the same screen.
 
@@ -283,6 +290,20 @@ known-unanswerable questions, then set the threshold between the two clusters.
 Too high refuses legitimate questions. Too low means the refusal never fires.
 The [query log](#learning-from-the-query-log) is where those scores come from.
 
+Because cosine alone cannot separate them, a second check runs whenever the
+threshold clears: a coverage judge. The utility model gets the selected
+excerpts and the question, both marked as untrusted data, and must reply with
+exactly `{"covered": true}` or `{"covered": false}`. Anything else refuses. On a
+follow-up it judges the standalone rewrite and also sees the employee's own
+wording, so an instruction to ignore the excerpts is caught even when the
+rewrite reads cleanly. A busy provider still returns the retryable 503, and a
+timeout, dropped connection, 429, or provider 5xx during the judge is an
+ordinary error. None of those is stored or cached as a refusal. The live smoke
+tier on the #192 fix ([PR #253](https://github.com/CMSC495-GROUP3/Sourcebook/pull/253))
+moved unsupported-question refusal and prompt-injection refusal from 0% to
+100%, while recall, citation correctness, and grounded answers stayed at 100%.
+The cost is one utility call on every turn that clears the threshold.
+
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
 "that policy isn't loaded yet." The library shows each document whole; the
@@ -327,10 +348,17 @@ at-least-once: a receiver that accepts a request immediately before the worker
 dies may see the same escalation again, so consumers should deduplicate by
 `escalation_id`.
 
-Whoever handles the queue lists it with `GET /api/escalations?status=open` and
-closes an item with `PATCH /api/escalations/{id}` and a resolution note. There
-is no UI for that side yet. The endpoints are enough for a script or a
-webhook-fed channel.
+Responses report delivery as it stands, not the stored field. With no webhook
+configured, a record that was never attempted reads `not_configured`, and every
+record carries `delivery_retryable`, which is true only when the retry endpoint
+would send. Neither is stored, so setting `ESCALATION_WEBHOOK_URL` later turns
+those records back into `pending` and lets the HR Requests page send them.
+
+Human Resources works the queue from the **HR Requests** page in the web app,
+which lists open escalations, resolves or reopens them with a note, and retries
+failed webhook delivery. The same operations are available as
+`GET /api/escalations?status=open`, `PATCH /api/escalations/{id}`, and
+`POST /api/escalations/{id}/retry-delivery` for a script or a webhook-fed channel.
 
 ### Vendor lock-in: one interface, one env var
 
@@ -956,16 +984,16 @@ The product name lives in three places: `APP_NAME` in
 - **Authentication is a shared password** (or two), not per-employee accounts, and
   conversations are not scoped to a user. Fine for a pilot. It is the first
   thing to change before a real deployment.
-- **The similarity threshold is untuned** against a real corpus, and on the
-  sample corpus it does not separate covered questions from uncovered ones on
-  nearby topics. Such a question gets a prose decline under a score badge and
-  source chips instead of the refusal card (#192), and an uncovered follow-up
-  can clear the gate the same way (#189). The escalation link under the answer
-  still works. See [above](#hallucination-refuse-rather-than-guess).
-- **Escalations have no handler UI.** The open-queue and resolve endpoints
-  exist; a page for Human Resources to work through them does not.
-- **The React components have no unit tests.** The backend suite is the safety
-  net; `tsc` and ESLint check the web app.
+- **The similarity threshold is untuned** against a real corpus. On the sample
+  corpus it does not separate covered questions from uncovered ones on nearby
+  topics, so the coverage judge behind it does that work (#192). The judge is a
+  model call: it adds latency and cost to every grounded turn, and it was
+  measured on the 20-case smoke tier, not a real corpus. See
+  [above](#hallucination-refuse-rather-than-guess).
+- **Frontend unit coverage is intentionally focused.** Vitest and React Testing
+  Library cover the chat stream, message and escalation behavior, theme toggle,
+  and theme storage. `tsc`, ESLint, and the production build cover the wider web
+  application, but visual regression and full browser tests remain future work.
 - **Document search uses `$regex`**, which does not use an index. Fine at this
   corpus size. Move to Atlas Search if the library grows large.
 - **JWTs live in browser local storage.** Acceptable for an internal pilot

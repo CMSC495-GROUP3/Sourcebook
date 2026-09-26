@@ -37,6 +37,8 @@ What is fake in this mode, so you are not surprised:
   suggestions are canned too. Retrieval scores are fixed, so every question
   either answers or every question refuses. `make stub REFUSE=1` flips it to
   refusing, which is how you see the refusal card and the escalation button.
+  `make stub REFUSE=judge` refuses through the coverage judge instead, the
+  other refusal card.
 - **The database.** Conversations, escalations, and caches live in memory and
   vanish when the API stops.
 - **Vector search.** Replaced with canned passages. Atlas Vector Search cannot
@@ -89,7 +91,7 @@ make cov      # same, with a per-file coverage report
 make lint     # ruff on Python; ESLint and tsc on the web app
 make fmt      # fix what ruff can fix, then format; run before committing
 make build    # production web build
-make check    # test, lint, build; this is what the CI workflow runs
+make check    # Python tests, web tests (test-web / npm test), lint, build; this is what the CI workflow runs
 make openapi  # rewrite docs/openapi.json from the live app; CI diffs this file
 make audit    # known vulnerabilities in both dependency trees (the Security workflow)
 ```
@@ -109,7 +111,7 @@ so they run on fork PRs too.
 | CI | Python tests (3.11 through 3.14) | a failing test, or coverage under 80% on any version |
 | CI | Evaluation dataset | `evaluation/questions.json` or `questions_full.json` that `load_cases` rejects |
 | CI | OpenAPI document | `make openapi` rewriting `docs/openapi.json` so it no longer matches the commit |
-| CI | Web lint, types, build | ESLint, `tsc -b`, or `vite build` |
+| CI | Web lint, types, test, build | ESLint, `tsc`, `npm test`, or `vite build` |
 | CI | Docker images and Compose | either image failing to build, the API image failing to import `sourcebook.api.main`, an invalid `docker-compose.yml`, or `scripts/test_proxy_chain.py` failing the live Caddy → Nginx → Uvicorn client-IP / rate-limit check |
 | CI | Shell, Dockerfile, workflow lint | shellcheck on `scripts/*.sh`, hadolint on both Dockerfiles, actionlint on the workflows, or a `.env`, key, or build output that got committed |
 | Security | CodeQL, dependency advisories, dependency review, leaked secrets | a new finding; the accepted-advisory list is in `scripts/audit.sh` |
@@ -166,6 +168,7 @@ keep it obviously partial rather than pretending to be complete.
 |---|---|
 | a tuning knob (threshold, chunk size, TTLs, thread pool) | `sourcebook/rag/config.py`; every value is env-overridable, defaults live here |
 | the answer prompt | `sourcebook/rag/rag_chain.py` `ANSWER_SYSTEM_PROMPT`, then bump `PROMPT_VERSION` in `sourcebook/rag/config.py` or cached answers keep serving the old prompt |
+| the coverage-judge prompt or parser | `sourcebook/rag/rag_chain.py` `COVERAGE_SYSTEM_PROMPT` / `_parse_coverage_response`, then bump `COVERAGE_PROMPT_VERSION` in `sourcebook/rag/config.py` or cached answers and refusals keep serving the old judge |
 | retrieval or the grounding gate | `sourcebook/rag/rag_chain.py` |
 | which model or vendor is used | `sourcebook/rag/llm.py` only. Add a subclass, register it in `_PROVIDERS`, set `LLM_PROVIDER` |
 | how a source format is parsed | `sourcebook/rag/documents.py` |
@@ -225,8 +228,10 @@ covers `.env`; the rest is on you.
   workers times that. Atlas free tier caps in the low hundreds and fails under
   load rather than at startup. Redo the arithmetic in `sourcebook/rag/mongo.py` before
   raising either number.
-- **Cached answers outlive a prompt fix** unless `PROMPT_VERSION` is bumped. It
-  is part of the cache key for exactly this reason.
+- **Cached answers outlive a prompt fix** unless the matching version is
+  bumped. `PROMPT_VERSION` is for `ANSWER_SYSTEM_PROMPT`.
+  `COVERAGE_PROMPT_VERSION` is for the coverage-judge prompt and parse
+  contract. Both participate in the answer-cache key.
 - **`THREADPOOL_TOKENS` is the chat throughput ceiling.** It was measured, not
   guessed; see `docs/load-testing.md` before changing it, and re-measure
   after.

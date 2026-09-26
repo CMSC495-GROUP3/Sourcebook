@@ -59,7 +59,26 @@ These are GitHub search totals, not a hand-counted review-event ledger. This pag
 
 CI runs pytest with `--cov-fail-under=80` on Python 3.11 through 3.14 ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)). Locally that is `make cov` / `make check` ([CONTRIBUTING.md](../CONTRIBUTING.md#checking-a-change)). A job that lands under 80% is red. That is a floor, not a published percentage.
 
-The 3.12 job writes a markdown table into the Actions job summary and uploads `coverage.xml` for 14 days. Those artifacts expire with the run. Nothing on `main` commits that table. [Issue #210](https://github.com/CMSC495-GROUP3/Sourcebook/issues/210) is the follow-up that will copy the **tagged final** table into `docs/releases/v1.0.0/evidence/coverage.md`. This page will cite that file when it exists; it does not pretend the file is here.
+The web job runs Vitest with an 80% floor on statements, branches, functions, and lines, measured only on the files listed in `web/vitest.config.ts`, not all of `web/src`. That is also a floor.
+
+### Where the release coverage comes from
+
+Both test jobs write a markdown table into the Actions job summary and save it as `coverage-table.md`: one row per file, with a total. The Python table comes from the 3.12 job and is written on every run. The web table is written whenever Vitest finishes with all tests passing; a failing test leaves Vitest with no coverage summary, so that run has no web table. In the web pack the table sits next to the two Vitest JSON files. Every green push to `main` then uploads two artifacts named for the commit and kept for 90 days ([PR #261](https://github.com/CMSC495-GROUP3/Sourcebook/pull/261)):
+
+| Artifact | Files |
+| --- | --- |
+| `python-coverage-<sha>` | `coverage.xml`, `coverage-table.md` |
+| `web-coverage-<sha>` | `coverage-table.md`, `coverage-summary.json`, `coverage-final.json` |
+
+A push to `main` never cancels the `main` run in progress, so each merged commit gets a finished run. A run still queued behind it can be replaced by a newer push; re-run it from the Actions page if that commit needs evidence.
+
+Artifacts expire, so the release commits the table. After the Monday 28 September freeze, the candidate commit's artifacts are copied into `docs/releases/v1.0.0/evidence/coverage.md` (drafted in [PR #274](https://github.com/CMSC495-GROUP3/Sourcebook/pull/274)) with a link to the run that produced them:
+
+1. Open the green push-to-`main` CI run for the candidate commit, or list it with `gh run list --workflow ci.yml --branch main --commit <sha>`.
+2. Download both packs: `gh run download <run-id> -n python-coverage-<sha> -n web-coverage-<sha>`, or from the run's Artifacts section.
+3. Paste each `coverage-table.md` into its section of `coverage.md`, and record the full SHA and the run URL.
+
+Only documentation merges after the freeze, so the tagged commit runs the same code, and its own run's artifacts should give the same tables. Check them before tagging. **Final Python and web coverage: Pending**, until the candidate run exists. This page cites the totals from `coverage.md` once that file holds them; it does not quote a number before then.
 
 Latest green CI on this snapshot: [run 35039401655](https://github.com/CMSC495-GROUP3/Sourcebook/actions/runs/35039401655) at `88e8a13`. Open that run's Python-test job summary for the table from that SHA. Do not treat the badge as a coverage number.
 
@@ -69,7 +88,9 @@ From the README [Tests and CI](../README.md#tests-and-ci) section, which matches
 
 **Covered (stubbed suite):** the grounding gate and its best-not-mean rule, server-side history filtering, the SSE protocol, first-turn caching and invalidation, query logging, query-log analysis reports ([PR #171](https://github.com/CMSC495-GROUP3/Sourcebook/pull/171), `tests/test_query_log_reports.py`), escalations end to end, ingestion without real services, the labeled evaluation set and its metrics, and bookkeeping after a client hangs up mid-stream.
 
-**Not covered:** live calls to AWS, Atlas, or OpenAI, and the React components. `tsc` and ESLint check `web/`; there are still no component unit tests on `main` ([issue #211](https://github.com/CMSC495-GROUP3/Sourcebook/issues/211) is open). This page does not cite a web-coverage artifact because that file is not on `main`.
+**Frontend coverage:** [PR #252](https://github.com/CMSC495-GROUP3/Sourcebook/pull/252) adds Vitest and React Testing Library coverage for the chat stream, message and escalation behavior, theme toggle, and theme storage. On its validated head, `npm test` ran 32 tests across five files and reported 99.46% statements, 96.42% branches, 100% functions, and 99.37% lines for the five configured source files. Each metric clears the enforced 80% floor. The command runs from `make check` and the web CI job.
+
+**Not covered:** live calls to AWS, Atlas, or OpenAI, visual regression, and full browser workflows. `tsc`, ESLint, and the production build check the rest of `web/`; the focused unit-coverage numbers above do not describe the entire frontend.
 
 The suite is the real application with Mongo, the model, and vector search replaced (`tests/conftest.py`, `scripts/loadtest/fakemongo.py`). A green `make check` does not measure retrieval quality.
 
@@ -98,4 +119,4 @@ make audit    # pip-audit and npm audit; accepted advisories in scripts/audit.sh
 
 ## What this page will gain later
 
-When #210 commits the tagged coverage table, replace the floor-only paragraph with that number and the run link. When #212, #213, and #214 produce artifacts, add rows to the table above. When #211 lands React component tests on `main`, cite that suite; `tsc` and ESLint are not those tests. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open. None of those replacements are this PR.
+When `docs/releases/v1.0.0/evidence/coverage.md` holds the candidate's tables (#210), add the Python and web totals and the run link to the coverage section above. When #212, #213, and #214 produce artifacts, add rows to the table above. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open.

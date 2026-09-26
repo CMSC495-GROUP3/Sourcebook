@@ -22,6 +22,7 @@ interface Props {
   onOpenSource: (title: string) => void
   onFollowUp: (q: string) => void
   onEscalated: (index: number, escalationId: string) => void
+  onRetry?: () => void
 }
 
 interface Turn {
@@ -44,7 +45,7 @@ function groupTurns(messages: ChatMessage[]): Turn[] {
 }
 
 export default function MessageList({
-  messages, sessionId, loading, streaming, activeSource, onOpenSource, onFollowUp, onEscalated,
+  messages, sessionId, loading, streaming, activeSource, onOpenSource, onFollowUp, onEscalated, onRetry,
 }: Props) {
   const questionRefs = useRef(new Map<number, HTMLElement>())
   const turns = groupTurns(messages)
@@ -75,6 +76,7 @@ export default function MessageList({
       onOpenSource={onOpenSource}
       onFollowUp={onFollowUp}
       onEscalated={onEscalated}
+      onRetry={onRetry}
     />
   )
 

@@ -22,12 +22,15 @@ WEB     := web
 # Password for the offline stub server. Override: make stub DEV_PASSWORD=hunter2
 DEV_PASSWORD ?= dev
 
-# make stub REFUSE=1 makes every question refuse, to see the escalation card.
-FAKE_SCORE := $(if $(REFUSE),0.50,0.78)
+# make stub REFUSE=1 makes every question refuse at the similarity threshold,
+# to see the escalation card. REFUSE=judge clears the threshold and has the
+# coverage judge refuse instead, the other refusal card (#269).
+FAKE_SCORE := $(if $(filter judge,$(REFUSE)),0.78,$(if $(REFUSE),0.50,0.78))
+STUB_COVERED := $(if $(filter judge,$(REFUSE)),0,1)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup stub web test cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean lock openapi
+.PHONY: help setup stub web test test-web cov lint lint-py lint-web fmt audit build check compose acceptance loadtest clean lock openapi
 
 help: ## Show this list
 ifeq ($(OS),Windows_NT)
@@ -47,6 +50,7 @@ endif
 
 stub: export APP_PASSWORD_HASH = $(shell $(PY) -c "import bcrypt; print(bcrypt.hashpw(b'$(DEV_PASSWORD)', bcrypt.gensalt()).decode())")
 stub: export FAKE_PASSAGE_SCORE = $(FAKE_SCORE)
+stub: export FAKE_COVERED = $(STUB_COVERED)
 stub: export FAKE_DB_LATENCY_MS = 0
 stub: ## Run the API on :8000 with a fake model and in-memory Mongo (no accounts needed)
 	$(UVICORN) scripts.loadtest.server:app --port 8000 --log-level warning
@@ -56,6 +60,9 @@ web: ## Run the React app on :5173 with hot reload (proxies /api to :8000)
 
 test: ## Run the Python test suite (~1 second, nothing external)
 	$(PY) -m pytest
+
+test-web: ## Vitest + RTL coverage for critical web paths (fails under 80% on included files)
+	cd $(WEB) && npm test
 
 cov: ## Tests with a coverage report; CI fails under 80%
 	$(PY) -m pytest --cov --cov-report=term-missing
@@ -89,7 +96,7 @@ build: ## Production build of the web app
 openapi: ## Write docs/openapi.json from app.openapi() (sorted keys, stable diff)
 	$(PY) scripts/export_openapi.py
 
-check: test lint build ## What the CI workflow runs on every PR (audit runs in Security)
+check: test test-web lint build ## What the CI workflow runs on every PR (audit runs in Security)
 
 compose: ## Full stack in Docker against the real services in .env
 	docker compose up --build

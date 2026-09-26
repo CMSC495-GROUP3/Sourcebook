@@ -117,8 +117,12 @@ class TestNonStreaming:
     def test_unexpected_error_stays_generic(
         self, client, auth, retrieval, conversation, monkeypatch
     ):
-        def broken(*_args, **_kwargs):
-            raise RuntimeError("provider down")
+        original = llm.get_provider().complete
+
+        def broken(*args, role="utility", **kwargs):
+            if role == "answer":
+                raise RuntimeError("provider down")
+            return original(*args, role=role, **kwargs)
 
         monkeypatch.setattr(llm.get_provider(), "complete", broken)
         response = client.post(

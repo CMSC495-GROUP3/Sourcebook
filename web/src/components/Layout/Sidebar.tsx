@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react'
 import {
   Plus, MessageCircleQuestionMark, BookOpen, LogOut, Pencil, Trash2,
-  Check, X, ChevronRight, FolderOpen, FolderPlus, Folder,
+  Check, X, ChevronRight, FolderOpen, FolderPlus, Folder, ClipboardList,
 } from 'lucide-react'
 import { useConversations } from '../../hooks/useConversations'
 import { useProjects } from '../../hooks/useProjects'
@@ -38,6 +38,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
   const [searchParams] = useSearchParams()
   const activeSessionId = searchParams.get('session_id')
   const onLibrary = location.pathname === '/documents'
+  const onEscalations = location.pathname === '/escalations'
 
   const { conversations, fetchConversations, renameConversation, assignToProject, deleteConversation } = useConversations()
   const { projects, fetchProjects, createProject, deleteProject } = useProjects()
@@ -168,6 +169,16 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
           >
             <BookOpen size={18} aria-hidden="true" />
           </button>
+          <button
+            type="button"
+            onClick={() => navigate('/escalations')}
+            title="HR Requests"
+            aria-label="HR Requests"
+            aria-current={onEscalations ? 'page' : undefined}
+            className={`${RAIL_BUTTON} ${onEscalations ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-paper-3 hover:text-ink'}`}
+          >
+            <ClipboardList size={18} aria-hidden="true" />
+          </button>
         </div>
         <div className="mt-auto flex flex-col items-center gap-1 pb-3">
           <ThemeToggle />
@@ -226,6 +237,15 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
         >
           <BookOpen size={15} aria-hidden="true" className={onLibrary ? 'text-accent' : 'text-ink-3'} />
           Policy Library
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/escalations')}
+          aria-current={onEscalations ? 'page' : undefined}
+          className={`${ROW} h-[34px] px-2.5 ${onEscalations ? ROW_ACTIVE : ROW_IDLE}`}
+        >
+          <ClipboardList size={15} aria-hidden="true" className={onEscalations ? 'text-accent' : 'text-ink-3'} />
+          HR Requests
         </button>
       </div>
 
@@ -402,8 +422,10 @@ function ConversationItem({
 
   // The actions overlay the end of the row on hover, and stay while any of
   // them has keyboard focus, so the title keeps the full width until then.
+  // They also stay while the project menu is open: the menu renders outside
+  // the row, and Headless UI closes it as soon as its button is hidden.
   const actionClass = `${ICON_BUTTON} h-6 w-6 text-ink-3`
-  const overlayClass = `absolute inset-y-0 right-1 hidden items-center gap-0.5 pl-5 group-hover:flex group-focus-within:flex bg-linear-to-l to-transparent ${
+  const overlayClass = `absolute inset-y-0 right-1 hidden items-center gap-0.5 pl-5 group-hover:flex group-focus-within:flex has-data-open:flex bg-linear-to-l to-transparent ${
     isActive ? 'from-accent-soft from-70%' : 'from-paper-3 from-70%'
   }`
 

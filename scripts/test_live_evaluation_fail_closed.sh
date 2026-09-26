@@ -61,12 +61,24 @@ import json
 import sys
 from pathlib import Path
 
+# Identity keys must match sourcebook.rag.evaluation.REQUIRED_RESULT_IDENTITY_KEYS.
+_FAKE_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 path = Path(sys.argv[1])
 path.write_text(
     json.dumps(
         {
+            "requested_sha": _FAKE_SHA,
+            "tested_sha": _FAKE_SHA,
             "tier": "smoke",
             "dataset": "evaluation/questions.json",
+            "corpus_version": "test-corpus-version",
+            "llm_provider": "openai",
+            "answer_model": "gpt-4o",
+            "utility_model": "gpt-4o-mini",
+            "embedding_model": "text-embedding-3-small",
+            "prompt_version": "v2",
+            "scoring_mode": "measurement_only",
+            "pass_fail_thresholds": None,
             "metrics": {
                 "evaluated_cases": 2,
                 "category_counts": {
@@ -120,10 +132,23 @@ import json
 import sys
 from pathlib import Path
 
+# Include identity so this fixture reaches metrics fail-closed (evaluated_cases=0).
+_FAKE_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 Path(sys.argv[1]).write_text(
     json.dumps(
         {
+            "requested_sha": _FAKE_SHA,
+            "tested_sha": _FAKE_SHA,
             "tier": "smoke",
+            "dataset": "evaluation/questions.json",
+            "corpus_version": "test-corpus-version",
+            "llm_provider": "openai",
+            "answer_model": "gpt-4o",
+            "utility_model": "gpt-4o-mini",
+            "embedding_model": "text-embedding-3-small",
+            "prompt_version": "v2",
+            "scoring_mode": "measurement_only",
+            "pass_fail_thresholds": None,
             "metrics": {
                 "evaluated_cases": 0,
                 "category_counts": {
@@ -240,6 +265,9 @@ assert_file_contains "workflow enables pipefail" "set -euo pipefail"
 assert_file_contains "workflow validates results" "validate_live_evaluation.py --results"
 assert_file_contains "workflow admits the runner to Atlas" "atlas_access_list.sh add"
 assert_file_contains "workflow removes the runner from Atlas even on failure" "if: always() && steps.atlas.outputs.ip != ''"
+assert_file_contains "workflow requires 40-hex commit_sha" '^[0-9a-f]{40}$'
+assert_file_contains "workflow requires origin/main ancestry" "git merge-base --is-ancestor"
+assert_file_contains "workflow detaches only after ancestry" "git checkout --detach"
 
 # The access-list helper must refuse to run without its key, before any call.
 set +e

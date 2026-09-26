@@ -47,15 +47,22 @@ any paid provider call (`--yes` skips the prompt for CI).
 ```
 
 The GitHub Actions workflow "Live evaluation" takes the same `tier` input and
-prints the selected case count in the job log before execution. It needs the
-`evaluation` environment to hold `OPENAI_API_KEY`, `MONGODB_URI`, and
-`MONGODB_DB`, plus an Atlas project API key with the "Project IP Access List
-Admin" role as `ATLAS_PUBLIC_KEY`, `ATLAS_PRIVATE_KEY`, and
-`ATLAS_PROJECT_ID`. GitHub-hosted runners have no fixed address and Atlas
-rejects any address that is not on the cluster's IP access list, so the job
-adds its own IP to that list before the evaluator runs and removes it
-afterwards, even on failure, through `scripts/atlas_access_list.sh`. The
-workflow fail-closes when required secrets are empty, the evaluator exits
+an explicit `commit_sha` (exactly 40 lowercase hex characters). It prints the
+selected case count in the job log before execution. The job checks out
+trusted `main` first, requires `git merge-base --is-ancestor` against
+`origin/main`, and only then detaches onto the requested SHA — so Actions
+evaluates **merged canonical-main history only** (including historical
+ancestors, not tip-of-main alone). Unmerged pull-request heads are measured
+with the host procedure in [evaluation/README.md](../evaluation/README.md),
+not through this workflow. The `evaluation` environment must hold
+`OPENAI_API_KEY`, `MONGODB_URI`, and `MONGODB_DB`, plus an Atlas project API
+key with the "Project IP Access List Admin" role as `ATLAS_PUBLIC_KEY`,
+`ATLAS_PRIVATE_KEY`, and `ATLAS_PROJECT_ID`. GitHub-hosted runners have no
+fixed address and Atlas rejects any address that is not on the cluster's IP
+access list, so the job adds its own IP to that list before the evaluator
+runs and removes it afterwards, even on failure, through
+`scripts/atlas_access_list.sh`. The workflow fail-closes when the SHA format
+or ancestry gate fails, required secrets are empty, the evaluator exits
 nonzero, or `evaluation/results.json` is missing/malformed (see
 `scripts/validate_live_evaluation.py`).
 

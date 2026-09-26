@@ -8,8 +8,9 @@ chat limiter is off, so they measure what the thread pool can sustain, not what
 a user of the deployed pilot waits. For that, see
 [live-benchmark.md](releases/v0.1.0-alpha.1/live-benchmark.md), which runs
 against the deployed stack with real OpenAI and Atlas on a sample far too small
-for throughput. The two answer different questions and neither substitutes for
-the other.
+for throughput, and [load-testing-pilot.md](load-testing-pilot.md), which loads
+the deployed pilot at a few concurrency levels with the real model. They answer
+different questions and none substitutes for the others.
 
 ## Defining the target
 

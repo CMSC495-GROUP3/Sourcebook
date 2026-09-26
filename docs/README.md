@@ -13,6 +13,7 @@ is and why, [CONTRIBUTING.md](../CONTRIBUTING.md) covers changing it, and
 | [design.md](design.md) | the paper-and-ink design system for `web/` |
 | [evaluation.md](evaluation.md) | the labeled question sets in `evaluation/` and how to run the live evaluation |
 | [load-testing.md](load-testing.md) | throughput measurements from `scripts/loadtest/` and the `THREADPOOL_TOKENS` decision |
+| [load-testing-pilot.md](load-testing-pilot.md) | the concurrent load run against the deployed pilot with the real model, and how to repeat it |
 | [ci-cd.md](ci-cd.md) | the five workflows, the merge-to-deploy path on the pilot host, and the `v1.0.0` tag procedure |
 | [quality.md](quality.md) | code review, coverage, and performance evidence, each number tied to a file, PR, or run |
 
@@ -24,6 +25,7 @@ the deployed system, and the evidence behind them.
 
 | Release | Handoff | Notes | Measured |
 | --- | --- | --- | --- |
+| [v0.2.0](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0) | [handoff](releases/v0.2.0/handoff.md) | [release notes](releases/v0.2.0/release-notes.md) | [benchmark](releases/v0.2.0/live-benchmark.md), [evaluation](releases/v0.2.0/live-evaluation.md) |
 | [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](releases/v0.1.0-alpha.1/handoff.md) | [release notes](releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](releases/v0.1.0-alpha.1/live-evaluation.md) |
 
 ## Conventions

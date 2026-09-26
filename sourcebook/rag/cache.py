@@ -38,6 +38,7 @@ from datetime import UTC, datetime
 from sourcebook.rag.config import (
     ANSWER_CACHE_TTL_SECONDS,
     CACHE_ENABLED,
+    COVERAGE_PROMPT_VERSION,
     PROMPT_VERSION,
     RETRIEVAL_K,
     SIMILARITY_THRESHOLD,
@@ -80,6 +81,17 @@ def get_corpus_version() -> str:
         return_document=True,
     )
     return doc["version"]
+
+
+def read_corpus_version() -> str | None:
+    """Current corpus version, or None if the corpus has never been versioned.
+
+    For callers whose database user is read-only, such as the live evaluation:
+    `get_corpus_version` upserts, and Atlas rejects that write for a read-only
+    user even when the document already exists.
+    """
+    doc = get_collection("meta").find_one({"_id": "corpus"}, {"version": 1})
+    return doc["version"] if doc else None
 
 
 def bump_corpus_version() -> str:
@@ -140,12 +152,18 @@ def answer_cache_key(question: str, corpus_version: str) -> str:
     invalidates — otherwise a prompt fix would be masked until the TTL expired.
     Similarity threshold and retrieval k so tuning either (which changes
     refusals and what the model sees) does not keep serving the old answer.
+    Coverage prompt version so a gate that starts refusing uncovered
+    high-cosine questions cannot keep serving a prior answered miss.
+    Utility-model fingerprint so swapping the coverage judge cannot keep
+    serving answers or refusals produced under a different utility model.
     """
     return _digest(
         normalize(question),
         corpus_version,
         get_provider().answer_fingerprint(),
+        get_provider().utility_fingerprint(),
         PROMPT_VERSION,
+        COVERAGE_PROMPT_VERSION,
         str(SIMILARITY_THRESHOLD),
         str(RETRIEVAL_K),
     )
@@ -174,6 +192,8 @@ def get_cached_answer(question: str, corpus_version: str) -> dict | None:
         "confidence": doc.get("confidence"),
         "follow_ups": doc.get("follow_ups", []),
         "refused": doc.get("refused", False),
+        # Absent on entries cached before issue #269; the client falls back.
+        "refusal_reason": doc.get("refusal_reason"),
     }
 
 
@@ -194,6 +214,7 @@ def put_cached_answer(question: str, corpus_version: str, result: dict) -> None:
                 "confidence": result.get("confidence"),
                 "follow_ups": result.get("follow_ups", []),
                 "refused": result.get("refused", False),
+                "refusal_reason": result.get("refusal_reason"),
                 "created_at": datetime.now(UTC),
             },
             "$setOnInsert": {"hits": 0},
@@ -228,4 +249,5 @@ __all__ = [
     "normalize",
     "put_cached_answer",
     "question_hash",
+    "read_corpus_version",
 ]
