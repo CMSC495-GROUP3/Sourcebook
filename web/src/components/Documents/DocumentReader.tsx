@@ -200,7 +200,7 @@ export default function DocumentReader({ document, actions, mode = 'document' }:
   return (
     <article className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <h2 className="font-display text-[24px] leading-[1.2] font-medium tracking-tight text-ink">
+        <h2 tabIndex={-1} className="font-display text-[24px] leading-[1.2] font-medium tracking-tight text-ink outline-none">
           {document.title}
         </h2>
         <p className="tnum text-[12.5px] text-ink-2">{documentMeta(document, showPassages)}</p>

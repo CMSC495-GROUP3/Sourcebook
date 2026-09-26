@@ -109,7 +109,7 @@ Every event type:
 | token | `{"chunk": "<text>"}` |
 | finished | `{"done": true, "message_id": "<32 hex>", "sources": ["…"], "confidence": 75, "refused": false}` |
 | finished from cache | same as finished, plus `"cached": true` |
-| refused | `{"done": true, "message_id": "…", "sources": [], "confidence": <int>, "refused": true}` after one `chunk` that is the refusal text |
+| refused | `{"done": true, "message_id": "…", "sources": [], "confidence": <int>, "refused": true, "refusal_reason": "no_match"}` after one `chunk` that is the refusal text. `refusal_reason` is `no_match` when retrieval similarity missed the threshold and `not_covered` when it cleared but the coverage judge refused. A cached refusal carries it too, and one cached before the field existed sends `null` |
 | suggestions | `{"follow_ups": ["…", "…", "…"]}` — omitted on refusal; may be skipped if the client hangs up after `done` |
 | generation failure | `{"error": "An error occurred while generating the response."}` |
 | provider busy after a token | `{"error": "<message>", "retryable": true}`; before the first token the whole response is the HTTP 503 above instead |
@@ -146,7 +146,9 @@ Content-Type: application/json
 
 A refusal returns `refused: true`, empty `sources` / `follow_ups`, and the
 fixed refusal text (it names Human Resources; see `REFUSAL_MESSAGE` in
-`sourcebook/rag/config.py`). `message_id` is null when the request had no
+`sourcebook/rag/config.py`). `refusal_reason` is `no_match` or `not_covered`
+as in the stream, and `null` on an answer. The stored assistant turn keeps the
+same field, so a reloaded conversation shows the same refusal card. `message_id` is null when the request had no
 session. A saturated provider returns the HTTP 503 described under the error
 envelope rather than a 200 with an error answer.
 
@@ -218,15 +220,30 @@ Content-Type: application/json
   "created_at": "2026-09-12T01:04:16.973759+00:00",
   "updated_at": "2026-09-12T01:04:16.973759+00:00",
   "resolved_at": null,
-  "delivery_status": "pending",
+  "delivery_status": "not_configured",
   "delivery_attempts": 0,
   "delivery_last_attempt_at": null,
-  "delivery_claimed_at": null
+  "delivery_claimed_at": null,
+  "delivery_retryable": false
 }
 ```
 
 Escalating the same message twice returns the first record. Create never waits
 on the webhook.
+
+`delivery_status` and `delivery_retryable` are computed for each response, not
+stored:
+
+| `delivery_status` | Meaning |
+| --- | --- |
+| `not_configured` | No `ESCALATION_WEBHOOK_URL` is set and nothing was ever sent. The stub returns this |
+| `pending` | A webhook is configured and a send is queued, in flight, or not yet attempted |
+| `delivered` | The webhook accepted the last attempt |
+| `failed` | The last attempt failed |
+
+`delivery_retryable` is true only when `POST .../retry-delivery` would send
+now: a webhook is configured, attempts are under
+`ESCALATION_WEBHOOK_MAX_ATTEMPTS`, and no live claim holds the record.
 
 ## Human Resources queue and resolve
 
@@ -259,10 +276,11 @@ Authorization: Bearer <access_token>
       "created_at": "2026-09-12T01:04:16.973759+00:00",
       "updated_at": "2026-09-12T01:04:16.973759+00:00",
       "resolved_at": null,
-      "delivery_status": "pending",
+      "delivery_status": "not_configured",
       "delivery_attempts": 0,
       "delivery_last_attempt_at": null,
-      "delivery_claimed_at": null
+      "delivery_claimed_at": null,
+      "delivery_retryable": false
     }
   ],
   "total": 1

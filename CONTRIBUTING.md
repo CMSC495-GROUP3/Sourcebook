@@ -37,6 +37,8 @@ What is fake in this mode, so you are not surprised:
   suggestions are canned too. Retrieval scores are fixed, so every question
   either answers or every question refuses. `make stub REFUSE=1` flips it to
   refusing, which is how you see the refusal card and the escalation button.
+  `make stub REFUSE=judge` refuses through the coverage judge instead, the
+  other refusal card.
 - **The database.** Conversations, escalations, and caches live in memory and
   vanish when the API stops.
 - **Vector search.** Replaced with canned passages. Atlas Vector Search cannot

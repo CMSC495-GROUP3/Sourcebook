@@ -12,6 +12,9 @@
 <p align="center">
   <a href="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/ci.yml"><img src="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/security.yml"><img src="https://github.com/CMSC495-GROUP3/Sourcebook/actions/workflows/security.yml/badge.svg?branch=main" alt="Security"></a>
+  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases"><img src="https://img.shields.io/github/v/release/CMSC495-GROUP3/Sourcebook?include_prereleases&sort=semver&label=release" alt="Latest release"></a>
+  <a href="https://sourcebook.duckdns.org"><img src="https://img.shields.io/website?url=https%3A%2F%2Fsourcebook.duckdns.org&label=pilot%20site&up_message=up&down_message=down" alt="Pilot site status"></a>
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-3776ab" alt="Python 3.11 to 3.14">
   <img src="https://img.shields.io/badge/react-19-007ec6" alt="React 19">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-007ec6" alt="MIT license"></a>
@@ -22,9 +25,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#deployment">Deployment</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="docs/releases/v0.1.0-alpha.1/handoff.md">Alpha handoff</a> ·
-  <a href="https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a>
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 ---
@@ -98,6 +99,7 @@ its handoff, release notes, live benchmark, live evaluation, and evidence.
 
 | Release | Handoff | Notes | Measured |
 | --- | --- | --- | --- |
+| [v0.2.0](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.2.0) | [handoff](docs/releases/v0.2.0/handoff.md) | [release notes](docs/releases/v0.2.0/release-notes.md) | [benchmark](docs/releases/v0.2.0/live-benchmark.md), [evaluation](docs/releases/v0.2.0/live-evaluation.md) |
 | [v0.1.0-alpha.1](https://github.com/CMSC495-GROUP3/Sourcebook/releases/tag/v0.1.0-alpha.1) | [handoff](docs/releases/v0.1.0-alpha.1/handoff.md) | [release notes](docs/releases/v0.1.0-alpha.1/release-notes.md) | [benchmark](docs/releases/v0.1.0-alpha.1/live-benchmark.md), [evaluation](docs/releases/v0.1.0-alpha.1/live-evaluation.md) |
 
 Coding agents get the condensed version of all of this in
@@ -290,6 +292,20 @@ known-unanswerable questions, then set the threshold between the two clusters.
 Too high refuses legitimate questions. Too low means the refusal never fires.
 The [query log](#learning-from-the-query-log) is where those scores come from.
 
+Because cosine alone cannot separate them, a second check runs whenever the
+threshold clears: a coverage judge. The utility model gets the selected
+excerpts and the question, both marked as untrusted data, and must reply with
+exactly `{"covered": true}` or `{"covered": false}`. Anything else refuses. On a
+follow-up it judges the standalone rewrite and also sees the employee's own
+wording, so an instruction to ignore the excerpts is caught even when the
+rewrite reads cleanly. A busy provider still returns the retryable 503, and a
+timeout, dropped connection, 429, or provider 5xx during the judge is an
+ordinary error. None of those is stored or cached as a refusal. The live smoke
+tier on the #192 fix ([PR #253](https://github.com/CMSC495-GROUP3/Sourcebook/pull/253))
+moved unsupported-question refusal and prompt-injection refusal from 0% to
+100%, while recall, citation correctness, and grounded answers stayed at 100%.
+The cost is one utility call on every turn that clears the threshold.
+
 The UI renders a refusal differently from an answer and points the reader at
 the Policy Library, so "the assistant won't answer that" looks different from
 "that policy isn't loaded yet." The library shows each document whole; the
@@ -333,6 +349,12 @@ at startup. Records created before delivery tracking can be claimed as legacy wo
 at-least-once: a receiver that accepts a request immediately before the worker
 dies may see the same escalation again, so consumers should deduplicate by
 `escalation_id`.
+
+Responses report delivery as it stands, not the stored field. With no webhook
+configured, a record that was never attempted reads `not_configured`, and every
+record carries `delivery_retryable`, which is true only when the retry endpoint
+would send. Neither is stored, so setting `ESCALATION_WEBHOOK_URL` later turns
+those records back into `pending` and lets the HR Requests page send them.
 
 Human Resources works the queue from the **HR Requests** page in the web app,
 which lists open escalations, resolves or reopens them with a note, and retries
@@ -964,12 +986,12 @@ The product name lives in three places: `APP_NAME` in
 - **Authentication is a shared password** (or two), not per-employee accounts, and
   conversations are not scoped to a user. Fine for a pilot. It is the first
   thing to change before a real deployment.
-- **The similarity threshold is untuned** against a real corpus, and on the
-  sample corpus it does not separate covered questions from uncovered ones on
-  nearby topics. Such a question gets a prose decline under a score badge and
-  source chips instead of the refusal card (#192), and an uncovered follow-up
-  can clear the gate the same way (#189). The escalation link under the answer
-  still works. See [above](#hallucination-refuse-rather-than-guess).
+- **The similarity threshold is untuned** against a real corpus. On the sample
+  corpus it does not separate covered questions from uncovered ones on nearby
+  topics, so the coverage judge behind it does that work (#192). The judge is a
+  model call: it adds latency and cost to every grounded turn, and it was
+  measured on the 20-case smoke tier, not a real corpus. See
+  [above](#hallucination-refuse-rather-than-guess).
 - **Frontend unit coverage is intentionally focused.** Vitest and React Testing
   Library cover the chat stream, message and escalation behavior, theme toggle,
   and theme storage. `tsc`, ESLint, and the production build cover the wider web

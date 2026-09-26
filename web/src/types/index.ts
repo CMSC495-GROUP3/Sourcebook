@@ -3,13 +3,21 @@ export interface Message {
   content: string
 }
 
+/**
+ * Which check refused a turn. `no_match`: retrieval similarity missed the
+ * threshold. `not_covered`: similarity cleared it but the coverage judge said
+ * the passages do not answer the question. Absent on turns stored before #269.
+ */
+export type RefusalReason = 'no_match' | 'not_covered'
+
 export interface ChatResponse {
   answer: string
   sources: string[]
   confidence: number | null
   follow_ups: string[]
-  /** True when retrieval fell below the grounding threshold and no answer was generated. */
+  /** True when the grounding gate or the coverage judge refused and no answer was generated. */
   refused: boolean
+  refusal_reason?: RefusalReason | null
   session_id: string | null
 }
 
@@ -76,8 +84,11 @@ export interface Escalation {
   updated_at: string
   resolved_at: string | null
 
-  delivery_status: 'pending' | 'delivered' | 'failed'
+  /** Computed per response: `not_configured` means no webhook and nothing was sent. */
+  delivery_status: 'pending' | 'delivered' | 'failed' | 'not_configured'
   delivery_attempts: number
   delivery_last_attempt_at: string | null
   delivery_claimed_at: string | null
+  /** True when the retry-delivery endpoint would send right now. */
+  delivery_retryable: boolean
 }

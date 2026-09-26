@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import { useEffect, useState, type Ref } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
 import { AlertCircle, BookOpen } from 'lucide-react'
@@ -24,6 +24,32 @@ interface Props {
   onOpenSource: (title: string) => void
   onFollowUp: (q: string) => void
   onEscalated: (index: number, escalationId: string) => void
+  /** One-shot resend after a provider-busy error. */
+  onRetry?: () => void
+}
+
+function RetryControl({ retryAfter, onRetry }: { retryAfter: number; onRetry: () => void }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil(retryAfter)))
+
+  useEffect(() => {
+    if (remaining <= 0) return
+    const id = window.setTimeout(() => {
+      setRemaining((n) => n - 1)
+    }, 1000)
+    return () => window.clearTimeout(id)
+  }, [remaining])
+
+  const waiting = remaining > 0
+  return (
+    <button
+      type="button"
+      onClick={onRetry}
+      disabled={waiting}
+      className="h-9 cursor-pointer self-start rounded-md bg-accent px-4 text-[13.5px] font-medium text-paper transition-colors hover:bg-accent-ink disabled:cursor-default disabled:bg-rule disabled:text-ink-3"
+    >
+      {waiting ? `Retry in ${remaining}s` : 'Retry'}
+    </button>
+  )
 }
 
 function Question({ text, first, ref }: { text: string; first: boolean; ref?: Ref<HTMLDivElement> }) {
@@ -35,29 +61,44 @@ function Question({ text, first, ref }: { text: string; first: boolean; ref?: Re
   )
 }
 
+// Issue #269: the coverage judge refuses questions whose passages cleared the
+// similarity threshold, so the no-match wording and a match meter would both
+// be wrong there. Turns stored before the reason existed keep the old wording.
+const REFUSAL_COPY = {
+  no_match: {
+    heading: 'No matching policy',
+    detail: 'This is different from a policy that exists but says no. Nothing indexed came close enough to answer from.',
+    showScore: true,
+  },
+  not_covered: {
+    heading: 'Not answered by any policy',
+    detail: 'Some policies mention related topics, but none of them answers this question.',
+    showScore: false,
+  },
+} as const
+
 export default function Message({
-  ref, message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated,
+  ref, message, index, sessionId, isLast, isStreaming, activeSource, onOpenSource, onFollowUp, onEscalated, onRetry,
 }: Props) {
   if (message.role === 'user') {
     return <Question ref={ref} text={message.content} first={index === 0} />
   }
 
   if (message.refused) {
+    const copy = REFUSAL_COPY[message.refusal_reason ?? 'no_match']
     return (
       <div ref={ref} className="flex flex-col gap-3">
         <div className="rounded-lg border border-ochre-rule bg-ochre-soft">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-ochre-rule/70 px-4 py-2.5">
             <span className="caps inline-flex items-center gap-2 text-ochre-ink">
               <AlertCircle size={15} aria-hidden="true" className="text-ochre" />
-              No matching policy
+              {copy.heading}
             </span>
-            <ConfidenceBadge confidence={message.confidence} />
+            {copy.showScore && <ConfidenceBadge confidence={message.confidence} />}
           </div>
           <div className="flex flex-col gap-1.5 px-4 py-3.5">
             <p className="text-[15px] leading-[1.55] text-ink">{message.content}</p>
-            <p className="text-[13.5px] leading-normal text-ink-2">
-              This is different from a policy that exists but says no. Nothing indexed came close enough to answer from.
-            </p>
+            <p className="text-[13.5px] leading-normal text-ink-2">{copy.detail}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
             <EscalateButton
@@ -97,7 +138,12 @@ export default function Message({
             <FollowUpButtons questions={message.follow_ups ?? []} onSelect={onFollowUp} />
           )}
           {/* An error bubble is this client's own text; the server stored no
-              turn to hand to a person. See #84. */}
+              turn to hand to a person. See #84. A provider-busy error can be
+              retried once, and only while it is still the last message;
+              generic failures stay as copy only. */}
+          {isLast && message.error && message.retryable && onRetry ? (
+            <RetryControl retryAfter={message.retryAfter ?? 1} onRetry={onRetry} />
+          ) : null}
           {!message.error && (
             <EscalateButton
               sessionId={sessionId}

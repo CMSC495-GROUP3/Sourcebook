@@ -9,14 +9,20 @@
  * The URL carries the state a link needs to reproduce: ?q= seeds the search,
  * ?category= the filter, and ?source= the open document. The source pane in
  * chat links here with q and source together so the list contains the document.
+ *
+ * Below `lg`, "All policies" goes back through history to the list a document
+ * was opened from, and pushes the list only when it was opened from a link, so
+ * Back from the list leaves the page. Focus follows the panes (usePaneFocus).
  */
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Search } from 'lucide-react'
 import { searchDocuments, listCategories } from '../api/documents'
 import DocumentCard from '../components/Documents/DocumentCard'
 import DocumentReader from '../components/Documents/DocumentReader'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { usePaneFocus } from '../hooks/usePaneFocus'
+import { FROM_LIST, openedFromList } from '../lib/history'
 import { READING_COLUMN, READING_GUTTER } from '../lib/layout'
 import type { PolicyDocument } from '../types'
 
@@ -30,6 +36,9 @@ export default function DocumentLibraryPage() {
   const initialQuery = searchParams.get('q') ?? ''
   const initialCategory = searchParams.get('category') ?? ''
   const twoPane = useMediaQuery(TWO_PANE_QUERY)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { listRef, detailRef } = usePaneFocus(selectedSource, twoPane)
 
   const [documents, setDocuments] = useState<PolicyDocument[]>([])
   const [categories, setCategories] = useState<string[]>([])
@@ -109,7 +118,14 @@ export default function DocumentLibraryPage() {
     const next = new URLSearchParams(searchParams)
     if (source) next.set('source', source)
     else next.delete('source')
-    setSearchParams(next)
+    // Below lg the list is the entry behind a document opened from it.
+    setSearchParams(next, source && !twoPane ? { state: FROM_LIST } : undefined)
+  }
+
+  /** "All policies": back to the list it was opened from, or push the list. */
+  function backToList() {
+    if (openedFromList(location.state)) navigate(-1)
+    else select(null)
   }
 
   const selected = documents.find((doc) => doc.source === selectedSource) ?? null
@@ -130,9 +146,9 @@ export default function DocumentLibraryPage() {
     : `${total} indexed`
 
   const list = (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={listRef} className="flex h-full min-h-0 flex-col">
       <header className="flex h-15 shrink-0 items-baseline justify-between gap-3 border-b border-rule px-5 pt-[19px]">
-        <h1 className="font-display text-[22px] leading-none font-medium tracking-tight text-ink">
+        <h1 tabIndex={-1} className="font-display text-[22px] leading-none font-medium tracking-tight text-ink outline-none">
           Policy Library
         </h1>
         <span className="tnum text-[12.5px] text-ink-2" aria-live="polite">{count}</span>
@@ -202,14 +218,14 @@ export default function DocumentLibraryPage() {
   )
 
   const reader = selected ? (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={detailRef} className="flex h-full min-h-0 flex-col">
       <div className={`flex h-15 shrink-0 items-center gap-4 border-b border-rule ${READING_GUTTER}`}>
         {twoPane ? (
           <span className="caps text-ink-3">{selected.category ?? 'Policy'}</span>
         ) : (
           <button
             type="button"
-            onClick={() => select(null)}
+            onClick={backToList}
             className="inline-flex h-10 cursor-pointer items-center gap-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
           >
             <ArrowLeft size={14} aria-hidden="true" />

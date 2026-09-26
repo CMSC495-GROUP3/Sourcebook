@@ -1,7 +1,8 @@
 import { AxiosError } from 'axios'
-import { describe, expect, it } from 'vitest'
-import type { InternalAxiosRequestConfig } from 'axios'
-import { escalationErrorMessage } from './escalations'
+import { describe, expect, it, vi } from 'vitest'
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import client from './client'
+import { escalationErrorMessage, getEscalation } from './escalations'
 
 function axiosError(status: number, data: unknown): AxiosError {
   return new AxiosError('failed', String(status), undefined, undefined, {
@@ -32,5 +33,13 @@ describe('escalationErrorMessage', () => {
   it('falls back when the response has no body or the error is not from axios', () => {
     expect(escalationErrorMessage(axiosError(500, ''), 'fallback')).toBe('fallback')
     expect(escalationErrorMessage(new Error('network'), 'fallback')).toBe('fallback')
+  })
+})
+
+describe('escalation paths', () => {
+  it('encodes the id so a crafted link cannot reach another route', async () => {
+    const get = vi.spyOn(client, 'get').mockResolvedValue({ data: {} } as AxiosResponse)
+    await getEscalation('../documents')
+    expect(get).toHaveBeenCalledWith('/api/escalations/..%2Fdocuments')
   })
 })

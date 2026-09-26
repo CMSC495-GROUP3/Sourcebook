@@ -22,6 +22,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from typing import Literal
 
 from dotenv import load_dotenv
 
@@ -221,15 +222,13 @@ def passages_cover_question(
     return _parse_coverage_response(raw)
 
 
-def _cosine_clears_and_covers(
-    question: str,
-    passages: list[dict],
-    threshold: float,
-) -> bool:
-    """Cosine first; coverage only if that filter would have answered."""
-    if not is_grounded(passages, threshold):
-        return False
-    return passages_cover_question(question, passages)
+# Why a turn was refused, for the client's wording (issue #269). "no_match":
+# cosine similarity missed the threshold, so nothing indexed was close.
+# "not_covered": cosine cleared but the coverage judge said the passages do not
+# answer the question, including a judge that failed closed.
+RefusalReason = Literal["no_match", "not_covered"]
+NO_MATCH: RefusalReason = "no_match"
+NOT_COVERED: RefusalReason = "not_covered"
 
 
 def confidence_score(passages: list[dict]) -> int:
@@ -265,6 +264,8 @@ class Grounding:
     best_score: float
     # Best score for the question as asked. None when no second retrieval ran.
     raw_best_score: float | None
+    # Which check refused the turn; None when it is grounded.
+    refusal_reason: RefusalReason | None = None
 
 
 def ground_question(
@@ -295,13 +296,16 @@ def ground_question(
     condensed_best = best_score(passages)
 
     if condensed == question:
+        cosine_clears = is_grounded(passages, threshold)
+        grounded = cosine_clears and passages_cover_question(question, passages)
         return Grounding(
             condensed=condensed,
             passages=passages,
-            grounded=_cosine_clears_and_covers(question, passages, threshold),
+            grounded=grounded,
             confidence=confidence_score(passages),
             best_score=condensed_best,
             raw_best_score=None,
+            refusal_reason=_refusal_reason(cosine_clears, grounded),
         )
 
     raw_passages = retrieve_passages(question)
@@ -320,7 +324,15 @@ def ground_question(
         confidence=confidence_score(passages if grounded else weaker),
         best_score=min(raw_best, condensed_best),
         raw_best_score=raw_best,
+        refusal_reason=_refusal_reason(cosine_clears, grounded),
     )
+
+
+def _refusal_reason(cosine_clears: bool, grounded: bool) -> RefusalReason | None:
+    """Name the check that refused: cosine first, then the coverage judge."""
+    if grounded:
+        return None
+    return NOT_COVERED if cosine_clears else NO_MATCH
 
 
 def cited_sources(passages: list[dict]) -> list[str]:
@@ -481,12 +493,13 @@ def build_messages(query: str, passages: list[dict], chat_history: list[dict]) -
 def answer_question(query: str, chat_history: list[dict] | None = None) -> dict:
     """Answer a question from the policy corpus.
 
-    Returns {"answer", "sources", "confidence", "follow_ups", "refused"}.
+    Returns {"answer", "sources", "confidence", "follow_ups", "refused",
+    "refusal_reason"}.
 
     `refused` is True when cosine retrieval is below the threshold or the
     coverage judge says the chosen passages do not answer the question. In
-    that case no answer-role call was made and `answer` is the standard
-    refusal.
+    that case no answer-role call was made, `answer` is the standard refusal,
+    and `refusal_reason` names which check refused. It is None otherwise.
     """
     chat_history = chat_history or []
 
@@ -500,6 +513,7 @@ def answer_question(query: str, chat_history: list[dict] | None = None) -> dict:
             "confidence": grounding.confidence,
             "follow_ups": [],
             "refused": True,
+            "refusal_reason": grounding.refusal_reason,
         }
 
     try:
@@ -515,6 +529,7 @@ def answer_question(query: str, chat_history: list[dict] | None = None) -> dict:
             "confidence": None,
             "follow_ups": [],
             "refused": False,
+            "refusal_reason": None,
         }
 
     return {
@@ -523,6 +538,7 @@ def answer_question(query: str, chat_history: list[dict] | None = None) -> dict:
         "confidence": grounding.confidence,
         "follow_ups": generate_follow_ups(query, answer),
         "refused": False,
+        "refusal_reason": None,
     }
 
 

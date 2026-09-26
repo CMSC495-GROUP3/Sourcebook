@@ -83,6 +83,17 @@ def get_corpus_version() -> str:
     return doc["version"]
 
 
+def read_corpus_version() -> str | None:
+    """Current corpus version, or None if the corpus has never been versioned.
+
+    For callers whose database user is read-only, such as the live evaluation:
+    `get_corpus_version` upserts, and Atlas rejects that write for a read-only
+    user even when the document already exists.
+    """
+    doc = get_collection("meta").find_one({"_id": "corpus"}, {"version": 1})
+    return doc["version"] if doc else None
+
+
 def bump_corpus_version() -> str:
     """Invalidate every cached answer. Called after ingestion or a reindex."""
     version = uuid.uuid4().hex
@@ -181,6 +192,8 @@ def get_cached_answer(question: str, corpus_version: str) -> dict | None:
         "confidence": doc.get("confidence"),
         "follow_ups": doc.get("follow_ups", []),
         "refused": doc.get("refused", False),
+        # Absent on entries cached before issue #269; the client falls back.
+        "refusal_reason": doc.get("refusal_reason"),
     }
 
 
@@ -201,6 +214,7 @@ def put_cached_answer(question: str, corpus_version: str, result: dict) -> None:
                 "confidence": result.get("confidence"),
                 "follow_ups": result.get("follow_ups", []),
                 "refused": result.get("refused", False),
+                "refusal_reason": result.get("refusal_reason"),
                 "created_at": datetime.now(UTC),
             },
             "$setOnInsert": {"hits": 0},
@@ -235,4 +249,5 @@ __all__ = [
     "normalize",
     "put_cached_answer",
     "question_hash",
+    "read_corpus_version",
 ]

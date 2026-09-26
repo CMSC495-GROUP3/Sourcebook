@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import type { AxiosResponse } from 'axios'
@@ -29,6 +29,7 @@ function renderMessage(message: ChatMessage, overrides: Record<string, unknown> 
 describe('Message', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('renders a user question', () => {
@@ -58,6 +59,44 @@ describe('Message', () => {
 
     await user.click(screen.getByRole('button', { name: 'Ask Human Resources' }))
     expect(screen.getByRole('heading', { name: 'Send to Human Resources' })).toBeInTheDocument()
+  })
+
+  it('keeps the no-match wording and score for a similarity refusal', () => {
+    renderMessage({
+      role: 'assistant',
+      content: 'I cannot answer that from the indexed policies.',
+      refused: true,
+      refusal_reason: 'no_match',
+      confidence: 59,
+      message_id: 'm-ref',
+    })
+
+    expect(screen.getByText('No matching policy')).toBeInTheDocument()
+    expect(screen.getByText(/Nothing indexed came close enough/)).toBeInTheDocument()
+    expect(screen.getByText('Partial match')).toBeInTheDocument()
+  })
+
+  // Issue #269: the judge refuses questions that cleared the similarity
+  // threshold, so "nothing came close" and a "Strong match" meter are both wrong.
+  it('says related policies do not answer it when the coverage judge refused', () => {
+    renderMessage({
+      role: 'assistant',
+      content: 'I cannot answer that from the indexed policies.',
+      refused: true,
+      refusal_reason: 'not_covered',
+      confidence: 79,
+      message_id: 'm-judge',
+    })
+
+    expect(screen.getByText('Not answered by any policy')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Some policies mention related topics, but none of them answers this question/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('No matching policy')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Nothing indexed came close/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Strong match')).not.toBeInTheDocument()
+    expect(screen.queryByText(/79%/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ask Human Resources' })).toBeInTheDocument()
   })
 
   it('forwards a refusal escalation id to the parent', async () => {
@@ -136,5 +175,77 @@ describe('Message', () => {
       error: true,
     })
     expect(screen.queryByRole('button', { name: /Ask Human Resources/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument()
+  })
+
+  it('shows Retry for an eligible provider-busy error when it is last', () => {
+    const onRetry = vi.fn()
+    renderMessage(
+      {
+        role: 'assistant',
+        content: 'The assistant is answering as many questions as it can right now. Please try again in a moment.',
+        error: true,
+        retryable: true,
+        retryAfter: 0,
+      },
+      { isLast: true, onRetry },
+    )
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
+
+  it('suppresses Retry for an eligible provider-busy error when it is not last', () => {
+    const onRetry = vi.fn()
+    renderMessage(
+      {
+        role: 'assistant',
+        content: 'The assistant is answering as many questions as it can right now. Please try again in a moment.',
+        error: true,
+        retryable: true,
+        retryAfter: 0,
+      },
+      { isLast: false, onRetry },
+    )
+    expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument()
+  })
+
+  it('does not offer Retry on ordinary errors even when last', () => {
+    renderMessage(
+      {
+        role: 'assistant',
+        content: 'Sorry, something went wrong. Please try again.',
+        error: true,
+      },
+      { isLast: true, onRetry: vi.fn() },
+    )
+    expect(screen.queryByRole('button', { name: /Retry/ })).not.toBeInTheDocument()
+  })
+
+  it('holds the retry control until Retry-After elapses', async () => {
+    vi.useFakeTimers()
+    const onRetry = vi.fn()
+    renderMessage(
+      {
+        role: 'assistant',
+        content: 'The assistant is answering as many questions as it can right now. Please try again in a moment.',
+        error: true,
+        retryable: true,
+        retryAfter: 2,
+      },
+      { onRetry },
+    )
+
+    expect(screen.getByRole('button', { name: 'Retry in 2s' })).toBeDisabled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(screen.getByRole('button', { name: 'Retry in 1s' })).toBeDisabled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    const retry = screen.getByRole('button', { name: 'Retry' })
+    expect(retry).toBeEnabled()
+    retry.click()
+    expect(onRetry).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
   })
 })
