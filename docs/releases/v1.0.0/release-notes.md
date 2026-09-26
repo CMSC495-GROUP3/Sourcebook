@@ -48,6 +48,9 @@ Pending until the freeze. So far:
 - **When related policies don't answer a question as asked,** the refusal
   card now says to ask the full question again with the details it depends
   on, instead of reading as a dead end (PR #281).
+- **The pilot compresses its pages and scripts.** Nginx had skipped gzip for
+  requests coming through Caddy, so the 674 KB JavaScript bundle loaded
+  uncompressed. Chat answers still stream as before (PR #282).
 
 ## Getting access
 
