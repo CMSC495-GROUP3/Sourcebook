@@ -75,7 +75,7 @@ const REFUSAL_COPY = {
   not_covered: {
     heading: 'Not answered by any policy',
     detail:
-      'Some policies mention related topics, but none of them answers this question as asked. If it depends on details, like which trip or what it was for, add them and ask again, or ask Human Resources.',
+      'Some policies mention related topics, but none of them answers this question as asked. If the answer depends on details, such as dates, location, or the kind of leave or expense, add them and ask again, or ask Human Resources.',
     showScore: false,
   },
 } as const
