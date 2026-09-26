@@ -460,13 +460,16 @@ That log is how the system improves from evidence rather than intuition.
 - Refusals grouped by question hash are a ranked list of the documents HR
   should write next. This is the closest thing here to learning: the corpus
   gets better because the logs showed where it was thin.
-- Repeated questions rank into an FAQ, which says which answers are worth
-  curating by hand.
+- Questions asked in more than one conversation rank into an FAQ, which says
+  which answers are worth curating by hand. Rows group by exact wording, so a
+  rephrased question counts separately (grouping by meaning is #287).
 - The score distribution of answered versus refused questions is the only
   sound basis for tuning `SIMILARITY_THRESHOLD`, and there is no other way to
   collect it.
 
-Run a read-only report over a time window. Run it on the EC2 host. The
+The first two lists are on the What People Ask page in the web app, over the last
+7, 30, or 90 days. For the score histograms or an exact window, run the
+read-only report on the EC2 host. The
 cluster's IP access list admits that host, so anywhere else waits out
 `--timeout` (default 10 s) and then fails in a way that looks like a config
 typo.
@@ -889,8 +892,9 @@ everyone who asked the same question next.
 
 Not covered: live calls to AWS, Atlas, or OpenAI. On the web side, Vitest
 covers the chat stream, messages, escalation, the theme, and the Document
-Library and HR Requests pages; the rest of the React components are checked
-only by `tsc` and ESLint (see [Known limitations](#known-limitations)).
+Library, HR Requests, and What People Ask pages; the rest of the React
+components are checked only by `tsc` and ESLint (see
+[Known limitations](#known-limitations)).
 
 `make acceptance` needs Docker Compose 2.24 or later because
 `docker-compose.acceptance.yml` uses `!reset`. Older Compose fails to parse
@@ -996,13 +1000,18 @@ The product name lives in three places: `APP_NAME` in
   [above](#hallucination-refuse-rather-than-guess).
 - **Frontend unit coverage is intentionally focused.** Vitest and React Testing
   Library cover the chat stream, message and escalation behavior, theme toggle,
-  theme storage, and the Document Library and HR Requests pages. `tsc`, ESLint,
-  and the production build cover the wider web application, but visual
-  regression and full browser tests remain future work.
+  theme storage, and the Document Library, HR Requests, and What People Ask
+  pages. `tsc`, ESLint, and the production build cover the wider web
+  application, but visual regression and full browser tests remain future
+  work.
 - **Document search uses `$regex`**, which does not use an index. Fine at this
   corpus size. Move to Atlas Search if the library grows large.
 - **JWTs live in browser local storage.** Acceptable for an internal pilot
   behind one shared credential, not for a multi-user security model.
+- **Every signed-in user can open the HR pages.** Sign-in has no roles, so HR
+  Requests and What People Ask show other employees' questions to anyone with
+  the password. Conversations are listed to every user as well. An HR-only
+  credential is [#290](https://github.com/CMSC495-GROUP3/Sourcebook/issues/290).
 - **Do not deploy under gunicorn `--preload`.** `MongoClient` is not fork-safe
   and the collection handles bind at import. `uvicorn --workers` is safe
   because each worker imports the app after forking. See

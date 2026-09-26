@@ -4,6 +4,7 @@ import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react'
 import {
   Plus, MessageCircleQuestionMark, BookOpen, LogOut, Pencil, Trash2,
   Check, X, ChevronRight, FolderOpen, FolderPlus, Folder, ClipboardList,
+  BookDashed,
 } from 'lucide-react'
 import { useConversations } from '../../hooks/useConversations'
 import { useProjects } from '../../hooks/useProjects'
@@ -39,6 +40,7 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
   const activeSessionId = searchParams.get('session_id')
   const onLibrary = location.pathname === '/documents'
   const onEscalations = location.pathname === '/escalations'
+  const onGaps = location.pathname === '/gaps'
 
   const { conversations, fetchConversations, renameConversation, assignToProject, deleteConversation } = useConversations()
   const { projects, fetchProjects, createProject, deleteProject } = useProjects()
@@ -179,6 +181,16 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
           >
             <ClipboardList size={18} aria-hidden="true" />
           </button>
+          <button
+            type="button"
+            onClick={() => navigate('/gaps')}
+            title="What People Ask"
+            aria-label="What People Ask"
+            aria-current={onGaps ? 'page' : undefined}
+            className={`${RAIL_BUTTON} ${onGaps ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-paper-3 hover:text-ink'}`}
+          >
+            <BookDashed size={18} aria-hidden="true" />
+          </button>
         </div>
         <div className="mt-auto flex flex-col items-center gap-1 pb-3">
           <ThemeToggle />
@@ -246,6 +258,15 @@ export default function Sidebar({ open, isDesktop, onToggle, onNavigate }: Sideb
         >
           <ClipboardList size={15} aria-hidden="true" className={onEscalations ? 'text-accent' : 'text-ink-3'} />
           HR Requests
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/gaps')}
+          aria-current={onGaps ? 'page' : undefined}
+          className={`${ROW} h-[34px] px-2.5 ${onGaps ? ROW_ACTIVE : ROW_IDLE}`}
+        >
+          <BookDashed size={15} aria-hidden="true" className={onGaps ? 'text-accent' : 'text-ink-3'} />
+          What People Ask
         </button>
       </div>
 

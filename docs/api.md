@@ -30,6 +30,7 @@ in-process). Defaults:
 | `POST /api/chat`, `POST /api/chat/stream` | `CHAT_RATE_LIMIT` (default 30/minute) |
 | `POST /api/escalations`, `POST /api/escalations/{escalation_id}/retry-delivery` | 5/minute |
 | `POST /api/documents/reindex` | `REINDEX_RATE_LIMIT` (default 2/minute) |
+| `GET /api/reports/gaps` | 30/minute |
 
 Missing bearer → `{"detail": "Not authenticated"}`. Bad or rotated token →
 `{"detail": "Invalid or expired token."}`. Wrong password →
@@ -313,14 +314,62 @@ webhook. With no webhook configured the stub returns:
 {"detail": "Webhook delivery is not configured."}
 ```
 
-## Query-log report
+## Coverage report
 
-There is no HTTP report route on this OpenAPI document. Every chat request
-writes one `query_logs` row (question hash, scores, refused, sources, cache
-hit, latency). How that log is used is in the README section
-[Learning from the query log](../README.md#learning-from-the-query-log). A
-weekly knowledge-gap report over that collection is tracked separately as
-[#160](https://github.com/CMSC495-GROUP3/Sourcebook/issues/160).
+Every chat request writes one `query_logs` row (question hash, scores, refused,
+sources, cache hit, latency). How that log is used is in the README section
+[Learning from the query log](../README.md#learning-from-the-query-log).
+
+`GET /api/reports/gaps` ranks that log for the What People Ask page. `days`
+(1–90, default 30) sets the window back from now; `top` (1–100, default 20)
+caps each list. A window longer than the log's TTL is shortened to it, and
+`days` in the response is the one used.
+
+- `gaps`: refused questions, most asks first. Every refusal is a gap, even one
+  person's, so this list ranks on asks.
+- `faq`: questions asked in at least two conversations, most conversations
+  first, with how many of the asks were refused.
+
+Each row carries `count` (every ask, including one person asking again) and
+`conversations` (distinct `session_id` values). A conversation is not a
+person, but it is the closest the log gets. Rows group by `question_hash`, the
+exact wording after lowercasing and folding whitespace, so a rephrased
+question is its own row; grouping by meaning is
+[#287](https://github.com/CMSC495-GROUP3/Sourcebook/issues/287).
+
+`question` is the logged condensed question, or the truncated raw one, or
+`null` when neither was logged. No session ids are returned, but the question
+text comes from what the employee typed (the condensed rewrite when there is
+one), and any signed-in user can call this route: sign-in has no roles.
+`GET /api/conversations` already lists every conversation to every user, so
+this route adds ranking and counts, not new access.
+
+Each query stops after five seconds. A report that runs longer returns HTTP
+503 with `{"detail": "This report took too long. Try a shorter window."}`.
+
+```http
+GET /api/reports/gaps?days=30
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "since": "2026-08-27T14:00:00+00:00",
+  "until": "2026-09-26T14:00:00+00:00",
+  "days": 30,
+  "total": 412,
+  "refused": 37,
+  "gaps": [
+    {"question_hash": "5c1e…", "question": "Does the company pay for pet insurance?", "count": 6, "conversations": 4}
+  ],
+  "faq": [
+    {"question_hash": "a07b…", "question": "How much PTO do I get?", "count": 19, "conversations": 12, "refused": 0}
+  ]
+}
+```
+
+The terminal version with score histograms is
+`python -m sourcebook.rag.query_log_reports`; see its module docstring.
 
 ## Health and config
 
