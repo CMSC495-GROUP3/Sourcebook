@@ -219,7 +219,6 @@ of the API. The app is at <http://localhost> and the health route at
 <http://localhost/api/health>. Compose does not publish the API port, and
 with `SITE_ADDRESS` unset Caddy serves plain HTTP.
 
-
 ### Verify transactional project integrity
 
 The normal stub test suite cannot verify atomic project assignment or deletion

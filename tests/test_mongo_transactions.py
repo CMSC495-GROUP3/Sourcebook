@@ -39,7 +39,7 @@ class _Client:
 
 def test_transactions_supported_is_false_for_stub(monkeypatch):
     monkeypatch.setattr(mongo, "_transaction_support", None)
-    monkeypatch.setattr(mongo, "get_db", lambda: object())
+    monkeypatch.setattr(mongo, "get_db", object)
 
     assert mongo.transactions_supported() is False
 

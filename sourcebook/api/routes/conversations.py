@@ -75,7 +75,8 @@ def _require_project(
 
     A transaction-capable backend performs a small write to the project row.
     That makes validation conflict with a concurrent project deletion instead
-    of relying on a point-in-time read.
+    of relying on a point-in-time read. A transactional read alone is not
+    sufficient to prevent the assignment-after-delete race.
 
     FakeMongo receives no session and keeps the existing sequential check
     without claiming transactional referential integrity.

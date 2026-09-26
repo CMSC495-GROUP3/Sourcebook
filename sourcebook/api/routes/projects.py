@@ -80,8 +80,6 @@ def delete_project(project_id: str):
                 {"project_id": project_id},
                 session=session,
             )
-            if result.deleted_count == 0:
-                raise HTTPException(status_code=404, detail="Project not found.")
 
             conversations_col.update_many(
                 {"project_id": project_id},
