@@ -886,8 +886,9 @@ mid-stream. That last case found a real bug while the suite was being written.
 A two-word fragment from an abandoned stream was being cached as the answer for
 everyone who asked the same question next.
 
-Not covered: live calls to AWS, Atlas, or OpenAI, and the React components,
-which `tsc` and ESLint check but no test exercises.
+Not covered: live calls to AWS, Atlas, or OpenAI. On the web side, Vitest
+covers the chat stream, messages, escalation, and the theme; the rest of the
+React components are checked only by `tsc` and ESLint (see [Known limitations](#known-limitations)).
 
 `make acceptance` needs Docker Compose 2.24 or later because
 `docker-compose.acceptance.yml` uses `!reset`. Older Compose fails to parse
@@ -988,7 +989,8 @@ The product name lives in three places: `APP_NAME` in
   corpus it does not separate covered questions from uncovered ones on nearby
   topics, so the coverage judge behind it does that work (#192). The judge is a
   model call: it adds latency and cost to every grounded turn, and it was
-  measured on the 20-case smoke tier, not a real corpus. See
+  measured on the fictional sample corpus only: the 20-case smoke tier and one
+  59-case full-tier run on the beta, which refused no answerable question. See
   [above](#hallucination-refuse-rather-than-guess).
 - **Frontend unit coverage is intentionally focused.** Vitest and React Testing
   Library cover the chat stream, message and escalation behavior, theme toggle,
