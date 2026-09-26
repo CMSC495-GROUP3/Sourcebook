@@ -43,6 +43,8 @@ Pending until the freeze. So far:
   reopening the item just left. Focus moves to the item when it opens and
   back to its row on return, and a resolve or reopen is announced to screen
   readers (#266, PR #277).
+- **The sign-in page has a main landmark** for screen readers, and a page
+  description for search results (PR #280).
 
 ## Getting access
 

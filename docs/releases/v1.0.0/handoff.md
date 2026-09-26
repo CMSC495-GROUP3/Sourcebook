@@ -51,6 +51,7 @@ Pending until the freeze. So far:
 | Projects | Assigning a conversation to a project and deleting that project no longer race: on a replica set, which Atlas clusters like the pilot's are, both run in MongoDB transactions, and the assignment writes to the project so it conflicts with a concurrent delete ([#142](https://github.com/CMSC495-GROUP3/Sourcebook/issues/142)). The in-memory stub has no transactions and keeps the old sequential behavior. The move-to-project menu stays open when the pointer leaves the row | #279, #272 |
 | HR Requests and Policy Library on a phone | Back from the list leaves the page instead of reopening the item just left, and a resolve leaves one list entry. Focus moves to the item's heading when it opens, back to its row when you return, and to the list heading after a resolve or reopen, which is announced to screen readers ([#266](https://github.com/CMSC495-GROUP3/Sourcebook/issues/266)) | #277 |
 | README | Release, pilot site, and Ruff badges | #273 |
+| Sign-in page and Lighthouse | The sign-in page has a main landmark and a meta description. `scripts/lighthouse/` runs Lighthouse on the three pages in both themes at phone and desktop widths ([#214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214)) | #280 |
 | Documentation | User guide ([#206](https://github.com/CMSC495-GROUP3/Sourcebook/issues/206)) and team page ([#209](https://github.com/CMSC495-GROUP3/Sourcebook/issues/209)) pending; [portfolio page](portfolio.md) in this folder; pilot load-run page | Pending: #259, #231; #274, #278 |
 
 ## Verification status
@@ -64,7 +65,7 @@ Pending until the freeze. So far:
 | Answer quality, full tier, first run against the live system ([#213](https://github.com/CMSC495-GROUP3/Sourcebook/issues/213)) | Pending | [live-evaluation.md](live-evaluation.md) |
 | Real-service latency and error rate on the pilot | Pending | [live-benchmark.md](live-benchmark.md) |
 | Load run against the deployed pilot ([#212](https://github.com/CMSC495-GROUP3/Sourcebook/issues/212)) | Pending | [docs/load-testing-pilot.md](../../load-testing-pilot.md), Pending |
-| Lighthouse, both themes, phone and desktop ([#214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214)) | Pending | [docs/quality.md](../../quality.md), Pending |
+| Lighthouse, both themes, phone and desktop ([#214](https://github.com/CMSC495-GROUP3/Sourcebook/issues/214)) | Pending: run `scripts/lighthouse` (#280) against the pilot on the candidate | [docs/quality.md](../../quality.md), Pending |
 | End-to-end pass by hand | Pending | [below](#end-to-end-pass-by-hand) |
 | Knowledge-gap report run against the pilot's query log | Pending | none yet |
 | Screenshots of green CI, Security, and auto-deploy runs ([#207](https://github.com/CMSC495-GROUP3/Sourcebook/issues/207)) | Pending | [evidence/](evidence/README.md) |
