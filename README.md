@@ -887,8 +887,9 @@ A two-word fragment from an abandoned stream was being cached as the answer for
 everyone who asked the same question next.
 
 Not covered: live calls to AWS, Atlas, or OpenAI. On the web side, Vitest
-covers the chat stream, messages, escalation, and the theme; the rest of the
-React components are checked only by `tsc` and ESLint (see [Known limitations](#known-limitations)).
+covers the chat stream, messages, escalation, the theme, and the Document
+Library and HR Requests pages; the rest of the React components are checked
+only by `tsc` and ESLint (see [Known limitations](#known-limitations)).
 
 `make acceptance` needs Docker Compose 2.24 or later because
 `docker-compose.acceptance.yml` uses `!reset`. Older Compose fails to parse
@@ -994,8 +995,9 @@ The product name lives in three places: `APP_NAME` in
   [above](#hallucination-refuse-rather-than-guess).
 - **Frontend unit coverage is intentionally focused.** Vitest and React Testing
   Library cover the chat stream, message and escalation behavior, theme toggle,
-  and theme storage. `tsc`, ESLint, and the production build cover the wider web
-  application, but visual regression and full browser tests remain future work.
+  theme storage, and the Document Library and HR Requests pages. `tsc`, ESLint,
+  and the production build cover the wider web application, but visual
+  regression and full browser tests remain future work.
 - **Document search uses `$regex`**, which does not use an index. Fine at this
   corpus size. Move to Atlas Search if the library grows large.
 - **JWTs live in browser local storage.** Acceptable for an internal pilot
