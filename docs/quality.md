@@ -120,48 +120,36 @@ make audit    # pip-audit and npm audit; accepted advisories in scripts/audit.sh
 
 ## Lighthouse Audit Report
 
-*note, 'performance' score might be due to the tester's machine. Others may test and check later.*
+*Scores are Light Mode / Dark Mode*
 
 ### Login Page
 
-#### Desktop & Mobile, Light & Dark
-
-| Category | Score | Status |
-| :--- | :---: | :---: |
-| **Performance** | ![55](https://shields.io/badge/55-yellow) | ✅ Pass |
-| **Accessibility** | ![98](https://shields.io/badge/98-green) | ✅ Pass |
+| | Performance | Accessibility | Best Practices | SEO |
+| :--- | :---: | :---: | :---: | :---: | 
+| **Mobile** | 98/98 | 100/100 | 100/100 | 91/91 | 
+| **Desktop** | 100/100 | 100/100 | 100/100 | 91/91 | 
 
 ### Chat Page + Answer
 
-#### Desktop Light & Dark
+| | Performance | Accessibility | Best Practices | SEO |
+| :--- | :---: | :---: | :---: | :---: | 
+| **Mobile** | 89/89 | 100/100 | 100/100 | 91/91 | 
+| **Desktop** | 100/100 | 100/100 | 100/100 | 91/91 | 
 
-| Category | Score | Status |
-| :--- | :---: | :---: |
-| **Performance** | ![55](https://shields.io/badge/55-yellow) | ✅ Pass |
-| **Accessibility** | ![100](https://shields.io/badge/100-green) | ✅ Pass |
-
-#### Mobile Light & Dark
-
-| Category | Score | Status |
-| :--- | :---: | :---: |
-| **Performance** | ![54](https://shields.io/badge/55-yellow) | ✅ Pass |
-| **Accessibility** | ![100](https://shields.io/badge/100-green) | ✅ Pass |
+improvements:
+- defer css file load?
+- use responsive images for the logo icon, shrinking it and reducing the download size
 
 ### Document View
 
-#### Desktop Light & Dark
+| | Performance | Accessibility | Best Practices | SEO |
+| :--- | :---: | :---: | :---: | :---: | 
+| **Mobile** | 87/87 | 100/100 | 100/100 | 91/91 | 
+| **Desktop** | 100/100 | 100/100 | 100/100 | 91/91 | 
 
-| Category | Score | Status |
-| :--- | :---: | :---: |
-| **Performance** | ![55](https://shields.io/badge/55-yellow) | ✅ Pass |
-| **Accessibility** | ![100](https://shields.io/badge/100-green) | ✅ Pass |
-
-#### Mobile Light & Dark
-
-| Category | Score | Status |
-| :--- | :---: | :---: |
-| **Performance** | ![54](https://shields.io/badge/55-yellow) | ✅ Pass |
-| **Accessibility** | ![100](https://shields.io/badge/100-green) | ✅ Pass |
+improvements:
+- defer css file load?
+- use responsive images for the logo icon, shrinking it and reducing the download size
 
 ## What this page will gain later
 
