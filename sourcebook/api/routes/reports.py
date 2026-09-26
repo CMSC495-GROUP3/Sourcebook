@@ -24,7 +24,8 @@ here writes, and no session id leaves the server.
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pymongo.errors import ExecutionTimeout
 
 from sourcebook.api.db import query_logs_col
 from sourcebook.api.limiter import limiter
@@ -45,6 +46,9 @@ MAX_WINDOW_DAYS = 90
 # Rows older than the TTL are gone, so no window reaches past it. Never below
 # one day, or a TTL under a day would leave an empty window.
 TTL_DAYS = max(1, QUERY_LOG_TTL_SECONDS // 86400)
+# Per query. At the volume the TTL comment in config.py plans for, a 90-day
+# $group is not free, and any signed-in user can ask for one 30 times a minute.
+QUERY_TIMEOUT_MS = 5000
 
 
 def _question(row: dict[str, Any]) -> str | None:
@@ -77,14 +81,27 @@ def coverage_gaps(
     since = until - timedelta(days=days)
     window = {"created_at": {"$gte": since, "$lt": until}}
 
-    gaps = query_logs_col.aggregate(content_gap_pipeline(since, until, top))
-    faq = query_logs_col.aggregate(faq_pipeline(since, until, top, DEFAULT_MIN_REPEAT))
+    limit = {"maxTimeMS": QUERY_TIMEOUT_MS}
+    try:
+        # Listed here, not lazily in the response, so a timeout while the
+        # cursor is read is caught below too.
+        gaps = list(query_logs_col.aggregate(content_gap_pipeline(since, until, top), **limit))
+        faq = list(
+            query_logs_col.aggregate(faq_pipeline(since, until, top, DEFAULT_MIN_REPEAT), **limit)
+        )
+        total = query_logs_col.count_documents(window, **limit)
+        refused = query_logs_col.count_documents({**window, "refused": True}, **limit)
+    except ExecutionTimeout:
+        raise HTTPException(
+            status_code=503,
+            detail="The coverage report took too long. Try a shorter window.",
+        ) from None
     return {
         "since": since.isoformat(),
         "until": until.isoformat(),
         "days": days,
-        "total": query_logs_col.count_documents(window),
-        "refused": query_logs_col.count_documents({**window, "refused": True}),
+        "total": total,
+        "refused": refused,
         "gaps": [_group(row) for row in gaps],
         "faq": [{**_group(row), "refused": int(row.get("refused_count") or 0)} for row in faq],
     }

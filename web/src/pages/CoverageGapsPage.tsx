@@ -115,7 +115,7 @@ function Section({
   )
 }
 
-function Summary({ report }: { report: CoverageReport }) {
+function Summary({ report, requested }: { report: CoverageReport; requested: number }) {
   const share = report.total ? Math.round((report.refused / report.total) * 100) : 0
   return (
     <div className="border-b border-rule pb-8">
@@ -129,6 +129,11 @@ function Summary({ report }: { report: CoverageReport }) {
           ? `No questions were asked in the last ${report.days} days.`
           : `questions in the last ${report.days} days were refused (${share}%).`}
       </p>
+      {report.days < requested && (
+        <p className="mt-2 max-w-120 text-[13px] leading-normal text-ink-3">
+          The query log keeps {plural(report.days, 'day')} of questions, so this is the longest window there is.
+        </p>
+      )}
     </div>
   )
 }
@@ -166,6 +171,9 @@ export default function CoverageGapsPage() {
 
   const failed = failedDays === days
   const report = state?.days === days ? state.report : null
+  // The server shortens a window longer than the log's TTL; press the pill
+  // for the window it ran, not the one asked for.
+  const shownDays = report?.days ?? days
 
   let body: React.ReactNode
   if (failed) {
@@ -189,7 +197,7 @@ export default function CoverageGapsPage() {
   } else {
     body = (
       <>
-        <Summary report={report} />
+        <Summary report={report} requested={days} />
         <div className="pt-10">
           <Section
             title="Not covered"
@@ -230,9 +238,9 @@ export default function CoverageGapsPage() {
               key={option.days}
               type="button"
               onClick={() => changeWindow(option.days)}
-              aria-pressed={option.days === days}
+              aria-pressed={option.days === shownDays}
               className={`h-7 cursor-pointer rounded-full border px-3 text-[12.5px] transition-colors ${
-                option.days === days
+                option.days === shownDays
                   ? 'border-accent bg-accent text-paper'
                   : 'border-rule bg-paper-3 text-ink-2 hover:border-ink-3 hover:text-ink'
               }`}

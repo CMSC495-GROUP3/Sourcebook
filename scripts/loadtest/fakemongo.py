@@ -176,7 +176,7 @@ class FakeCollection:
     def find(self, query: dict | None = None, projection: dict | None = None):
         return _Cursor([_project(d, projection) for d in self._docs if _matches(d, query or {})])
 
-    def count_documents(self, query: dict) -> int:
+    def count_documents(self, query: dict, **kwargs) -> int:
         return sum(1 for d in self._docs if _matches(d, query))
 
     def distinct(self, field: str):
@@ -245,7 +245,7 @@ class FakeCollection:
     def create_index(self, *args, **kwargs):
         return "index"
 
-    def aggregate(self, pipeline):
+    def aggregate(self, pipeline, **kwargs):
         """The $match / $group / $sort / $limit subset the coverage report runs.
 
         Any other stage raises. $vectorSearch in particular is Atlas-only and
@@ -259,9 +259,11 @@ class FakeCollection:
             elif op == "$group":
                 rows = _group(rows, spec)
             elif op == "$sort":
+                # Null sorts first ascending and last descending, as in Mongo.
                 for field, direction in reversed(spec.items()):
                     rows.sort(
-                        key=lambda r: (r.get(field) is None, r.get(field)), reverse=direction < 0
+                        key=lambda r: (r.get(field) is not None, r.get(field)),
+                        reverse=direction < 0,
                     )
             elif op == "$limit":
                 rows = rows[:spec]

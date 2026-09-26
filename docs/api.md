@@ -326,8 +326,12 @@ caps each list. `gaps` holds refused questions grouped by `question_hash`,
 most frequent first. `faq` holds questions asked at least twice, with how many
 of those asks were refused. `question` is the logged condensed question, or
 the truncated raw one, or `null` when neither was logged. No session ids are
-returned, but the question text is what the employee typed, and any signed-in
-user can call this route: sign-in has no roles. A window longer than the log's
+returned, but the question text comes from what the employee typed (the
+condensed rewrite when there is one), and any signed-in user can call this
+route: sign-in has no roles. `GET /api/conversations` already lists every
+conversation to every user, so this route adds ranking and counts, not new
+access. Each query stops after five seconds; a report that runs longer returns
+HTTP 503 with `{"detail": "The coverage report took too long. Try a shorter window."}`. A window longer than the log's
 TTL is shortened to it, and `days` in the response is the one used.
 
 ```http

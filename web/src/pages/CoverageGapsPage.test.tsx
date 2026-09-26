@@ -94,6 +94,15 @@ describe('CoverageGapsPage', () => {
     expect(get).toHaveBeenCalledWith('/api/reports/gaps', { params: { days: 30 } })
   })
 
+  it('presses the window the server ran when it shortened the request', async () => {
+    vi.spyOn(client, 'get').mockResolvedValue(ok(report({ days: 7 })))
+    renderPage('/gaps?days=90')
+
+    expect(await screen.findByText(/keeps 7 days of questions/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '7 days' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '90 days' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('says so when the lists are empty', async () => {
     vi.spyOn(client, 'get').mockResolvedValue(ok(report({ total: 0, refused: 0, gaps: [], faq: [] })))
     renderPage()

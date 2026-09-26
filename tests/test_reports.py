@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from conftest import FAKE_DB, make_passages
+from pymongo.errors import ExecutionTimeout
 
 from scripts.loadtest.fakemongo import FakeCollection
 from sourcebook.api.routes import reports
@@ -151,3 +152,30 @@ def test_a_refused_chat_shows_up_as_a_gap(client, auth, retrieval, conversation)
 def test_fake_aggregate_still_rejects_vector_search():
     with pytest.raises(NotImplementedError):
         FakeCollection().aggregate([{"$vectorSearch": {}}])
+
+
+def test_a_slow_report_answers_503(client, auth, monkeypatch):
+    calls: list[dict] = []
+
+    def too_slow(_pipeline, **kwargs):
+        calls.append(kwargs)
+        raise ExecutionTimeout("operation exceeded time limit")
+
+    monkeypatch.setattr(reports.query_logs_col, "aggregate", too_slow)
+
+    response = client.get(URL, headers=auth)
+
+    assert response.status_code == 503
+    assert "too long" in response.json()["detail"]
+    assert calls == [{"maxTimeMS": reports.QUERY_TIMEOUT_MS}]
+
+
+def test_fake_sort_puts_null_first_ascending_like_mongo():
+    collection = FakeCollection()
+    collection.insert_many([{"k": 2}, {"k": None}, {"k": 1}])
+
+    ascending = collection.aggregate([{"$sort": {"k": 1}}])
+    descending = collection.aggregate([{"$sort": {"k": -1}}])
+
+    assert [row["k"] for row in ascending] == [None, 1, 2]
+    assert [row["k"] for row in descending] == [2, 1, None]
