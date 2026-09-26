@@ -94,7 +94,7 @@ describe('Message', () => {
     ).toBeInTheDocument()
     // A vague question on a covered topic lands here too, so the card says
     // what to do next.
-    expect(screen.getByText(/add them and ask again, or ask Human Resources/)).toBeInTheDocument()
+    expect(screen.getByText(/ask the full question again with them/)).toBeInTheDocument()
     expect(screen.queryByText('No matching policy')).not.toBeInTheDocument()
     expect(screen.queryByText(/Nothing indexed came close/)).not.toBeInTheDocument()
     expect(screen.queryByText('Strong match')).not.toBeInTheDocument()

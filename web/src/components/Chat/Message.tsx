@@ -65,7 +65,9 @@ function Question({ text, first, ref }: { text: string; first: boolean; ref?: Re
 // similarity threshold, so the no-match wording and a match meter would both
 // be wrong there. Turns stored before the reason existed keep the old wording.
 // The judge also refuses vague questions on a covered topic ("Can I expense
-// this trip?"), so not_covered tells the employee to add the missing detail.
+// this trip?"), so not_covered tells the employee to re-ask with the missing
+// detail. The whole question, not just the detail: a follow-up must clear the
+// similarity threshold on its own wording too.
 const REFUSAL_COPY = {
   no_match: {
     heading: 'No matching policy',
@@ -75,7 +77,7 @@ const REFUSAL_COPY = {
   not_covered: {
     heading: 'Not answered by any policy',
     detail:
-      'Some policies mention related topics, but none of them answers this question as asked. If the answer depends on details, such as dates, location, or the kind of leave or expense, add them and ask again, or ask Human Resources.',
+      'Some policies mention related topics, but none of them answers this question as asked. If the answer depends on details, such as dates, location, or the kind of leave or expense, ask the full question again with them.',
     showScore: false,
   },
 } as const
