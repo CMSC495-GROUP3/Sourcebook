@@ -118,6 +118,39 @@ make audit    # pip-audit and npm audit; accepted advisories in scripts/audit.sh
 
 `make stub` is not a quality measurement. Fake embeddings are noise; do not tune `SIMILARITY_THRESHOLD` or judge refusal quality from the stub ([CONTRIBUTING.md](../CONTRIBUTING.md#things-that-will-bite-you)).
 
+## Lighthouse Audit Report
+
+*Scores are Light Mode / Dark Mode*
+
+### Login Page
+
+| | Performance | Accessibility | Best Practices | SEO |
+| :--- | :---: | :---: | :---: | :---: | 
+| **Mobile** | 98/98 | 100/100 | 100/100 | 91/91 | 
+| **Desktop** | 100/100 | 100/100 | 100/100 | 91/91 | 
+
+### Chat Page + Answer
+
+| | Performance | Accessibility | Best Practices | SEO |
+| :--- | :---: | :---: | :---: | :---: | 
+| **Mobile** | 89/89 | 100/100 | 100/100 | 91/91 | 
+| **Desktop** | 100/100 | 100/100 | 100/100 | 91/91 | 
+
+improvements:
+- defer css file load?
+- use responsive images for the logo icon, shrinking it and reducing the download size
+
+### Document View
+
+| | Performance | Accessibility | Best Practices | SEO |
+| :--- | :---: | :---: | :---: | :---: | 
+| **Mobile** | 87/87 | 100/100 | 100/100 | 91/91 | 
+| **Desktop** | 100/100 | 100/100 | 100/100 | 91/91 | 
+
+improvements:
+- defer css file load?
+- use responsive images for the logo icon, shrinking it and reducing the download size
+
 ## What this page will gain later
 
 When `docs/releases/v1.0.0/evidence/coverage.md` holds the candidate's tables (#210), add the Python and web totals and the run link to the coverage section above. When #212, #213, and #214 produce artifacts, add rows to the table above. #226 already merged the fail-closed Live evaluation instrument; a green workflow is a trustworthy measurement, not a pass.
