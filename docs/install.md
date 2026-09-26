@@ -73,6 +73,12 @@ Conversations and escalations live in memory and are gone when you stop the
 API. Because the scores are made up, this mode tells you nothing about answer
 quality, and `SIMILARITY_THRESHOLD` should never be tuned against it.
 
+The in-memory Mongo stub also deliberately does not implement MongoDB sessions
+or transactions. Project assignment and deletion therefore use the sequential
+fallback in stub mode. A passing stub test suite must not be interpreted as
+evidence of atomic cross-collection referential integrity; that behavior is
+verified separately against a transaction-capable MongoDB deployment.
+
 The same commands appear in the README's [Quick start](../README.md#quick-start)
 and in CONTRIBUTING under [Ten minutes to a running app](../CONTRIBUTING.md#ten-minutes-to-a-running-app),
 which also explains what the stub is for during development.
@@ -212,6 +218,30 @@ To see what a deploy will actually run, bring up the Compose stack instead.
 of the API. The app is at <http://localhost> and the health route at
 <http://localhost/api/health>. Compose does not publish the API port, and
 with `SITE_ADDRESS` unset Caddy serves plain HTTP.
+
+
+### Verify transactional project integrity
+
+The normal stub test suite cannot verify atomic project assignment or deletion
+because FakeMongo intentionally has no MongoDB sessions or transactions. The
+transaction regression tests are therefore opt-in and require a real
+transaction-capable MongoDB deployment.
+
+Set `MONGODB_TX_TEST_URI` and `MONGODB_TX_TEST_DB` to a test Atlas deployment
+or other replica-set/sharded MongoDB database, then run:
+
+```bash
+MONGODB_TX_TEST_URI='<test connection string>' \
+MONGODB_TX_TEST_DB='<test database name>' \
+.venv/bin/python -m pytest -q tests/test_project_transaction_integration.py
+```
+
+Do not commit the connection string. The tests create uniquely named temporary
+collections and remove them afterward. They verify that a concurrent assignment
+cannot survive deletion of its project and that a failed delete+unassign
+transaction rolls back both operations. The test fails rather than silently
+falling back if the configured real MongoDB deployment does not support
+transactions.
 
 ## Deployment
 
