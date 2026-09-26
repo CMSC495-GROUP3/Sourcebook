@@ -66,8 +66,7 @@ hosted around the clock, so a connection timeout means it is off, not broken.
 
 ## Documentation
 
-To run it, read [docs/install.md](docs/install.md). To use it as an employee or
-HR handler, read [docs/user-guide.md](docs/user-guide.md). To change it, read
+To run it, read [docs/install.md](docs/install.md). To change it, read
 [CONTRIBUTING.md](CONTRIBUTING.md). Everything under `docs/` is indexed in
 [docs/README.md](docs/README.md).
 
@@ -76,7 +75,7 @@ HR handler, read [docs/user-guide.md](docs/user-guide.md). To change it, read
 | Page | Covers |
 | --- | --- |
 | [docs/install.md](docs/install.md) | the live site, the offline stub, real services, deployment |
-| [docs/user-guide.md](docs/user-guide.md) | sign-in, ask, citations, refusal, escalate; HR API/webhook and the knowledge-gap report |
+| [docs/user-guide.md](docs/user-guide.md) | using it: asking, checking sources, escalating, and the HR Requests page |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | checks, conventions, and the things that bite |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability; what the Security workflow scans |
 

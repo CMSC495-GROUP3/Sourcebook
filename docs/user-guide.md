@@ -1,259 +1,213 @@
 # User guide
 
-How to use Sourcebook as an employee, and how Human Resources handles a
-question that the corpus could not answer. This page documents the workflows
-that ship on `main` today. Machine-readable route shapes are in
-[api.md](api.md). Setup is in [install.md](install.md).
+How to use Sourcebook: asking a policy question, checking where the answer came
+from, and handing a question to Human Resources when Sourcebook can't answer
+it. The last part covers how Human Resources works those requests on the
+**HR Requests** page.
 
-Screenshots below that show the browser come from the Unit 5 alpha evidence
-set under [releases/v0.1.0-alpha.1/evidence/](releases/v0.1.0-alpha.1/evidence/).
-They are interim. The portfolio cut expects a beta browser pass under
-`docs/releases/v0.2.0-beta.1/evidence/` once that release folder exists; each
-section that still waits on beta names a **screenshot placeholder**.
+To run your own copy, see [install.md](install.md). Scripts and integrations
+use the HTTP API in [api.md](api.md).
 
-Human Resources works escalations from the **HR Requests** page in the app
-([#159](https://github.com/CMSC495-GROUP3/Sourcebook/issues/159), shipped in
-[pull request #250](https://github.com/CMSC495-GROUP3/Sourcebook/pull/250)).
-The same operations are API routes, with an optional webhook, for a script or
-a chat channel.
+The screenshots come from the recorded v0.2.0 beta pass on 2026-09-24, using the
+fictional Meridian Systems sample policies. Provenance is in
+[releases/v0.2.0/evidence/](releases/v0.2.0/evidence/README.md).
 
-## For employees
+## Sign in
 
-Pilot: <https://sourcebook.duckdns.org>. Local stub: `make stub` then
-`make web`, sign in with password `dev` (see [install.md](install.md)).
+Open the pilot at <https://sourcebook.duckdns.org>. If you're running it
+locally with the stub, the address is <http://localhost:5173> and the password
+is `dev`.
 
-### Sign in
+Sourcebook uses one shared password, not personal accounts. Ask Human
+Resources for it, type it in **Password**, and select **Sign in**.
 
-Sourcebook uses a shared password, not per-employee accounts. Open the site,
-enter the password the team gave you, and submit. A wrong password shows
-"Incorrect password." Too many attempts in a minute are rate-limited. A
-successful sign-in stores a bearer token in the browser and opens chat.
+![Sign-in page after a wrong password](releases/v0.2.0/evidence/01-wrong-password.png)
 
-![Sign-in (alpha interim)](releases/v0.1.0-alpha.1/evidence/02-signed-in.png)
+If sign-in fails, the message under the password box tells you why:
 
-> **Screenshot placeholder (beta).** Replace with
-> `docs/releases/v0.2.0-beta.1/evidence/01-sign-in.png` after the beta browser
-> pass. Wrong-password rejection is also captured in the alpha set as
-> `01-wrong-password.png`.
-
-### Ask a question
-
-On **Chat**, type a plain-language policy question and send it. The app streams
-the reply. History lives on the server: the client sends the question and a
-`session_id`, never a chat-history array. Prior turns in that conversation are
-what the model may use for follow-ups.
-
-![Answer with sources (alpha interim)](releases/v0.1.0-alpha.1/evidence/03-answer-with-sources.png)
-
-> **Screenshot placeholder (beta).**
-> `docs/releases/v0.2.0-beta.1/evidence/02-ask-question.png`
-
-### Citations and the match score
-
-Every answered turn shows:
-
-- **Source chips** — the policy document titles the answer drew from.
-- A **match** badge — Strong / Partial / Weak with a percentage.
-
-The percentage is the mean similarity of the retrieved passages to the
-question. It measures how well the indexed text fits the question, **not**
-whether the prose answer is correct. Open the info control on the badge for
-that wording in the UI. Treat a weak or partial match as a reason to open the
-source and read it yourself.
-
-### Open a cited source
-
-Click a source chip. On a wide layout the **Source** pane docks beside the
-answer and shows the indexed passages used for that citation. A link in the
-pane opens the same document in the **Policy Library** as the full rendered
-markdown. Close or collapse the pane when you are done.
-
-![Cited source open (alpha interim)](releases/v0.1.0-alpha.1/evidence/04-cited-source-open.png)
-
-> **Screenshot placeholder (beta).**
-> `docs/releases/v0.2.0-beta.1/evidence/03-open-source.png`
-
-You can also open **Policy Library** from the sidebar: search or filter by
-category, then read a document in full.
-
-### Follow-ups
-
-Under the latest answer, suggested follow-up buttons may appear. Choosing one
-sends that text as the next question in the same conversation. You can also
-type your own follow-up in the composer. Reloading the page restores the
-thread from the server when you reopen that conversation from the sidebar.
-
-![Follow-up (alpha interim)](releases/v0.1.0-alpha.1/evidence/05-follow-up.png)
-
-> **Screenshot placeholder (beta).**
-> `docs/releases/v0.2.0-beta.1/evidence/04-follow-up.png`
-
-### Refusals
-
-When nothing indexed matches closely enough, Sourcebook **refuses** rather
-than guessing. The card is labeled **No matching policy**. That is different
-from a policy that exists and says no: the corpus did not support an answer
-from retrieval. The card still shows the match meter for the best attempt, a
-prominent **Ask Human Resources** control, and a link to see what is indexed.
-
-![Refusal (alpha interim)](releases/v0.1.0-alpha.1/evidence/07-refusal.png)
-
-> **Screenshot placeholder (beta).**
-> `docs/releases/v0.2.0-beta.1/evidence/05-refusal.png`
-
-Stub tip: `make stub REFUSE=1` forces the refusal path so you can practice
-escalation without a thin corpus.
-
-### Escalate to Human Resources
-
-Use escalation when the assistant refused, or when an answer did not help
-(**Not what you needed? Ask Human Resources** under an answered turn).
-
-1. Open the form. Optionally add a short note (context for HR).
-2. Send. The server copies the question and answer from the stored
-   conversation; the browser does not invent the exchange.
-3. Confirmation shows **Sent to Human Resources** with a short reference
-   (`ref` plus the first eight characters of the escalation id). Quote that
-   reference if you follow up with HR by another channel.
-
-Escalating the same turn twice returns the first record; you do not create
-two tickets from a double click.
-
-![Escalation form (alpha interim)](releases/v0.1.0-alpha.1/evidence/08-escalation-form.png)
-
-![Escalation confirmed (alpha interim)](releases/v0.1.0-alpha.1/evidence/09-escalation-confirmed.png)
-
-> **Screenshot placeholder (beta).**
-> `docs/releases/v0.2.0-beta.1/evidence/06-escalate.png` and
-> `07-escalate-confirmed.png`
-
-After you escalate, wait for a person. There is no employee-facing status
-page for open tickets on `main`.
-
-### Other screens in the app
-
-| Screen | How you reach it | What it is for |
-| --- | --- | --- |
-| Chat | sidebar **Chat**, or `/chat` | ask, read answers, escalate |
-| Policy Library | sidebar **Policy Library**, or `/documents` | browse and read indexed policies |
-| Conversations | sidebar list | reopen a prior `session_id` |
-| Projects | sidebar (when used) | group conversations; optional |
-| HR Requests | sidebar **HR Requests**, or `/escalations` | work the escalation queue; see below |
-
-> **Screenshot placeholder (beta).** Policy Library list/reader:
-> `docs/releases/v0.2.0-beta.1/evidence/08-policy-library.png`
-
-## For Human Resources handlers
-
-Employee escalations are stored in MongoDB. Handlers work them from the
-**HR Requests** page. Delivery to a chat channel is optional, and every
-operation on the page is also an API route.
-
-### The HR Requests page
-
-Open **HR Requests** from the sidebar. The **Open** tab lists requests newest
-first, and **Resolved** lists closed ones. The count beside the title is the
-full number for the tab, even past the first 50 shown.
-
-Pick a request to see the question, the assistant's answer, the employee's
-note, the reason (`refused` or `unhelpful`), the match score, the sources, and
-webhook delivery.
-
-- **Resolve:** write what you told the employee in **Resolution note** and
-  choose **Resolve request**. It moves to the Resolved tab with the note.
-- **Reopen:** open a resolved request and choose **Reopen request**.
-- **Retry delivery:** shown when the webhook send failed and the server allows
-  another attempt. If it fails again, the page says so. Past the attempt
-  limit, the server's reason appears instead.
-
-> **Screenshot placeholder (beta).** HR Requests with a request open:
-> `docs/releases/v0.2.0-beta.1/evidence/09-hr-requests.png`
-
-### Where escalations arrive
-
-**1. Webhook channel (optional).** If `ESCALATION_WEBHOOK_URL` is set on the
-API host, each new escalation is POSTed in the background after create. The
-JSON body includes a Slack/Teams-friendly top-level `text` summary and the
-full `escalation` object. Create never waits on the webhook. Delivery status
-on the record is `pending`, `delivered`, or `failed`. If no webhook is
-configured, nothing is sent: the request still reaches HR Requests and the
-API, and its delivery status does not mean a send is queued. See
-`.env.example` and [api.md](api.md).
-
-**2. Open queue endpoint.** Authenticate with the same shared password
-(`POST /api/auth/login`), then:
-
-```http
-GET /api/escalations?status=open
-Authorization: Bearer <access_token>
-```
-
-Newest first. Optional `session_id` and `limit` (1–200, default 50). Each item
-includes `escalation_id`, `reason` (`refused` or `unhelpful`), `question`,
-`answer_excerpt`, `note`, `sources`, `confidence`, and delivery fields.
-`GET /api/escalations/{escalation_id}` returns one record.
-
-
-### Resolve through the API
-
-```http
-PATCH /api/escalations/{escalation_id}
-Authorization: Bearer <access_token>
-Content-Type: application/json
-
-{"status": "resolved", "resolution": "Pointed them at the PTO carry-over section."}
-```
-
-`resolution` is optional text for what you told the employee. The record
-gains `resolved_at`. List resolved items with `?status=resolved` when you need
-history.
-
-### Retry delivery through the API
-
-If delivery failed and a webhook is configured:
-
-```http
-POST /api/escalations/{escalation_id}/retry-delivery
-Authorization: Bearer <access_token>
-```
-
-Without a webhook configured, the API responds that webhook delivery is not
-configured and does not invent a send.
-
-### Knowledge-gap report
-
-Every chat request writes one `query_logs` row (scores, refused, sources,
-latency). The weekly-style human-readable report is an **offline CLI** over
-that collection (shipped via pull request #171 / issue #160), not an HTTP
-route and not a page in the web app.
-
-On a host that can reach Atlas with `MONGODB_URI` loaded (typically the
-deployed API host):
-
-```bash
-python -m sourcebook.rag.query_log_reports --since 2026-08-01
-```
-
-`--until` defaults to now (UTC). The report prints:
-
-1. Top refused question-hash groups (content gaps — documents to write next)
-2. Top repeated question hashes (FAQ candidates)
-3. Answered vs refused score counts and a fixed histogram
-
-Rows expire after the configured query-log TTL (90 days by default), so an
-old window can print empty. Details and flags: module docstring in
-`sourcebook/rag/query_log_reports.py`.
-
-> **Screenshot placeholder (beta).** Terminal output of a real window on the
-> pilot host:
-> `docs/releases/v0.2.0-beta.1/evidence/10-knowledge-gap-report.png`
-
-## Related pages
-
-| Page | Covers |
+| Message | What to do |
 | --- | --- |
-| [install.md](install.md) | stub, real services, deploy |
-| [api.md](api.md) | full escalation and chat contracts |
-| [evaluation.md](evaluation.md) | labeled questions and live scoring |
-| [releases/v0.1.0-alpha.1/handoff.md](releases/v0.1.0-alpha.1/handoff.md) | alpha scope and evidence map |
-| [README Known limitations](../README.md#known-limitations) | shared password, threshold caveats |
+| Incorrect password. | Check the password and try again. |
+| Too many attempts. Wait a minute and try again. | Wait a minute. Repeated tries are limited. |
+| Sign-in is unavailable right now. Try again in a moment. | The server isn't answering. Try again later, or tell whoever runs the site. |
+
+## Ask a question
+
+After you sign in you land on the question page, headed **What does the policy
+say?** Type a question in plain words and press Enter, or pick one of the
+examples under **Try one of these**. Shift+Enter starts a new line instead of
+sending.
+
+The answer appears as it's written. While it's being written, the box shows
+**Answering…** and you can't send another question.
+
+![An answer with its match meter, sources, and follow-ups](releases/v0.2.0/evidence/03-answer-with-sources.png)
+
+Under each answer you'll see:
+
+- **A match meter**: **Strong match**, **Partial match**, or **Weak match**,
+  with a percentage. It shows how closely the policy text Sourcebook found fits
+  your question. It does *not* say whether the answer is correct. The info
+  button beside it gives the same explanation. With a partial or weak match,
+  read the source before relying on the answer.
+- **Source buttons**: one for each policy document the answer drew from.
+- **Follow up**: suggested next questions, under the latest answer only.
+  Selecting one asks it right away. You can also type your own in **Ask a
+  follow-up…**. Follow-ups use the earlier questions in the same conversation.
+
+## Check a source
+
+Select a source button under an answer. The **Source** pane opens beside the
+answer on a wide screen, or over it on a narrow one, and shows the passages
+Sourcebook used from that document. Select **Open in the Policy Library** to
+read the whole document. Select the source button again, or the pane's
+collapse or close button, to put it away.
+
+![A cited source open beside the answer](releases/v0.2.0/evidence/04-cited-source-open.png)
+
+If the pane says the document is no longer in the library index, it was
+renamed or removed after the answer was written.
+
+To browse every policy, select **Policy Library** in the sidebar. Search with
+**Search by title…**, filter by category (select **All** to clear it), and
+pick a policy to read it in full.
+
+## When Sourcebook can't answer
+
+Sourcebook won't guess. When the policies don't answer your question, you get
+a card instead of an answer, with one of two headings:
+
+- **No matching policy**: nothing in the library came close to your question.
+  The card still shows the match meter for the closest text it found.
+- **Not answered by any policy**: some policies mention related topics, but
+  none of them answers what you asked.
+
+Neither one means the policy says no. It means the library doesn't cover the
+question. The card offers **Ask Human Resources** and **See what is indexed**,
+which opens the Policy Library.
+
+![A question with no matching policy](releases/v0.2.0/evidence/08-refusal.png)
+
+## Ask Human Resources
+
+You can hand a question to Human Resources in two places:
+
+- On a refusal card, select **Ask Human Resources**.
+- Under an answer that didn't help, select **Not what you needed? Ask Human
+  Resources**.
+
+Then:
+
+1. In the **Send to Human Resources** box, optionally add a note, such as what
+   your manager told you or why the answer didn't fit.
+2. Select **Send**. Human Resources gets your question and the answer you were
+   shown. You don't need to retype them.
+3. The box is replaced by **Sent to Human Resources · ref** followed by a short
+   reference code. Keep it in case you follow up with Human Resources directly.
+
+Each answer can be sent only once. After that it shows the same reference.
+Sourcebook doesn't show you when Human Resources resolves your request, so
+expect them to reach you directly.
+
+If sending fails, the box explains why and the button becomes **Try again**.
+If it says the conversation is out of sync, reload the page and send again.
+
+## Your conversations
+
+Every question you ask starts or continues a conversation. Conversations are
+kept on the server and listed in the sidebar under **Recent**, so they're
+still there after a reload or on another device.
+
+- **New question** starts a fresh conversation.
+- Select a conversation to reopen it. Answers, sources, and follow-ups come
+  back as they were.
+- Hover over a conversation to rename or delete it. **Projects** in the
+  sidebar group related conversations: create one with the **New project**
+  button (the folder with a plus), then use a conversation's **Move to
+  project** button to file it.
+
+Everyone who signs in with the shared password sees the same conversations and
+projects. Don't put anything in a question that you wouldn't want colleagues to
+read.
+
+## Sign out and sessions
+
+Select **Sign out** at the bottom of the sidebar. Sign-in lasts 24 hours on
+that browser. After that, Sourcebook returns you to the sign-in page the next
+time you open it or ask something. Your conversations are unaffected.
+
+The sidebar also has a light/dark theme switch. On a phone, open the sidebar
+with the menu button at the top left. On a wide screen, you can collapse it to
+a narrow strip of icons.
+
+## If something goes wrong
+
+| What you see | What it means |
+| --- | --- |
+| "The assistant is answering as many questions as it can right now…" with a **Retry in _N_s** button | Sourcebook is busy. When the countdown reaches zero, select **Retry** to ask again. |
+| "Sorry, something went wrong. Please try again." | The answer didn't finish. Ask again, or start a **New question**. |
+| "Could not load this source right now." in the Source pane | Close the pane and open the source again. |
+| "Could not load the document library." | Reload the page. |
+| You're suddenly back at the sign-in page | Your sign-in expired. Sign in again; your conversations are still there. |
+
+## For Human Resources: the HR Requests page
+
+Select **HR Requests** in the sidebar. Every escalated question lands here.
+Anyone signed in can open this page; the pilot has no separate HR accounts.
+
+![HR Requests with an open request](releases/v0.2.0/evidence/12-hr-requests-open.png)
+
+On a wide screen the list sits on the left and the selected request on the
+right. The newest request opens automatically. On a narrow screen you see the
+list first; select a request to open it and **All requests** to go back.
+
+- **Open** and **Resolved** switch between the two lists. The count beside
+  **HR Requests** is the total for the list you're viewing.
+- Each row shows the question, the start of the answer, whether it was
+  **Refused** or marked **Unhelpful**, when it was sent, and its delivery
+  status.
+- An open request shows the question, **Assistant response**, **Employee
+  note**, **Reason**, **Confidence** (the match score the employee saw),
+  **Sources**, and **Delivery**.
+
+### Resolve or reopen a request
+
+To resolve, type what you told the employee in **Resolution note** and select
+**Resolve request**. The request moves to **Resolved** with your note.
+
+![A resolved request with its resolution note](releases/v0.2.0/evidence/13-hr-request-resolved.png)
+
+To undo that, open the request under **Resolved** and select **Reopen
+request**. It moves back to **Open**.
+
+### Chat-channel delivery
+
+Your team can also have new requests posted to a chat channel, such as Slack or
+Teams. Whoever runs the site sets this up. **Delivery** on each request shows
+where that stands:
+
+| Delivery | Meaning |
+| --- | --- |
+| No webhook configured | No chat channel is set up. The request is only on this page. |
+| Pending | Waiting to be posted, or being posted now. |
+| Delivered | Posted to the chat channel. |
+| Failed | Posting didn't work. |
+
+When a post failed, or a request was never posted, a **Retry delivery** or
+**Send to webhook** button appears. If the retry fails too, the page says
+"Delivery was retried and failed again." After too many failed attempts the
+button goes away and the page says the limit was reached.
+
+### Empty lists and errors
+
+- "No open requests…" means nothing is waiting for you.
+- "Unable to load HR requests." Select **Try again**.
+- "That request was not found." The link you followed points to a request that
+  doesn't exist.
+
+### Finding gaps in the policy library
+
+The questions Sourcebook refuses most often are a good list of policies to
+write next. Whoever runs the site can print that report on the server; see
+[Learning from the query log](../README.md#learning-from-the-query-log) in the
+README.
