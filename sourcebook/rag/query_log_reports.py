@@ -194,8 +194,15 @@ def wording_pipeline(
     question asked twice. The session ids stay in the result, unlike the other
     rankings, because merging wordings means taking the union of their
     sessions; the web route counts them and returns only the counts.
+
+    The cap picks candidates the way each list ranks: refused wordings by asks,
+    all wordings by conversations, so one person repeating a question cannot
+    take a slot from a wording asked once each in several conversations.
     """
     match = {**_time_match(since, until), **({"refused": True} if refused_only else {})}
+    order = (
+        {"count": -1, "_id": 1} if refused_only else {"session_count": -1, "count": -1, "_id": 1}
+    )
     return [
         {"$match": match},
         {
@@ -207,7 +214,8 @@ def wording_pipeline(
                 },
             }
         },
-        {"$sort": {"count": -1, "_id": 1}},
+        {"$addFields": {"session_count": {"$size": "$sessions"}}},
+        {"$sort": order},
         {"$limit": limit},
     ]
 

@@ -20,9 +20,10 @@ never writes. If that call fails, the lists fall back to exact wording and
 ``grouping`` in the response says ``"exact"``: a busy provider must not take
 the report down.
 
-Only the ``CANDIDATE_LIMIT`` most asked hash groups per list are grouped. A
-wording outside that cap cannot join a group, which at pilot volume is every
-wording there is.
+Only the ``CANDIDATE_LIMIT`` top hash groups per list are grouped, picked the
+way each list ranks. A wording outside that cap cannot join a group, which at
+pilot volume is every wording there is. Vectors fetched or embedded here are
+kept in a bounded per-process memo, so a repeat load costs no provider call.
 
 The window counts back ``days`` from now, at most 90. ``query_logs`` rows
 expire after ``QUERY_LOG_TTL_SECONDS``, so a window longer than the TTL is
@@ -35,6 +36,10 @@ session id leaves the server; sessions are only counted.
 """
 
 import logging
+import threading
+from array import array
+from collections import OrderedDict
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -44,7 +49,7 @@ from pymongo.errors import ExecutionTimeout
 from sourcebook.api.db import query_logs_col
 from sourcebook.api.limiter import limiter
 from sourcebook.api.routes.deps import require_auth
-from sourcebook.rag.cache import get_cached_embeddings
+from sourcebook.rag.cache import embedding_cache_key, get_cached_embeddings
 from sourcebook.rag.config import QUERY_LOG_TTL_SECONDS, QUESTION_GROUP_THRESHOLD
 from sourcebook.rag.llm import get_provider
 from sourcebook.rag.query_log_reports import (
@@ -77,6 +82,14 @@ QUERY_TIMEOUT_MS = 5000
 CANDIDATE_LIMIT = 200
 # Other wordings listed under each group's leader.
 MAX_OTHER_WORDINGS = 5
+# Vectors this process has already fetched or embedded, keyed like
+# embedding_cache so a provider change cannot serve a stale vector. Without it,
+# every load re-embeds every text the Mongo cache no longer holds (its TTL is
+# 30 days, the report's window up to 90). Vectors are stored as 32-bit arrays,
+# 6 KB each at 1,536 dimensions, so the bound is about 31 MB per process.
+VECTOR_MEMO_SIZE = 5000
+_vector_memo: OrderedDict[str, array] = OrderedDict()
+_vector_memo_lock = threading.Lock()
 
 
 def _question(row: dict[str, Any]) -> str | None:
@@ -98,13 +111,42 @@ def _wording(row: dict[str, Any]) -> Wording:
     )
 
 
-def _vectors(texts: list[str]) -> dict[str, list[float]] | None:
-    """A vector for every text, cached where possible, or None on any failure."""
+def _remember(vectors: dict[str, list[float]]) -> None:
+    with _vector_memo_lock:
+        for text, vector in vectors.items():
+            key = embedding_cache_key(text)
+            _vector_memo[key] = array("f", vector)
+            _vector_memo.move_to_end(key)
+        while len(_vector_memo) > VECTOR_MEMO_SIZE:
+            _vector_memo.popitem(last=False)
+
+
+def _recall(texts: list[str]) -> dict[str, array]:
+    with _vector_memo_lock:
+        found = {}
+        for text in texts:
+            key = embedding_cache_key(text)
+            if key in _vector_memo:
+                _vector_memo.move_to_end(key)
+                found[text] = _vector_memo[key]
+        return found
+
+
+def _vectors(texts: list[str]) -> dict[str, Sequence[float]] | None:
+    """A vector for every text, or None on any failure.
+
+    In order: this process's memo, then ``embedding_cache``, then one
+    ``embed_many`` call for the rest. Nothing is written to Mongo.
+    """
     try:
-        cached = get_cached_embeddings(texts)
-        missing = [text for text in texts if text not in cached]
-        fresh = get_provider().embed_many(missing) if missing else []
-        return {**cached, **dict(zip(missing, fresh, strict=True))}
+        known = _recall(texts)
+        cached = get_cached_embeddings([text for text in texts if text not in known])
+        missing = [text for text in texts if text not in known and text not in cached]
+        fresh = (
+            dict(zip(missing, get_provider().embed_many(missing), strict=True)) if missing else {}
+        )
+        _remember({**cached, **fresh})
+        return {**known, **cached, **fresh}
     except Exception:
         # Deliberately broad: the provider raises its own busy error, OpenAI's
         # API errors, and httpx transport errors. Any of them means "show exact

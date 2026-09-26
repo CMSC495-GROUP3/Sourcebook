@@ -17,6 +17,14 @@ _SESSIONS = itertools.count(1)
 
 
 @pytest.fixture(autouse=True)
+def empty_vector_memo():
+    """The route memoizes vectors per process; tests below swap them per test."""
+    reports._vector_memo.clear()
+    yield
+    reports._vector_memo.clear()
+
+
+@pytest.fixture(autouse=True)
 def full_ttl(monkeypatch):
     """Tests below assume the default 90-day log TTL, whatever the environment sets."""
     monkeypatch.setattr(reports, "TTL_DAYS", MAX_WINDOW_DAYS)
@@ -336,3 +344,29 @@ def test_a_provider_failure_falls_back_to_exact_wording(client, auth, monkeypatc
     assert response.status_code == 200
     assert response.json()["grouping"] == "exact"
     assert len(response.json()["gaps"]) == 2
+
+
+def test_a_repeat_load_makes_no_provider_call(client, auth, monkeypatch):
+    calls = vectors(monkeypatch, {"Where do I park?": PARKING, "How much PTO do I get?": PTO})
+    log("Where do I park?", refused=True)
+    log("How much PTO do I get?", refused=True)
+
+    client.get(URL, headers=auth)
+    client.get(URL, headers=auth)
+
+    assert calls == [["How much PTO do I get?", "Where do I park?"]]
+
+
+def test_asked_most_candidates_are_picked_by_conversations(client, auth, monkeypatch):
+    """One person asking five times must not take the only slot from a
+    question asked once each in three conversations."""
+    monkeypatch.setattr(reports, "CANDIDATE_LIMIT", 1)
+    vectors(monkeypatch, {"Repeated by one": PTO, "Asked by three": PARKING})
+    for _ in range(5):
+        log("Repeated by one", refused=False, session_id="solo")
+    for session in ("a", "b", "c"):
+        log("Asked by three", refused=False, session_id=session)
+
+    faq = client.get(URL, headers=auth).json()["faq"]
+
+    assert [row["question"] for row in faq] == ["Asked by three"]

@@ -75,3 +75,16 @@ def test_order_is_most_asked_first_and_stable():
     words = [wording("b", 1), wording("a", 1), wording("c", 4)]
 
     assert [g.leader.question for g in exact_groups(words)] == ["c", "a", "b"]
+
+
+def test_fake_provider_embeds_a_batch_with_one_delay(monkeypatch):
+    from sourcebook.rag import llm
+
+    provider = llm.FakeProvider()
+    sleeps: list[int] = []
+    monkeypatch.setattr(provider, "_sleep", sleeps.append)
+
+    batch = provider.embed_many(["a", "b", "c"])
+
+    assert len(sleeps) == 1
+    assert batch == [provider._vector(text) for text in ("a", "b", "c")]

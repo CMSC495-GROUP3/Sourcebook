@@ -161,5 +161,8 @@ describe('CoverageGapsPage', () => {
     renderPage()
 
     expect(await screen.findByText(/Grouping by meaning is unavailable/)).toBeInTheDocument()
+    // The captions must not promise merged wordings while grouping is off.
+    expect(screen.queryByText(/Near-identical wordings share a row/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/Each wording has its own row/)).toHaveLength(2)
   })
 })

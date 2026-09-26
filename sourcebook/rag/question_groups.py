@@ -64,7 +64,10 @@ class QuestionGroup:
     @property
     def conversations(self) -> int:
         """Distinct sessions across every wording. A session that asked two
-        wordings counts once, which is the point of grouping them."""
+        wordings counts once, which is the point of grouping them. A row
+        logged without a session contributes ``None``, so every such row in a
+        group counts as one conversation between them; chat requests always
+        log a session, so only hand-written rows hit this."""
         return len(frozenset().union(*(member.sessions for member in self.members)))
 
 
