@@ -9,7 +9,8 @@ To run your own copy, see [install.md](install.md). Scripts and integrations
 use the HTTP API in [api.md](api.md).
 
 The screenshots come from the recorded v0.2.0 beta pass on 2026-09-24, using the
-fictional Meridian Systems sample policies. Provenance is in
+fictional Meridian Systems sample policies. The untitled conversations in
+their sidebar are leftover test sessions from that pass. Provenance is in
 [releases/v0.2.0/evidence/](releases/v0.2.0/evidence/README.md).
 
 ## Sign in
@@ -18,7 +19,7 @@ Open the pilot at <https://sourcebook.duckdns.org>. If you're running it
 locally with the stub, the address is <http://localhost:5173> and the password
 is `dev`.
 
-Sourcebook uses one shared password, not personal accounts. Ask Human
+Sourcebook uses a shared password, not personal accounts. Ask Human
 Resources for it, type it in **Password**, and select **Sign in**.
 
 ![Sign-in page after a wrong password](releases/v0.2.0/evidence/01-wrong-password.png)
@@ -77,7 +78,7 @@ pick a policy to read it in full.
 Sourcebook won't guess. When the policies don't answer your question, you get
 a card instead of an answer, with one of two headings:
 
-- **No matching policy**: nothing in the library came close to your question.
+- **No matching policy**: nothing indexed came close enough to answer from.
   The card still shows the match meter for the closest text it found.
 - **Not answered by any policy**: some policies mention related topics, but
   none of them answers what you asked.
@@ -126,9 +127,9 @@ still there after a reload or on another device.
   button (the folder with a plus), then use a conversation's **Move to
   project** button to file it.
 
-Everyone who signs in with the shared password sees the same conversations and
-projects. Don't put anything in a question that you wouldn't want colleagues to
-read.
+Everyone who can sign in, with either the team password or a reviewer
+password, sees the same conversations and projects. Don't put anything in a
+question that you wouldn't want colleagues to read.
 
 ## Sign out and sessions
 
@@ -144,8 +145,8 @@ a narrow strip of icons.
 
 | What you see | What it means |
 | --- | --- |
-| "The assistant is answering as many questions as it can right now…" with a **Retry in _N_s** button | Sourcebook is busy. When the countdown reaches zero, select **Retry** to ask again. |
-| "Sorry, something went wrong. Please try again." | The answer didn't finish. Ask again, or start a **New question**. |
+| "The assistant is answering as many questions as it can right now…" with a **Retry in _N_s** button | Sourcebook is busy. When the countdown reaches zero, select **Retry** to ask again. If it's still busy after that, wait a moment and ask again. |
+| "Sorry, something went wrong. Please try again." or "An error occurred while generating the response." | The answer didn't finish. Ask again, or start a **New question**. |
 | "Could not load this source right now." in the Source pane | Close the pane and open the source again. |
 | "Could not load the document library." | Reload the page. |
 | You're suddenly back at the sign-in page | Your sign-in expired. Sign in again; your conversations are still there. |
@@ -166,9 +167,10 @@ list first; select a request to open it and **All requests** to go back.
 - Each row shows the question, the start of the answer, whether it was
   **Refused** or marked **Unhelpful**, when it was sent, and its delivery
   status.
-- An open request shows the question, **Assistant response**, **Employee
-  note**, **Reason**, **Confidence** (the match score the employee saw),
-  **Sources**, and **Delivery**.
+- The selected request shows the question, **Assistant response**,
+  **Employee note**, **Reason**, **Confidence** (the match score the employee
+  saw), **Sources**, and **Delivery**. A resolved request also shows its
+  **Resolution**.
 
 ### Resolve or reopen a request
 
