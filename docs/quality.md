@@ -98,6 +98,51 @@ make audit    # pip-audit and npm audit; accepted advisories in scripts/audit.sh
 
 `make stub` is not a quality measurement. Fake embeddings are noise; do not tune `SIMILARITY_THRESHOLD` or judge refusal quality from the stub ([CONTRIBUTING.md](../CONTRIBUTING.md#things-that-will-bite-you)).
 
+## Lighthouse Audit Report
+
+*note, 'performance' score might be due to the tester's machine. Others may test and check later.*
+
+### Login Page
+
+#### Desktop & Mobile, Light & Dark
+
+| Category | Score | Status |
+| :--- | :---: | :---: |
+| **Performance** | ![55](https://shields.io/badge/55-yellow) | ✅ Pass |
+| **Accessibility** | ![98](https://shields.io/badge/98-green) | ✅ Pass |
+
+### Chat Page + Answer
+
+#### Desktop Light & Dark
+
+| Category | Score | Status |
+| :--- | :---: | :---: |
+| **Performance** | ![55](https://shields.io/badge/55-yellow) | ✅ Pass |
+| **Accessibility** | ![100](https://shields.io/badge/100-green) | ✅ Pass |
+
+#### Mobile Light & Dark
+
+| Category | Score | Status |
+| :--- | :---: | :---: |
+| **Performance** | ![54](https://shields.io/badge/55-yellow) | ✅ Pass |
+| **Accessibility** | ![100](https://shields.io/badge/100-green) | ✅ Pass |
+
+### Document View
+
+#### Desktop Light & Dark
+
+| Category | Score | Status |
+| :--- | :---: | :---: |
+| **Performance** | ![55](https://shields.io/badge/55-yellow) | ✅ Pass |
+| **Accessibility** | ![100](https://shields.io/badge/100-green) | ✅ Pass |
+
+#### Mobile Light & Dark
+
+| Category | Score | Status |
+| :--- | :---: | :---: |
+| **Performance** | ![54](https://shields.io/badge/55-yellow) | ✅ Pass |
+| **Accessibility** | ![100](https://shields.io/badge/100-green) | ✅ Pass |
+
 ## What this page will gain later
 
 When #210 commits the tagged Python coverage table, replace the floor-only paragraph with that number and the run link. When #212, #213, and #214 produce artifacts, add rows to the table above. #226 already merged the fail-closed Live evaluation instrument; a green workflow is still not a refusal-quality PASS while #192 is open.
