@@ -57,7 +57,7 @@ dnspython==2.8.0
     # via pymongo
 fastapi==0.142.2
     # via -r api.in
-filelock==3.32.5
+filelock==4.2.1
     # via cachecontrol
 h11==0.16.0
     # via
