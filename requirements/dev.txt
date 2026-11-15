@@ -112,7 +112,7 @@ markdown-it-py==4.2.0
     # via rich
 mdurl==0.1.2
     # via markdown-it-py
-msgpack==1.2.2
+msgpack==1.2.3
     # via cachecontrol
 openai==3.23.0
     # via -r base.in
