@@ -162,7 +162,7 @@ pygments==2.21.0
     #   rich
 pyjwt==2.15.1
     # via -r api.in
-pymongo==4.18.2
+pymongo==4.18.3
     # via -r base.in
 pyparsing==3.3.2
     # via pip-requirements-parser
