@@ -2,7 +2,7 @@
 # it) so the whole sourcebook package is copied in. The web app has its
 # own Dockerfile under web/.
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 
